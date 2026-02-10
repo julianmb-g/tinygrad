@@ -1,0 +1,12 @@
+package(default_visibility = ["//visibility:public"])
+
+load("@tf2onnx_pip_deps//:requirements.bzl", "requirement")
+
+py_library(
+    name = "tinygrad",
+    srcs = glob(["tinygrad/**/*.py"]),
+    imports = ["."],
+    deps = [
+        requirement("numpy"),
+    ],
+)
