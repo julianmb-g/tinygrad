@@ -164,7 +164,7 @@ def split_load_store(ctx:Renderer|None, ls:UOp, idx:UOp):
     lengths = [128,64,32,16,8,4]
     must_divide = False
   elif buf.dtype.base not in (dtypes.float, dtypes.half, *dtypes.fp8s) and not isinstance(buf.dtype, ImageDType):
-    pass
+    if ctx is not None and ctx.supports_int4: lengths = [4, 2]
   elif buf.ptrdtype.addrspace == AddrSpace.REG:
     pass
   elif isinstance(buf.dtype, ImageDType):
@@ -232,8 +232,10 @@ def no_vectorized_wmma(wmma:UOp):
   wmma_ex = flatten([[e.gep(i) for i in range(out_sz)] for e in wmmas])
   return UOp(Ops.VECTORIZE, wmma.dtype, tuple(wmma_ex))
 
-def no_vectorized_alu(alu:UOp):
+def no_vectorized_alu(ctx:Renderer, alu:UOp):
   if alu.dtype.vcount == 1: return None
+  if dtypes.is_float(alu.dtype) and ctx.supports_float4: return None
+  if dtypes.is_int(alu.dtype) and ctx.supports_int4: return None
   if alu.op is Ops.WHERE and alu.src[2].arg is Invalid: return None  # image load/store has cond.where(idx.vec(2), Invalid) as the index
   alus = tuple(UOp(alu.op, alu.dtype.scalar(), tuple(s.gep(i) for s in alu.src), alu.arg) for i in range(alu.dtype.vcount))
   return UOp(Ops.VECTORIZE, alu.dtype, alus)

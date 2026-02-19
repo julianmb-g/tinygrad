@@ -22,9 +22,11 @@ class CoralNPURenderer(CStyleLanguage):
   
   # Disable float vectorization to avoid scalarization issues with GCC + RISC-V Zve32x
   supports_float4 = False
+  supports_int4 = True
   
-  # Workitem support (should not be used if has_local=False and linearized correctly, but just in case)
-  code_for_workitem = {"g": lambda x: "0", "l": lambda x: "0", "i": lambda x: "0"}
+  # Vector construction for GCC
+  float4 = "(float4)"
+  float4_style = ("{", "}")
 
   def __init__(self):
     self.compiler = CoralNPUCompiler()
