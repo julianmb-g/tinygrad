@@ -60,7 +60,27 @@ base_rewrite = PatternMatcher([
   (UPat((Ops.CUSTOM, Ops.CUSTOMI), name="x"), lambda ctx,x: x.arg.format(*[ctx[y] for y in x.src])),
 ])
 
+def fix_bool_mask_size(x:UOp):
+  cond, val1, val2 = x.src
+  if cond.dtype.count > 1 and cond.dtype.scalar() == dtypes.bool:
+    val_elem_size = val1.dtype.scalar().itemsize
+    cond_elem_size = cond.dtype.scalar().itemsize
+    if val_elem_size != cond_elem_size:
+      target_scalar = {1: dtypes.int8, 2: dtypes.int16, 4: dtypes.int32, 8: dtypes.int64}.get(val_elem_size)
+      if target_scalar:
+        target_dtype = target_scalar.vec(cond.dtype.count)
+        return cond.cast(target_dtype).where(val1, val2)
+  return None
+
+def force_scalar_alu(alu:UOp):
+  if alu.dtype.vcount == 1: return None
+  return UOp(Ops.VECTORIZE, alu.dtype, tuple(UOp(alu.op, alu.dtype.scalar(), tuple(s.gep(i) for s in alu.src), alu.arg) for i in range(alu.dtype.vcount)))
+
 extra_pm = PatternMatcher([
+  # fix bool mask size mismatch for GCC/Clang
+  (UPat(Ops.WHERE, name="x"), fix_bool_mask_size),
+  # force scalar TRUNC
+  (UPat(Ops.TRUNC, name="alu"), force_scalar_alu),
   # devectorize any bools
   (UPat((*GroupOp.ALU, Ops.CAST, Ops.BITCAST, Ops.INDEX), dtype=dtypes.bool, name="alu"), no_vectorized_alu),
   # CAST (from bool) can't be vectorized
