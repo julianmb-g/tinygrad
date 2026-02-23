@@ -4,18 +4,6 @@ from tinygrad.device import Compiler
 from tinygrad.dtype import dtypes
 from tinygrad.uop.symbolic import sym
 
-def fix_bool_mask_size(x:UOp):
-  cond, val1, val2 = x.src
-  if cond.dtype.count > 1 and cond.dtype.scalar() == dtypes.bool:
-    val_elem_size = val1.dtype.scalar().itemsize
-    cond_elem_size = cond.dtype.scalar().itemsize
-    if val_elem_size != cond_elem_size:
-      target_scalar = {1: dtypes.int8, 2: dtypes.int16, 4: dtypes.int32, 8: dtypes.int64}.get(val_elem_size)
-      if target_scalar:
-        target_dtype = target_scalar.vec(cond.dtype.count)
-        return cond.cast(target_dtype).where(val1, val2)
-  return None
-
 def force_scalar_alu(alu:UOp):
   if alu.dtype.vcount == 1: return None
   return UOp(Ops.VECTORIZE, alu.dtype, tuple(UOp(alu.op, alu.dtype.scalar(), tuple(s.gep(i) for s in alu.src), alu.arg) for i in range(alu.dtype.vcount)))
@@ -82,8 +70,8 @@ class CoralNPURenderer(CStyleLanguage):
   pre_matcher = pm_scalarize_non_pow2 + sym
 
   extra_matcher = PatternMatcher([
-    (UPat(Ops.WHERE, name="x"), fix_bool_mask_size),
-    (UPat(Ops.TRUNC, name="alu"), force_scalar_alu),
+    
+    (UPat((Ops.WHERE, Ops.TRUNC), name="alu"), force_scalar_alu),
   ])
 
   def __init__(self):
