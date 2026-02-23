@@ -1,8 +1,24 @@
-from tinygrad.renderer.cstyle import CStyleLanguage, uops_to_dtypes, fix_bool_mask_size, force_scalar_alu
+from tinygrad.renderer.cstyle import CStyleLanguage, uops_to_dtypes
 from tinygrad.uop.ops import Ops, UPat, PatternMatcher, UOp, GroupOp
 from tinygrad.device import Compiler
 from tinygrad.dtype import dtypes
 from tinygrad.uop.symbolic import sym
+
+def fix_bool_mask_size(x:UOp):
+  cond, val1, val2 = x.src
+  if cond.dtype.count > 1 and cond.dtype.scalar() == dtypes.bool:
+    val_elem_size = val1.dtype.scalar().itemsize
+    cond_elem_size = cond.dtype.scalar().itemsize
+    if val_elem_size != cond_elem_size:
+      target_scalar = {1: dtypes.int8, 2: dtypes.int16, 4: dtypes.int32, 8: dtypes.int64}.get(val_elem_size)
+      if target_scalar:
+        target_dtype = target_scalar.vec(cond.dtype.count)
+        return cond.cast(target_dtype).where(val1, val2)
+  return None
+
+def force_scalar_alu(alu:UOp):
+  if alu.dtype.vcount == 1: return None
+  return UOp(Ops.VECTORIZE, alu.dtype, tuple(UOp(alu.op, alu.dtype.scalar(), tuple(s.gep(i) for s in alu.src), alu.arg) for i in range(alu.dtype.vcount)))
 
 def is_non_pow2(dt):
   if dt.vcount == 1: return False
