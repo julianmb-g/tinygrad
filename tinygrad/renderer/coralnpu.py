@@ -4,6 +4,19 @@ from tinygrad.device import Compiler
 from tinygrad.dtype import dtypes
 from tinygrad.uop.symbolic import sym
 
+def estimate_cost(uops) -> float:
+  cost = 0.0
+  for u in uops:
+    if u.op in GroupOp.ALU or u.op in {Ops.CAST, Ops.BITCAST}:
+      cost += 1.0
+    elif u.op in {Ops.LOAD, Ops.STORE}:
+      # Extremely penalize non-contiguous vector loads
+      # Simple heuristic: if we are loading/storing a vector, and it's not contiguous, penalize heavily
+      cost += 4.0
+    elif u.op is Ops.SPECIAL:
+      cost += 1.0
+  return cost
+
 def force_scalar_alu(alu:UOp):
   if alu.dtype.vcount == 1: return None
   return UOp(Ops.VECTORIZE, alu.dtype, tuple(UOp(alu.op, alu.dtype.scalar(), tuple(s.gep(i) for s in alu.src), alu.arg) for i in range(alu.dtype.vcount)))
@@ -43,7 +56,7 @@ class CoralNPUCompiler(Compiler):
     return src.encode()
 
 class CoralNPURenderer(CStyleLanguage):
-  device = "RISCV"
+  device = "CORALNPU"
   # Use extern "C" to avoid name mangling, making it easy to call from the shim
   kernel_typedef = 'extern "C" void'
   buffer_prefix = ""
@@ -79,6 +92,12 @@ class CoralNPURenderer(CStyleLanguage):
 
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
     prefix = prefix or []
+    # Inject BEAM cost based on cost model
+    import os
+    if int(os.environ.get("BEAM", "0")) > 0:
+      cost = estimate_cost(uops)
+      prefix.append(f"// BEAM_COST: {cost}")
+
     prefix.append("#include <math.h>")
     # Add vector typedefs for GCC
     for dt in uops_to_dtypes(uops):
