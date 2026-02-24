@@ -232,11 +232,8 @@ def no_vectorized_wmma(wmma:UOp):
   wmma_ex = flatten([[e.gep(i) for i in range(out_sz)] for e in wmmas])
   return UOp(Ops.VECTORIZE, wmma.dtype, tuple(wmma_ex))
 
-def no_vectorized_alu(ctx:Renderer|str, alu:UOp):
+def no_vectorized_alu(alu:UOp):
   if alu.dtype.vcount == 1: return None
-  if isinstance(ctx, Renderer):
-    if dtypes.is_float(alu.dtype) and ctx.supports_float4: return None
-    if dtypes.is_int(alu.dtype) and ctx.supports_int4: return None
   if alu.op is Ops.WHERE and alu.src[2].arg is Invalid: return None  # image load/store has cond.where(idx.vec(2), Invalid) as the index
   alus = tuple(UOp(alu.op, alu.dtype.scalar(), tuple(s.gep(i) for s in alu.src), alu.arg) for i in range(alu.dtype.vcount))
   return UOp(Ops.VECTORIZE, alu.dtype, alus)
