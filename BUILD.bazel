@@ -4,9 +4,32 @@ load("@tf2onnx_pip_deps//:requirements.bzl", "requirement")
 
 py_library(
     name = "tinygrad",
-    srcs = glob(["tinygrad/**/*.py"]),
+    srcs = glob([
+        "tinygrad/**/*.py",
+        "extra/**/*.py",
+        "examples/**/*.py",
+    ]),
     imports = ["."],
     deps = [
         requirement("numpy"),
     ],
+)
+
+py_test(
+    name = "test_tiny",
+    srcs = ["test/test_tiny.py"],
+    deps = [
+        ":tinygrad",
+    ],
+)
+
+py_test(
+    name = "all_tests",
+    srcs = ["run_all_tests.py"],
+    main = "run_all_tests.py",
+    deps = [
+        ":tinygrad",
+        "@coralnpu_pip_deps_pytest//:pkg",
+    ],
+    data = glob(["test/**/*.py"]),
 )
