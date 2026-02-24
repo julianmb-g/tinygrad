@@ -174,6 +174,7 @@ class dtypes:
     # NOTE: float('nan') != float('nan'), so we canonicalize here
     if isinstance(val, float) and math.isnan(val): val = math.nan
     # int is the default. wrap floats in ConstFloat to distinguish -0.0 from 0.0 in cache
+    if not dtypes.is_float(dtype) and not dtypes.is_bool(dtype) and isinstance(val, float) and (math.isnan(val) or math.isinf(val)): return 0
     return ConstFloat(float(val)) if dtypes.is_float(dtype) else bool(val) if dtypes.is_bool(dtype) else int(val)
   @staticmethod
   def finfo(dtype:DType) -> tuple[int, int]:
