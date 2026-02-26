@@ -52,7 +52,16 @@ pm_scalarize_non_pow2 = PatternMatcher([
 class CoralNPUCompiler(Compiler):
   def __init__(self, cachekey:str="coralnpu"):
     super().__init__(cachekey)
+    self.kernel_counter = 0
+
   def compile(self, src:str) -> bytes:
+    import os
+    save_dir = os.environ.get("SAVE_BEAM_DIR", "")
+    if save_dir:
+      os.makedirs(save_dir, exist_ok=True)
+      with open(os.path.join(save_dir, f"kernel_{self.kernel_counter}.cc"), "w") as f:
+        f.write(src)
+      self.kernel_counter += 1
     return src.encode()
 
 class CoralNPURenderer(CStyleLanguage):
@@ -93,8 +102,8 @@ class CoralNPURenderer(CStyleLanguage):
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
     prefix = prefix or []
     # Inject BEAM cost based on cost model
-    import os
-    if int(os.environ.get("BEAM", "0")) > 0:
+    from tinygrad.helpers import BEAM
+    if BEAM.value > 0:
       cost = estimate_cost(uops)
       prefix.append(f"// BEAM_COST: {cost}")
 
