@@ -101,6 +101,21 @@ class CoralNPURenderer(CStyleLanguage):
 
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
     prefix = prefix or []
+    
+    # Inject UOp Graph as a human-readable comment block
+    from tinygrad.uop.ops import multirange_str, Ops
+    import re
+    prefix.append("/* ==== UOp Graph ====")
+    uops_index = {u: i for i, u in enumerate(uops)}
+    for i, u in enumerate(uops):
+      formatted_srcs = [(uops_index[x] if x.op is not Ops.CONST else f"{x.arg}") if x in uops else "--" for x in u.src]
+      arg_str = str(u.arg)
+      arg_str = re.sub(r'\x1b\[[0-9;]*m', '', arg_str)
+      arg_str = re.sub(r'\\x1b\[[0-9;]*m', '', arg_str)
+      line = f"{i:4d} {str(u.op):20s}: {multirange_str(u.ranges, color=False, pad=10)} {str(u.dtype):40s} {str(formatted_srcs):32s} {arg_str}"
+      prefix.append(line.replace("*/", "* /"))
+    prefix.append("=================== */")
+
     # Inject BEAM cost based on cost model
     from tinygrad.helpers import BEAM
     if BEAM.value > 0:
