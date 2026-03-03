@@ -7,22 +7,40 @@ from tinygrad.uop.symbolic import sym
 def estimate_cost(uops) -> float:
   cost = 0.0
   true_extents = {}
+  loop_uop_count = {u: 0 for u in uops if u.op is Ops.RANGE}
+  loop_alu_count = {u: 0 for u in uops if u.op is Ops.RANGE}
+  loop_mem_count = {u: 0 for u in uops if u.op is Ops.RANGE}
   for u in uops:
     if u.op is Ops.RANGE:
       try: true_extents[u] = float(u.src[0].arg) if hasattr(u.src[0], 'arg') else 1.0
       except: true_extents[u] = 10.0
+    for r in u.ranges:
+      if r in loop_uop_count:
+        loop_uop_count[r] += 1
+        if u.op in GroupOp.ALU: loop_alu_count[r] += 1
+        if u.op in {Ops.LOAD, Ops.STORE}: loop_mem_count[r] += 1
 
   for u in uops:
     mult = 1.0
-    for r in u.ranges:
-      if r in true_extents:
-        mult *= true_extents[r]
-    
+    penalty = 1.0
+    u_ranges_list = list(u.ranges)
+    for r in u_ranges_list:
+      if r in true_extents: mult *= true_extents[r]
+      if r in loop_uop_count and loop_uop_count[r] > 64:
+        penalty *= (1.0 + (loop_uop_count[r] - 64) * 0.05)
+      
+      # ILP Instruction Mix Bonus
+      if r in loop_alu_count and r in loop_mem_count:
+        alus, mems = loop_alu_count[r], loop_mem_count[r]
+        if alus > 0 and mems > 0 and 0.5 < (alus / mems) < 2.0:
+          penalty *= 0.8
+
     op_cost = 0.0
     if u.op is Ops.RANGE:
       op_cost = 2.0
     elif u.op in GroupOp.ALU or u.op in {Ops.CAST, Ops.BITCAST}:
       op_cost = 1.0
+      if u.op in GroupOp.ALU and u.dtype.scalar().itemsize < 4: op_cost = 50.0
     elif u.op is Ops.INDEX:
       op_cost = 0.0
     
@@ -39,13 +57,28 @@ def estimate_cost(uops) -> float:
         op_cost = 0.5
       else:
         op_cost = 10.0 # Main memory is slow
-        if hasattr(u.dtype, "count") and u.dtype.count > 1:
+        # Temporal Locality Discount (Cache Hit)
+        idx_uop = u.src[0] if len(u.src) > 0 else None
+        if idx_uop is not None and len(u_ranges_list) > 0:
+          # In some UOp versions, Ops.LOAD/STORE has INDEX as src[0]. INDEX has ptr as src[0], offset as src[1].
+          # We want the offset's ranges to check for inner loop dependence.
+          idx_src = idx_uop.src[1] if idx_uop.op is Ops.INDEX and len(idx_uop.src) > 1 else idx_uop
+          last_range = u_ranges_list[-1]
+          if last_range not in getattr(idx_src, "ranges", {}):
+            op_cost = 1.0 # Cache hit is almost free
+          elif any(x.op in {Ops.MUL, Ops.SHL, Ops.ADD} for x in getattr(idx_src, "src", ())):
+            # Penalty for potentially strided or complex index math in the inner loop
+            op_cost *= 2.0
+
+        # Vector and non-32bit penalties (only if not a cache hit)
+        if op_cost > 1.0 and hasattr(u.dtype, "count") and u.dtype.count > 1:
           if u.dtype.scalar().itemsize < 4:
-            op_cost = 50.0 # GCC scalarization penalty for non-32-bit types
+            op_cost = 20.0 # GCC scalarization penalty for non-32-bit types
           elif u.dtype.count == 4:
             op_cost = 15.0 # Native vector memory access
           else:
             op_cost = 30.0 # Non-native vector memory access penalty
+          if u.op is Ops.LOAD: op_cost *= (1.0 / (u.dtype.count ** 0.5)) # Vector Fetch Bonus
     elif u.op is Ops.SPECIAL:
       op_cost = 1.0
       
@@ -55,7 +88,7 @@ def estimate_cost(uops) -> float:
     if hasattr(u.dtype, 'count') and u.dtype.count > 1:
       op_cost *= (1.0 + 0.1 * u.dtype.count)
       
-    cost += op_cost * mult
+    cost += op_cost * mult * penalty
   return cost
 
 def force_scalar_alu(alu:UOp):
