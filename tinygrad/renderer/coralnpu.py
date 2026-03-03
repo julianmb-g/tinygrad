@@ -6,15 +6,56 @@ from tinygrad.uop.symbolic import sym
 
 def estimate_cost(uops) -> float:
   cost = 0.0
+  true_extents = {}
   for u in uops:
-    if u.op in GroupOp.ALU or u.op in {Ops.CAST, Ops.BITCAST}:
-      cost += 1.0
+    if u.op is Ops.RANGE:
+      try: true_extents[u] = float(u.src[0].arg) if hasattr(u.src[0], 'arg') else 1.0
+      except: true_extents[u] = 10.0
+
+  for u in uops:
+    mult = 1.0
+    for r in u.ranges:
+      if r in true_extents:
+        mult *= true_extents[r]
+    
+    op_cost = 0.0
+    if u.op is Ops.RANGE:
+      op_cost = 2.0
+    elif u.op in GroupOp.ALU or u.op in {Ops.CAST, Ops.BITCAST}:
+      op_cost = 1.0
+    elif u.op is Ops.INDEX:
+      op_cost = 0.0
+    
+    elif u.op is Ops.GEP:
+      op_cost = 1.0
+    elif u.op is Ops.VECTORIZE:
+      op_cost = 1.0
     elif u.op in {Ops.LOAD, Ops.STORE}:
-      # Extremely penalize non-contiguous vector loads
-      # Simple heuristic: if we are loading/storing a vector, and it's not contiguous, penalize heavily
-      cost += 4.0
+      is_reg = False
+      if len(u.src) > 0 and 'AddrSpace.REG' in str(u.src[0].dtype): is_reg = True
+      elif len(u.src) > 0 and getattr(u.src[0], 'op', None) is Ops.INDEX and len(u.src[0].src) > 0 and 'AddrSpace.REG' in str(u.src[0].src[0].dtype): is_reg = True
+        
+      if is_reg:
+        op_cost = 0.5
+      else:
+        op_cost = 10.0 # Main memory is slow
+        if hasattr(u.dtype, "count") and u.dtype.count > 1:
+          if u.dtype.scalar().itemsize < 4:
+            op_cost = 50.0 # GCC scalarization penalty for non-32-bit types
+          elif u.dtype.count == 4:
+            op_cost = 15.0 # Native vector memory access
+          else:
+            op_cost = 30.0 # Non-native vector memory access penalty
     elif u.op is Ops.SPECIAL:
-      cost += 1.0
+      op_cost = 1.0
+      
+    if u.op is Ops.IF:
+      op_cost += 1.0
+      
+    if hasattr(u.dtype, 'count') and u.dtype.count > 1:
+      op_cost *= (1.0 + 0.1 * u.dtype.count)
+      
+    cost += op_cost * mult
   return cost
 
 def force_scalar_alu(alu:UOp):
