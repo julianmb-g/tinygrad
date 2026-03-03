@@ -26,21 +26,32 @@ def estimate_cost(uops) -> float:
     u_ranges_list = list(u.ranges)
     for r in u_ranges_list:
       if r in true_extents: mult *= true_extents[r]
-      if r in loop_uop_count and loop_uop_count[r] > 64:
-        penalty *= (1.0 + (loop_uop_count[r] - 64) * 0.05)
+      if r in loop_uop_count:
+        if loop_uop_count[r] > 80:
+          # Larger loop bodies risk register pressure and pipeline stalls
+          penalty *= (1.0 + (loop_uop_count[r] - 80) * 0.1)
+        elif loop_uop_count[r] > 32:
+          # Medium loops are often efficient due to unrolling amortizing overhead
+          penalty *= 0.8
       
       # ILP Instruction Mix Bonus
       if r in loop_alu_count and r in loop_mem_count:
         alus, mems = loop_alu_count[r], loop_mem_count[r]
-        if alus > 0 and mems > 0 and 0.5 < (alus / mems) < 2.0:
-          penalty *= 0.8
+        if alus > 0 and mems > 0 and 0.4 <= (alus / mems) <= 3.0:
+          penalty *= 0.7
+
+    # Exponential nesting penalty to favor flatter loops
+    if len(u_ranges_list) > 1:
+      penalty *= (3.0 ** (len(u_ranges_list) - 1))
 
     op_cost = 0.0
     if u.op is Ops.RANGE:
-      op_cost = 2.0
+      op_cost = 50.0
+      # Reduce loops often have extra overhead for initialization and finalization
+      if len(u.arg) > 1 and "REDUCE" in str(u.arg[1]): op_cost += 20.0
     elif u.op in GroupOp.ALU or u.op in {Ops.CAST, Ops.BITCAST}:
       op_cost = 1.0
-      if u.op in GroupOp.ALU and u.dtype.scalar().itemsize < 4: op_cost = 50.0
+      if u.op in GroupOp.ALU and u.dtype.scalar().itemsize < 4 and u.dtype.scalar() != dtypes.bool: op_cost = 50.0
     elif u.op is Ops.INDEX:
       op_cost = 0.0
     
@@ -54,7 +65,7 @@ def estimate_cost(uops) -> float:
       elif len(u.src) > 0 and getattr(u.src[0], 'op', None) is Ops.INDEX and len(u.src[0].src) > 0 and 'AddrSpace.REG' in str(u.src[0].src[0].dtype): is_reg = True
         
       if is_reg:
-        op_cost = 0.5
+        op_cost = 0.2
       else:
         op_cost = 10.0 # Main memory is slow
         # Temporal Locality Discount (Cache Hit)
@@ -64,11 +75,13 @@ def estimate_cost(uops) -> float:
           # We want the offset's ranges to check for inner loop dependence.
           idx_src = idx_uop.src[1] if idx_uop.op is Ops.INDEX and len(idx_uop.src) > 1 else idx_uop
           last_range = u_ranges_list[-1]
-          if last_range not in getattr(idx_src, "ranges", {}):
+          is_invariant = last_range is not idx_src and last_range not in getattr(idx_src, "ranges", {})
+          if is_invariant:
             op_cost = 1.0 # Cache hit is almost free
-          elif any(x.op in {Ops.MUL, Ops.SHL, Ops.ADD} for x in getattr(idx_src, "src", ())):
+          elif any(x.op in {Ops.MUL, Ops.SHL} for x in getattr(idx_src, "src", ())):
             # Penalty for potentially strided or complex index math in the inner loop
-            op_cost *= 2.0
+            # We exclude Ops.ADD to avoid over-penalizing unrolled offsets
+            op_cost *= 1.2
 
         # Vector and non-32bit penalties (only if not a cache hit)
         if op_cost > 1.0 and hasattr(u.dtype, "count") and u.dtype.count > 1:
@@ -83,12 +96,17 @@ def estimate_cost(uops) -> float:
       op_cost = 1.0
       
     if u.op is Ops.IF:
-      op_cost += 1.0
+      op_cost += 0.01
       
     if hasattr(u.dtype, 'count') and u.dtype.count > 1:
       op_cost *= (1.0 + 0.1 * u.dtype.count)
       
     cost += op_cost * mult * penalty
+    
+  # Global register pressure and instruction count penalty
+  if len(uops) > 128:
+    cost *= (1.0 + (len(uops) - 128) * 0.01)
+    
   return cost
 
 def force_scalar_alu(alu:UOp):
