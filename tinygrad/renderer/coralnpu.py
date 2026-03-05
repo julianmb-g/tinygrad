@@ -86,8 +86,88 @@ def extract_features(uops) -> dict[str, float]:
 
   return {k: float(v) for k, v in features.items()}
 
+import os
+import math
+import random
+
+_cost_model_loaded = False
+_cost_model = None
+
+def load_cost_model():
+  global _cost_model_loaded, _cost_model
+  if _cost_model_loaded: return
+  _cost_model_loaded = True
+  
+  import numpy as np
+  from tinygrad.nn.state import safe_load
+  
+  model_dir = os.environ.get("CORALNPU_COST_MODEL_DIR", "/workspace/louhi_ws/coralnpu/tests/tinygrad_test/cost_model_validation")
+  weights_path = os.path.join(model_dir, "cost_model.safetensors")
+  scaler_path = os.path.join(model_dir, "cost_model_scaler.npz")
+  
+  if not os.path.exists(weights_path) or not os.path.exists(scaler_path):
+    print(f"WARNING: Cost model not found at {model_dir}. Using 0.0 cost.")
+    return
+    
+  try:
+    sd = safe_load(weights_path)
+    scaler = np.load(scaler_path)
+    
+    _cost_model = {
+      'w1': sd['l1.weight'].numpy().T,
+      'b1': sd['l1.bias'].numpy(),
+      'w2': sd['l2.weight'].numpy().T,
+      'b2': sd['l2.bias'].numpy(),
+      'w3': sd['l3.weight'].numpy().T,
+      'b3': sd['l3.bias'].numpy(),
+      'mean': scaler['mean'],
+      'std': scaler['std']
+    }
+  except Exception as e:
+    print(f"WARNING: Failed to load cost model: {e}")
+
 def estimate_cost(uops) -> float:
-  return 0.0
+  load_cost_model()
+  if _cost_model is None: return 0.0
+  
+  features = extract_features(uops)
+  
+  # Ensure strict ordering for the MLP
+  feature_keys = [
+    'total_uops', 'alu_ops', 'mem_ops', 'overhead_ops', 'f32_ops', 'i32_ops', 
+    'i16_ops', 'i8_ops', 'vector_ops', 'total_lanes', 'max_depth', 
+    'total_trip_count', 'innermost_loop_uops', 'invariant_mem_ops', 
+    'strided_mem_ops', 'critical_path', 'arithmetic_intensity', 
+    'avg_parallelism', 'max_reg_pressure'
+  ]
+  
+  import numpy as np
+  x = np.array([features.get(k, 0.0) for k in feature_keys], dtype=np.float32)
+  
+  # Scale
+  x = (x - _cost_model['mean']) / _cost_model['std']
+  
+  # L1 (Linear + ReLU)
+  x = x @ _cost_model['w1'] + _cost_model['b1']
+  x = np.maximum(0, x)
+  
+  # L2 (Linear + ReLU)
+  x = x @ _cost_model['w2'] + _cost_model['b2']
+  x = np.maximum(0, x)
+  
+  # L3 (Linear)
+  out = x @ _cost_model['w3'] + _cost_model['b3']
+  mu_log, raw_stddev = out[0], out[1]
+  
+  # Softplus: log(1 + exp(x))
+  stddev = math.log1p(math.exp(raw_stddev)) + 1.0 if raw_stddev < 20 else raw_stddev + 1.0
+  
+  # Sample from distribution
+  sample = random.gauss(mu_log, stddev)
+  
+  # Convert log-cycles to cycles and ensure non-negative
+  return float(max(0.0, math.exp(sample) - 1.0))
+
 
 def estimate_cost_analytical(uops) -> float:
   cost = 0.0
