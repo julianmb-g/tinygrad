@@ -6,60 +6,95 @@ from tinygrad.uop.symbolic import sym
 
 def extract_features(uops) -> dict[str, float]:
   import math
-  features = {
-    "total_uops": len(uops),
-    "alu_ops": 0, "mem_ops": 0, "overhead_ops": 0,
-    "f32_ops": 0, "i32_ops": 0, "i16_ops": 0, "i8_ops": 0,
-    "vector_ops": 0, "total_lanes": 0,
-    "max_depth": 0, "total_trip_count": 1.0, "innermost_loop_uops": 0,
-    "invariant_mem_ops": 0, "strided_mem_ops": 0,
-    "critical_path": 0,
-  }
+  total_uops = len(uops)
+  alu_ops = 0
+  mem_ops = 0
+  overhead_ops = 0
+  f32_ops = 0
+  i32_ops = 0
+  i16_ops = 0
+  i8_ops = 0
+  load_ops = 0
+  store_ops = 0
+  vector_ops = 0
+  invariant_mem_ops = 0
+  strided_mem_ops = 0
+  complex_math_ops = 0
+  cmp_branch_ops = 0
+  total_load_bytes = 0
+  total_vector_lanes = 0
 
   uop_to_idx = {u: i for i, u in enumerate(uops)}
   depths = [0] * len(uops)
   
   # Loop Analysis
   true_extents = {}
+  from tinygrad.uop.ops import Ops, GroupOp
+  from tinygrad.dtype import dtypes
   ranges = [u for u in uops if u.op is Ops.RANGE]
+  num_loops = len(ranges)
+  reduce_loops = 0
+  total_trip_count = 1.0
+
   for r in ranges:
     try: true_extents[r] = float(r.src[0].arg) if hasattr(r.src[0], 'arg') else 10.0
     except: true_extents[r] = 10.0
-    features["total_trip_count"] *= true_extents[r]
-  
-  loop_uop_count = {r: 0 for r in ranges}
-  
+    total_trip_count *= true_extents[r]
+    if len(r.arg) > 1 and "REDUCE" in str(r.arg[1]):
+      reduce_loops += 1
+
+  critical_path = 0
+
   for i, u in enumerate(uops):
     # Instruction Mix
-    if u.op in GroupOp.ALU: features["alu_ops"] += 1
-    elif u.op in {Ops.LOAD, Ops.STORE}: features["mem_ops"] += 1
-    elif u.op in {Ops.CAST, Ops.BITCAST, Ops.INDEX, Ops.GEP, Ops.VECTORIZE}: features["overhead_ops"] += 1
+    if u.op in GroupOp.ALU:
+      alu_ops += 1
+
+      expensive_ops = []
+      for op_str in ['IDIV', 'MOD', 'EXP2', 'LOG2', 'SIN', 'SQRT', 'FDIV']:
+        if hasattr(Ops, op_str):
+          expensive_ops.append(getattr(Ops, op_str))
+      
+      if u.op in expensive_ops:
+
+        complex_math_ops += 1
+      elif u.op in {Ops.CMPLT, Ops.CMPNE}:
+        cmp_branch_ops += 1
+    elif u.op in {Ops.LOAD, Ops.STORE}:
+      mem_ops += 1
+      if u.op is Ops.LOAD:
+        load_ops += 1
+        total_load_bytes += u.dtype.itemsize
+      else:
+        store_ops += 1
+    elif u.op in {Ops.CAST, Ops.BITCAST, Ops.INDEX, Ops.GEP, Ops.VECTORIZE}:
+      overhead_ops += 1
     
+    if u.op is Ops.WHERE:
+      cmp_branch_ops += 1
+
     # Data Types (scalar itemsizes)
     sdt = u.dtype.scalar()
-    if sdt == dtypes.float32: features["f32_ops"] += 1
-    elif sdt == dtypes.int32: features["i32_ops"] += 1
-    elif sdt == dtypes.int16: features["i16_ops"] += 1
-    elif sdt in {dtypes.int8, dtypes.uint8, dtypes.bool}: features["i8_ops"] += 1
+    if sdt == dtypes.float32: f32_ops += 1
+    elif sdt == dtypes.int32: i32_ops += 1
+    elif sdt == dtypes.int16: i16_ops += 1
+    elif sdt in {dtypes.int8, dtypes.uint8, dtypes.bool}: i8_ops += 1
     
     # Vectorization
     vcount = getattr(u.dtype, "count", 1)
     if vcount > 1:
-      features["vector_ops"] += 1
-      features["total_lanes"] += vcount
+      vector_ops += 1
+      total_vector_lanes += vcount
     
     # Depth / Critical Path
     d = 0
     for s in u.src:
       if s in uop_to_idx: d = max(d, depths[uop_to_idx[s]] + 1)
     depths[i] = d
-    features["critical_path"] = max(features["critical_path"], d)
+    critical_path = max(critical_path, d)
     
     # Loop context
     u_ranges = list(u.ranges)
-    features["max_depth"] = max(features["max_depth"], len(u_ranges))
-    for r in u_ranges:
-      if r in loop_uop_count: loop_uop_count[r] += 1
       
     # Memory Patterns
     if u.op in {Ops.LOAD, Ops.STORE} and len(u_ranges) > 0:
@@ -68,23 +103,49 @@ def extract_features(uops) -> dict[str, float]:
         idx_src = idx_uop.src[1] if idx_uop.op is Ops.INDEX and len(idx_uop.src) > 1 else idx_uop
         last_range = u_ranges[-1]
         if last_range is not idx_src and last_range not in getattr(idx_src, "ranges", {}):
-          features["invariant_mem_ops"] += 1
+          invariant_mem_ops += 1
         elif any(x.op in {Ops.MUL, Ops.SHL} for x in getattr(idx_src, "src", ())):
-          features["strided_mem_ops"] += 1
+          strided_mem_ops += 1
 
+  innermost_loop_trip_count = 1.0
   if ranges:
-    features["innermost_loop_uops"] = max(loop_uop_count.values())
+    innermost_loop_trip_count = max(true_extents.values()) if true_extents else 1.0
 
-  # Normalize/Derived features
-  features["arithmetic_intensity"] = features["alu_ops"] / max(1, features["mem_ops"])
-  features["avg_parallelism"] = features["total_uops"] / max(1, features["critical_path"])
-  
   # Register pressure proxy: max nodes at same depth
   depth_counts = {}
   for d in depths: depth_counts[d] = depth_counts.get(d, 0) + 1
-  features["max_reg_pressure"] = max(depth_counts.values()) if depth_counts else 0
+  max_reg_pressure = max(depth_counts.values()) if depth_counts else 0
 
-  return {k: float(v) for k, v in features.items()}
+  # Compute ratios and logs safely
+  def ratio(num, den): return float(num) / den if den > 0 else 0.0
+  
+  features = {
+    "log_total_uops": math.log1p(total_uops),
+    "alu_ratio": ratio(alu_ops, total_uops),
+    "mem_ratio": ratio(mem_ops, total_uops),
+    "overhead_ratio": ratio(overhead_ops, total_uops),
+    "f32_ratio": ratio(f32_ops, total_uops),
+    "i32_ratio": ratio(i32_ops, total_uops),
+    "i16_ratio": ratio(i16_ops, total_uops),
+    "i8_ratio": ratio(i8_ops, total_uops),
+    "load_ratio": ratio(load_ops, mem_ops),
+    "store_ratio": ratio(store_ops, mem_ops),
+    "vectorized_ratio": ratio(vector_ops, total_uops),
+    "strided_mem_ratio": ratio(strided_mem_ops, mem_ops),
+    "invariant_mem_ratio": ratio(invariant_mem_ops, mem_ops),
+    "log_total_trip_count": math.log1p(total_trip_count),
+    "log_innermost_loop_trip_count": math.log1p(innermost_loop_trip_count),
+    "log_critical_path": math.log1p(critical_path),
+    "log_max_reg_pressure": math.log1p(max_reg_pressure),
+    "num_loops": float(num_loops),
+    "reduce_loop_ratio": ratio(reduce_loops, num_loops),
+    "complex_math_ratio": ratio(complex_math_ops, alu_ops),
+    "cmp_branch_ratio": ratio(cmp_branch_ops, alu_ops),
+    "avg_bytes_per_load": ratio(total_load_bytes, load_ops),
+    "avg_vector_width": ratio(total_vector_lanes, vector_ops)
+  }
+
+  return features
 
 import os
 import math
@@ -134,13 +195,18 @@ def estimate_cost(uops) -> float:
   
   # Ensure strict ordering for the MLP
   feature_keys = [
-    'total_uops', 'alu_ops', 'mem_ops', 'overhead_ops', 'f32_ops', 'i32_ops', 
-    'i16_ops', 'i8_ops', 'vector_ops', 'total_lanes', 'max_depth', 
-    'total_trip_count', 'innermost_loop_uops', 'invariant_mem_ops', 
-    'strided_mem_ops', 'critical_path', 'arithmetic_intensity', 
-    'avg_parallelism', 'max_reg_pressure'
+    'log_total_uops', 'alu_ratio', 'mem_ratio', 'overhead_ratio', 'f32_ratio',
+    'i32_ratio', 'i16_ratio', 'i8_ratio', 'load_ratio', 'store_ratio',
+    'vectorized_ratio', 'strided_mem_ratio', 'invariant_mem_ratio',
+    'log_total_trip_count', 'log_innermost_loop_trip_count', 'log_critical_path',
+    'log_max_reg_pressure', 'num_loops', 'reduce_loop_ratio', 'complex_math_ratio',
+    'cmp_branch_ratio', 'avg_bytes_per_load', 'avg_vector_width'
   ]
   
+  if _cost_model['w1'].shape[1] != len(feature_keys):
+    # Old model loaded, fallback to analytical during dataset generation
+    return estimate_cost_analytical(uops)
+    
   import numpy as np
   x = np.array([features.get(k, 0.0) for k in feature_keys], dtype=np.float32)
   
