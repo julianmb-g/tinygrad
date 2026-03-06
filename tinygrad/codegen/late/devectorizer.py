@@ -151,7 +151,7 @@ def split_load_store(ctx:Renderer|None, ls:UOp, idx:UOp):
     lengths = [128,64,32,16,8,4]
     must_divide = False
   elif buf.dtype.base not in (dtypes.float, dtypes.half, *dtypes.fp8s) and not isinstance(buf.dtype, ImageDType):
-    if ctx is not None and ctx.supports_int4: lengths = [4, 2]
+    pass
   elif buf.ptrdtype.addrspace == AddrSpace.REG:
     pass
   elif isinstance(buf.dtype, ImageDType):
