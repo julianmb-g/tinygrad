@@ -30,7 +30,7 @@ if __name__ == "__main__":
         ignore_args.append(f"--ignore={os.path.join(test_dir, d)}")
     
     # Use -n auto for parallel execution if xdist is available
-    args = [test_dir, "-n", "auto"] + ignore_args
+    args = [test_dir] + ignore_args
     
-    print(f"Running pytest with {len(ignore_args)} ignore args and -n auto")
+    print(f"Running pytest with {len(ignore_args)} ignore args")
     sys.exit(pytest.main(args))
