@@ -472,6 +472,9 @@ class CoralNPURenderer(CStyleLanguage):
   # Disable float vectorization to avoid scalarization issues with GCC + RISC-V Zve32x
   # Integer vectorization is handled by GCC auto-vectorization from scalar loops.
   supports_float4 = False
+  # Target Extension Locators (Architectural Mapping)
+  supports_rv32m = True
+  supports_rv32f = True
   
   # Vector construction for GCC
   float4 = "(float4)"
