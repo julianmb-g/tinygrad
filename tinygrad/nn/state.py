@@ -293,6 +293,9 @@ def torch_load(t:Tensor) -> dict[str, Tensor]:
     fobj.seek(rwd)
     return TorchPickle(fobj).load()
 
+def tflite(*args, **kwargs):
+  raise NotImplementedError("TFLite loader not yet implemented.")
+
 def ggml_data_to_tensor(t: Tensor, n: int, ggml_type: int) -> Tensor:
   """
   Converts ggml tensor data to a tinygrad tensor.
