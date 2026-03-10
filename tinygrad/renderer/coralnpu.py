@@ -5,6 +5,13 @@ from tinygrad.dtype import dtypes
 from tinygrad.uop.symbolic import sym
 
 def extract_features(uops) -> dict[str, float]:
+  """
+  Extract hardware-specific execution features from a Tinygrad UOp graph.
+  
+  This function analyzes the computational graph (AST) to generate a set of metrics
+  (e.g., instruction mix, vectorization ratio, register pressure, memory patterns)
+  used by the ML cost model to predict cycle counts on the CoralNPU.
+  """
   import math
   total_uops = len(uops)
   alu_ops = 0
@@ -155,6 +162,13 @@ _cost_model_loaded = False
 _cost_model = None
 
 def load_cost_model():
+  """
+  Load the trained ML cost model weights and scaling parameters from disk.
+  
+  Reads 'cost_model.safetensors' and 'cost_model_scaler.npz' to initialize the MLP
+  weights and standard deviations used for cycle prediction. Failures safely fall back
+  to analytical models.
+  """
   global _cost_model_loaded, _cost_model
   if _cost_model_loaded: return
   _cost_model_loaded = True
@@ -188,6 +202,13 @@ def load_cost_model():
     print(f"WARNING: Failed to load cost model: {e}")
 
 def estimate_cost(uops) -> float:
+  """
+  Estimate the NPU execution cycle cost of a UOp graph using an MLP ML model.
+  
+  Evaluates graph features through a 3-layer neural network with softplus activation
+  to sample from a generated probability distribution (log normal cycle counts).
+  If no model is loaded, defaults to an analytical model fallback.
+  """
   load_cost_model()
   if _cost_model is None: return 0.0
   
@@ -236,6 +257,13 @@ def estimate_cost(uops) -> float:
 
 
 def estimate_cost_analytical(uops) -> float:
+  """
+  Compute an analytical baseline cost estimate for a UOp graph.
+  
+  Used as a fallback when the ML cost model is not present. Evaluates
+  cycle costs based on loop nesting, vectorized data types, instruction mix,
+  and memory-access locality heuristics.
+  """
   cost = 0.0
   true_extents = {}
   loop_uop_count = {u: 0 for u in uops if u.op is Ops.RANGE}
@@ -341,25 +369,49 @@ def estimate_cost_analytical(uops) -> float:
   return cost
 
 def force_scalar_alu(alu:UOp):
+  """
+  Forces the UOp to map to purely scalar equivalent elements.
+  
+  Used via a PatternMatcher rule to safely unroll UOps (like WHERE or TRUNC)
+  into scalar implementations, bypassing auto-vectorizer bugs (e.g. GCC 15.1 ternary masks).
+  """
   if alu.dtype.vcount == 1: return None
   return UOp(Ops.VECTORIZE, alu.dtype, tuple(UOp(alu.op, alu.dtype.scalar(), tuple(s.gep(i) for s in alu.src), alu.arg) for i in range(alu.dtype.vcount)))
 
 def is_non_pow2(dt):
+  """
+  Check if a vectorized data type total size is not a power of 2 bytes.
+  
+  GCC auto-vectorization generally expects power-of-2 byte allocations.
+  This identifies types that need to be scalarized (e.g. 24 bytes, 12 bytes).
+  """
   if dt.vcount == 1: return False
   total_bytes = dt.vcount * (1 if dt.scalar() == dtypes.bool else dt.scalar().itemsize)
+  # Standard bitwise trick: a number is a power of 2 if (x & (x - 1)) == 0
   return total_bytes & (total_bytes - 1) != 0
 
 def scalarize_alu(x:UOp):
+  """
+  Flatten a non-power-of-2 size vectorized ALU UOp into explicit scalar UOps.
+  
+  Returns a VECTORIZE UOp combining scalar iterations of the original ALU.
+  """
   if not is_non_pow2(x.dtype): return None
   alus = tuple(UOp(x.op, x.dtype.scalar(), tuple(s.gep(i) for s in x.src), x.arg) for i in range(x.dtype.vcount))
   return UOp(Ops.VECTORIZE, x.dtype, alus)
 
 def scalarize_load(x:UOp):
+  """
+  Flatten a non-power-of-2 size vectorized memory LOAD UOp into explicit scalar UOps.
+  """
   if not is_non_pow2(x.dtype): return None
   loads = tuple(UOp(Ops.LOAD, x.dtype.scalar(), (x.src[0], x.src[1].gep(i)) + tuple(s.gep(i) for s in x.src[2:]), x.arg) for i in range(x.dtype.vcount))
   return UOp(Ops.VECTORIZE, x.dtype, loads)
 
 def scalarize_store(x:UOp):
+  """
+  Flatten a non-power-of-2 size vectorized memory STORE UOp into explicit scalar UOps.
+  """
   val_idx = 2 if x.src[0].op in {Ops.PARAM, Ops.DEFINE_LOCAL, Ops.DEFINE_REG} else 1
   val = x.src[val_idx]
   if not is_non_pow2(val.dtype): return None
@@ -373,6 +425,13 @@ pm_scalarize_non_pow2 = PatternMatcher([
 ])
 
 class CoralNPUCompiler(Compiler):
+  """
+  Compile standard C++ strings out of Tinygrad UOp abstract syntax trees.
+  
+  Saves the generated C++ source file if the 'SAVE_BEAM_DIR' environment
+  variable is active. The actual target compilation via GCC happens downstream
+  via a Bazel execution.
+  """
   def __init__(self, cachekey:str="coralnpu"):
     super().__init__(cachekey)
     self.kernel_counter = 0
@@ -388,6 +447,14 @@ class CoralNPUCompiler(Compiler):
     return src.encode()
 
 class CoralNPURenderer(CStyleLanguage):
+  """
+  Define the syntax structures, type maps, and code-generation rules tailored to
+  the custom GCC RISC-V Zve32x toolchain via CStyleLanguage.
+  
+  Outputs pure scalar C++ for floats and relies completely on auto-vectorization
+  features for integer vectorized data. Incorporates workarounds for GCC ternary
+  bug issues via AST rewrite matchers.
+  """
   device = "CORALNPU"
   # Use extern "C" to avoid name mangling, making it easy to call from the shim
   kernel_typedef = 'extern "C" void'
