@@ -34,12 +34,6 @@ class CoralNPUAllocator(Allocator):
     if opaque in self.mem:
       del self.mem[opaque]
 
-import subprocess
-import tempfile
-
-import subprocess
-import tempfile
-
 class CoralNPUProgram:
   def __init__(self, device, name:str, lib:bytes, *args, runtimevars=None):
     self.device = device
@@ -59,12 +53,7 @@ class CoralNPUProgram:
       self.beam_cost = float(match.group(1)) if match else float(len(src))
 
   def _compile_on_host(self, src):
-    with tempfile.NamedTemporaryFile(delete=False, suffix='.cc', mode='w') as f:
-      f.write(src)
-      src_path = f.name
-    so_path = src_path + ".so"
-    subprocess.check_call(['/usr/bin/g++', '-shared', '-fPIC', '-o', so_path, src_path])
-    return ctypes.CDLL(so_path)
+    raise RuntimeError("COMP-2.1.2.1: Host compiler invocation strictly prohibited. Use Bazel coralnpu_v2_binary.")
 
   def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False):
     if getattr(self, "is_beam", False) and wait:
