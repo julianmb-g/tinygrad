@@ -410,7 +410,7 @@ class CoralNPURenderer(CStyleLanguage):
   float4 = "(float4)"
   float4_style = ("{", "}")
 
-  type_map = {dtypes.bool: "signed char", dtypes.int8: "signed char", dtypes.uint8: "unsigned char"}
+  type_map = {dtypes.bool: "signed char", dtypes.int8: "int8_t", dtypes.uint8: "uint8_t", dtypes.int16: "int16_t", dtypes.uint16: "uint16_t", dtypes.int32: "int32_t", dtypes.uint32: "uint32_t", dtypes.int64: "int64_t", dtypes.uint64: "uint64_t", dtypes.float32: "float", dtypes.float64: "double"}
 
   pre_matcher = pm_scalarize_non_pow2 + sym
 
@@ -454,6 +454,7 @@ class CoralNPURenderer(CStyleLanguage):
     prefix.append(f"// BUF_NAMES: {','.join(buf_names)}")
 
     prefix.append("#include <math.h>")
+    prefix.append("#include <stdint.h>")
     # Add vector typedefs for GCC
     for dt in uops_to_dtypes(uops):
       if dt.count > 1:
