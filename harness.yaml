@@ -1,3 +1,4 @@
+setup_cmd: "pip install pillow onnxruntime librosa gguf"
 build_cmd: "python3 setup.py build || echo 'No build required'"
 test_cmd: "python3 -m pytest"
 lint_cmd: "ruff check ."
