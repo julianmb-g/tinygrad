@@ -35,3 +35,4 @@ TESTING REPORT:
 -->
 - **Git Environment Initialization**: Validated that pure environment initialization tasks (e.g., `git branch upstream-patch origin/master`) are stateful but produce no code diffs. The SDLC pipeline relies on explicit progression checkpoints, which are validated by verifying working tree status and branch targets across submodules using `git status`.
 - **Upstream Validation:** Use `git worktree add ../tinygrad-baseline origin/master` to test upstream state without altering the current tracking branches or `.git` index, completely isolating tests from the local workspace.
+- **Test Erosion:** Testing the CoralNPU backend requires specific timeline testing and before-state assertions, avoiding pure 'happy-path' test logic. Masked tests must assert pre-operation state wasn't clobbered.
