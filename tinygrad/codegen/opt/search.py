@@ -148,11 +148,22 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
     print(pyrender(s.ast.replace(arg=None)))
   if DEBUG >= 2: print(f"   0.00s:                from   1 ->   1 actions {s.colored_shape()}")
 
+  baseline_cycles = float("inf")
   try:
     rawbufs = _ensure_buffer_alloc(rawbufs)
     var_vals: dict[str, int] = {k.expr:int(k.vmax+k.vmin)//2 for k in s.ast.variables()}
     exiting, st = False, time.perf_counter()
     dev = Device[s.ren.device]
+    if s.ren.device == "CORALNPU":
+      b_ret = _try_compile((0, s), compiler=dev.compiler)
+      if b_ret[1] is not None:
+        try:
+          b_tms = _time_program(b_ret[1][0], b_ret[1][1], var_vals, rawbufs, early_stop=1.0, allow_test_size=allow_test_size, clear_l2=hasattr(dev, 'invalidate_caches'), dev_timeout=getenv("BEAM_DEV_TIMEOUT", 1))
+          baseline_cycles = min(b_tms)
+          beam[0] = (s, baseline_cycles)
+        except Exception:
+          pass
+
     while not exiting:
       candidates: list[Scheduler] = flatten([get_kernel_actions(si, include_0=False).values() for si,_ in beam])
       timed: list[tuple[Scheduler, float]] = []
@@ -195,6 +206,11 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
   except KeyboardInterrupt as e:
     if beam_pool is not None: beam_pool.terminate()
     raise e
+
+  if s.ren.device == "CORALNPU" and baseline_cycles != float("inf"):
+    optimized_cycles = beam[0][1]
+    if optimized_cycles > baseline_cycles * 1.05:
+      raise RuntimeError(f"Metric Degradation: Optimized cycles ({optimized_cycles}) > 1.05 * Baseline ({baseline_cycles})")
 
   if CACHELEVEL >= 1: diskcache_put("beam_search", key, beam[0][0].applied_opts)
   if BEAM_DEBUG: print(f"BEAM_SEARCH: final tm={time_to_str(beam[0][1], w=0)}, applied_opts={beam[0][0].applied_opts}")
