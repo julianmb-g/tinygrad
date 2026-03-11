@@ -7,3 +7,4 @@
 - **Diff Sanity Checks:** A strict requirement is to perform a 'Final Diff Sanity Check' after submodule merges to ensure no logic was lost during conflict resolution.
 - **Upstream Integration:** Feature branch integration successfully validated. No logic was lost during conflict resolution.
 - **Submodule Pointer Synchronization:** Always ensure that subsequent commits made to the submodule (e.g., adding localized lessons to this file) are immediately followed by serializing the new submodule pointer in the parent workspace to prevent state drift.
+- **Test Integrity & Systemic Gaps:** The test suite currently has a complete void regarding the `coralnpu` backend (no unit tests for `ops_coralnpu.py` or fallback GCC logic). Furthermore, do not simplify symbolic math parameters or strip `before` assertions in memory tests to force a passing build. Avoid 'happy-path only' coverage and silent CI degradations (such as catching generic Exceptions to skip tests).
