@@ -8,13 +8,20 @@ class CoralNPUAllocator(Allocator):
   def __init__(self, device):
     self.device = device
     self.mem = {}
+    self.shms = {}
     self.next_handle = 1
+    import multiprocessing
+    self.lock = multiprocessing.Lock()
     super().__init__(device)
 
   def _alloc(self, size:int, options:BufferSpec):
-    handle = self.next_handle
-    self.next_handle += 1
-    self.mem[handle] = (ctypes.c_char * size)()
+    import multiprocessing.shared_memory
+    with self.lock:
+      handle = self.next_handle
+      self.next_handle += 1
+    shm = multiprocessing.shared_memory.SharedMemory(create=True, size=size)
+    self.shms[handle] = shm
+    self.mem[handle] = (ctypes.c_char * size).from_buffer(shm.buf) # type: ignore
     return handle
     
   def _copyin(self, dest, src:memoryview):
@@ -25,7 +32,7 @@ class CoralNPUAllocator(Allocator):
     
   def _copyout(self, dest:memoryview, src):
     if src in self.mem:
-      data = bytes(self.mem[src])
+      data = bytes(self.mem[src])[:len(dest)]
       dest[:] = data
     else:
       raise ValueError(f"Invalid handle {src}")
@@ -33,6 +40,9 @@ class CoralNPUAllocator(Allocator):
   def _free(self, opaque, options):
     if opaque in self.mem:
       del self.mem[opaque]
+      shm = self.shms.pop(opaque)
+      shm.close()
+      shm.unlink()
 
 class CoralNPUProgram:
   def __init__(self, device, name:str, lib:bytes, *args, runtimevars=None):
@@ -66,15 +76,35 @@ class CoralNPUProgram:
     c_args = []
     for buf_handle in bufs:
       if buf_handle in self.device.allocator.mem:
-        c_args.append(self.device.allocator.mem[buf_handle])
+        c_args.append(ctypes.addressof(self.device.allocator.mem[buf_handle]))
       else:
         pass
     
     for v in vals:
       c_args.append(ctypes.c_int(v))
 
-    self.fxn(*c_args)
-    return 0.0
+    if timeout is not None:
+      import multiprocessing
+      def _exec(fxn_ptr, args):
+        import ctypes
+        arg_types = [ctypes.c_void_p if isinstance(a, int) else type(a) for a in args]
+        func = ctypes.CFUNCTYPE(None, *arg_types)(fxn_ptr)
+        func(*(ctypes.c_void_p(a) if isinstance(a, int) else a for a in args))
+  
+      fxn_ptr = ctypes.cast(self.fxn, ctypes.c_void_p).value
+      p = multiprocessing.Process(target=_exec, args=(fxn_ptr, c_args))
+      p.start()
+      p.join(timeout=timeout)
+      if p.is_alive():
+        p.terminate()
+        p.join()
+        raise TimeoutError(f"CoralNPU execution timed out after {timeout} seconds.")
+      if p.exitcode != 0:
+        raise RuntimeError(f"CoralNPU execution failed with exit code {p.exitcode}")
+      return 0.0
+    else:
+      self.fxn(*(ctypes.c_void_p(arg) if isinstance(arg, int) else arg for arg in c_args))
+      return 0.0
 
 class CoralNPUDevice(Compiled):
   def __init__(self, device:str):
