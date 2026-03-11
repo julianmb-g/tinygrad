@@ -97,6 +97,12 @@ def _ensure_buffer_alloc(bufs:list[Buffer]) -> list[Buffer]: return [buf.ensure_
 # get dictionary of all possible actions
 def get_kernel_actions(s:Scheduler, include_0=True, max_up:int|None=None) -> dict[int, Scheduler]:
   acted, max_up, max_lcl = {0:s} if include_0 else {}, getenv("BEAM_UPCAST_MAX", 256) if max_up is None else max_up, getenv("BEAM_LOCAL_MAX", 1024)
+  
+  if hasattr(s.ren, "MAX_VR_COUNT"):
+    from tinygrad.uop.ops import Ops, GroupOp
+    allocated_vr = len([u for u in s.ast.toposort() if u.op in GroupOp.ALU or u.op is Ops.LOAD])
+    max_up = min(max_up, s.ren.MAX_VR_COUNT // max(1, allocated_vr))
+
   kernel_actions = actions.copy()
 
   for i,a in enumerate(kernel_actions):
