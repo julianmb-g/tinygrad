@@ -30,3 +30,4 @@ TESTING REPORT:
 - Content cross-referenced with QA.md and TEST_REPORT.md for accuracy.
 - Pipeline state (git status) checked and clean prior to committing.
 -->
+- **Strict Hardware Constraints (Register Thrashing):** Vector register pressure limits (MAX_VR_COUNT=32) must be strictly bounded during Tinygrad unrolling; over-allocation causes LSQ exhaustion or fatal traps in `coralnpu-mpact` and RTL.
