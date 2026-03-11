@@ -55,7 +55,7 @@ class CoralNPUProgram:
   def _compile_on_host(self, src):
     raise RuntimeError("COMP-2.1.2.1: Host compiler invocation strictly prohibited. Use Bazel coralnpu_v2_binary.")
 
-  def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False):
+  def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=None, **kwargs):
     if getattr(self, "is_beam", False) and wait:
       return self.beam_cost
 
