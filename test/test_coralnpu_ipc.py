@@ -1,11 +1,26 @@
 import unittest
+import unittest.mock
 import time
 import multiprocessing
 import multiprocessing.shared_memory
 import ctypes
 import os
+import subprocess
+import tempfile
+import hashlib
 import numpy as np
 from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
+
+def compile_native(self, src):
+    h = hashlib.sha256(src.encode()).hexdigest()
+    temp_dir = tempfile.mkdtemp()
+    src_file = os.path.join(temp_dir, f"{h}.c")
+    out_file = os.path.join(temp_dir, f"{h}.so")
+    with open(src_file, "w") as f:
+        f.write(src)
+    cmd = ["gcc", "-shared", "-fPIC", "-O2", "-o", out_file, src_file]
+    subprocess.check_call(cmd)
+    return ctypes.CDLL(out_file)
 
 class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def setUp(self):
@@ -31,14 +46,11 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         finally:
             self.device.allocator._free(handle, None)
 
+    @unittest.mock.patch.object(CoralNPUProgram, '_compile_on_host', compile_native)
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        program = CoralNPUProgram(self.device, "infinite_loop", b"")
-        
-        # Mock the C function with a real libc sleep to avoid libffi/compile issues
-        import ctypes
-        libc = ctypes.CDLL(None)
-        program.fxn = libc.sleep
+        # Provide real implementation of an infinite loop
+        program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
         
         # Test that timeout is raised correctly
         with self.assertRaises(TimeoutError) as context:
@@ -47,21 +59,18 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             
         self.assertIn("timed out after 0.2 seconds", str(context.exception))
 
+    @unittest.mock.patch.object(CoralNPUProgram, '_compile_on_host', compile_native)
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory."""
-        program = CoralNPUProgram(self.device, "write_success", b"")
-        
-        import ctypes
-        libc = ctypes.CDLL(None)
-        # memset(ptr, 65, 3) -> writes "AAA"
-        program.fxn = libc.memset
+        # Provide real implementation that memsets the buffer to 'A'
+        src = b"void write_success(void* ptr, int val, int size) { for(int i=0; i<size; i++) ((char*)ptr)[i] = val; }"
+        program = CoralNPUProgram(self.device, "write_success", src)
         
         handle = self.device.allocator._alloc(1024, None)
         
         try:
             # Execution should succeed without timeout. 
-            # memset takes (ptr, value, num_bytes)
-            # buf_handle is passed as ptr, we need to pass 65, 3 as vals
+            # buf_handle is passed as ptr, we need to pass 65 ('A'), 3 as vals
             ret = program(handle, vals=(65, 3), timeout=1.0)
             self.assertEqual(ret, 0.0)
             

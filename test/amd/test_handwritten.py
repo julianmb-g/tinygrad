@@ -139,7 +139,7 @@ class TestIntegrationCDNA(IntegrationTestBase):
   def test_mfma_fp8(self):
     import subprocess, unittest
     try:
-      out = subprocess.check_output(["clang", "--print-supported-cpus", "--target=amdgcn-amd-amdhsa", "-nogpulib"], stderr=subprocess.STDOUT)
+      out = subprocess.check_output(["clang", "--print-supported-cpus", "--target=amdgcn-amd-amdhsa"], stderr=subprocess.STDOUT)
     except subprocess.CalledProcessError as e:
       if b"cannot find ROCm device library" in e.output:
         raise unittest.SkipTest("ROCm device library not found")
