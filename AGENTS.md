@@ -45,3 +45,7 @@ TESTING REPORT:
 
 ### Cross-Compilation Execution Constraints
 - **Fatal x86/RISC-V `ctypes` Host Loading:** Do not attempt to use `ctypes.CDLL` to load cross-compiled `.so` shared libraries built for RISC-V (`-march=rv32imf_zve32x`) into the native x86 Python host process. This triggers `OSError: Exec format error`. The backend must explicitly dispatch execution to an out-of-band hardware simulator (e.g. `mpact` or `oss-cosim`).
+
+### Cross-Compilation & Hardware Testing
+- **Cross-Compilation Ctypes Execution Error:** When testing CoralNPU C++ compiled payloads, do not use `ctypes.CDLL(out_file)` on an x86 host for a RISC-V `.so`. It throws `OSError: Exec format error`. All execution must be deferred to out-of-band simulators like `coralnpu-mpact`.
+- **CPU-Only Backend Enforcement:** To prevent ROCm/GPU compiler crashes in the orchestrator container, tests must forcefully use the CPU backend and ignore hardware-specific folders using `CPU=1 pytest --timeout=120 --timeout-method=thread test/backend/ test/unit/ test/null/ test/test_tiny.py`.
