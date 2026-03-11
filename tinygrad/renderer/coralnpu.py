@@ -495,6 +495,9 @@ class CoralNPURenderer(CStyleLanguage):
   supports_rv32m = True
   supports_rv32f = True
   
+  # RISC-V SIMD Profile Configuration
+  MAX_VR_COUNT = 32
+  
   # Vector construction for GCC
   float4 = "(float4)"
   float4_style = ("{", "}")
