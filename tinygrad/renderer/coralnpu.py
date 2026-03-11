@@ -285,7 +285,7 @@ def estimate_cost(uops) -> float:
   
   x = np.append(x, [ast_scoping_depth, arithmetic_intensity, axi_penalty, unaligned_penalty])
   
-  if _cost_model['w1'].shape[1] != len(x):
+  if _cost_model['w1'].shape[0] != len(x):
     # Old model loaded, fallback to analytical during dataset generation
     return estimate_cost_analytical(uops)
     
