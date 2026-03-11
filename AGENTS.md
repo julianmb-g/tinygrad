@@ -8,7 +8,7 @@
 
 ### Git & Environment Management
 - **Multi-Agent Authorization:** To fix multi-agent authorization issues, we now use HTTPS instead of SSH for `.gitmodules` URLs.
-- **Merge Constraints:** We must merge *local* feature branches instead of remote tracking branches (e.g., `git merge coralnpu-dev` instead of `git merge origin/coralnpu-dev`).
+- [FLAG: stale] **Merge Constraints:** We must merge *local* feature branches instead of remote tracking branches (e.g., `git merge coralnpu-dev` instead of `git merge origin/coralnpu-dev`).
 - **Diff Sanity Checks:** A strict requirement is to perform a 'Final Diff Sanity Check' after submodule merges to ensure no logic was lost during conflict resolution.
 
 ### Testing & Verification
@@ -21,3 +21,6 @@
 ## Lessons Learned
 - **Backend Testing & Verification Void:** The `coralnpu` backend lacks unit testing in `tinygrad/test/`. Testing must cover `ops_coralnpu.py` (e.g., verifying allocator integrity, BEAM cost parsing, and explicitly testing cross-compiler GCC fallbacks bug prevention) and `renderer/coralnpu.py` (e.g., validating AST pattern matchers, extracting features, analytical cost fallbacks, code generation, and float allocation caps).
 - **Test Integrity:** Prevent "happy-path only" tests (e.g., restoring `before` state capture in `test_invalid_tensor.py`), stripping math checks to force green builds (e.g., in `test_uop_symbolic.py`), and masking degradation with broad exception swallowing (e.g., in `test_handwritten.py`).
+
+- **Upstream Merge Safety:** Do not apply logic or test fixes while actively in an uncommitted merge state (`--no-commit`). The merge operation must strictly resolve conflicts and be committed before subsequent test suite remediations are atomically applied.
+- **Test Suite Granularity:** Comprehensive test creation tasks (e.g., covering operations, renderers, IPC layers, and watchdogs) must be explicitly decomposed into distinct, atomic test creation tasks to prevent monolithic execution.
