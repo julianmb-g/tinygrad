@@ -17,3 +17,7 @@
 
 ### Code Quality
 - **Code Quality:** Avoid magic variables like `BEAM_ENFORCE_BASELINE` without documentation. Do not fall back to native gcc when cross-compiling fails.
+
+## Lessons Learned
+- **Backend Testing & Verification Void:** The `coralnpu` backend lacks unit testing in `tinygrad/test/`. Testing must cover `ops_coralnpu.py` (e.g., verifying allocator integrity, BEAM cost parsing, and explicitly testing cross-compiler GCC fallbacks bug prevention) and `renderer/coralnpu.py` (e.g., validating AST pattern matchers, extracting features, analytical cost fallbacks, code generation, and float allocation caps).
+- **Test Integrity:** Prevent "happy-path only" tests (e.g., restoring `before` state capture in `test_invalid_tensor.py`), stripping math checks to force green builds (e.g., in `test_uop_symbolic.py`), and masking degradation with broad exception swallowing (e.g., in `test_handwritten.py`).
