@@ -4,6 +4,29 @@ from tinygrad.device import Compiler
 from tinygrad.dtype import dtypes
 from tinygrad.uop.symbolic import sym
 
+def _get_memory_stride(uop, target_range):
+  """
+  Extracts the stride multiplier for a given target range from a memory index AST.
+  """
+  if uop == target_range: return 1.0
+  if uop.op is Ops.MUL:
+    s0 = _get_memory_stride(uop.src[0], target_range)
+    s1 = _get_memory_stride(uop.src[1], target_range)
+    if s0 > 0 and hasattr(uop.src[1], "arg"):
+      try: return s0 * float(uop.src[1].arg)
+      except: pass
+    if s1 > 0 and hasattr(uop.src[0], "arg"):
+      try: return s1 * float(uop.src[0].arg)
+      except: pass
+  elif uop.op is Ops.ADD:
+    return max(_get_memory_stride(uop.src[0], target_range), _get_memory_stride(uop.src[1], target_range))
+  elif uop.op is Ops.SHL:
+    s0 = _get_memory_stride(uop.src[0], target_range)
+    if s0 > 0 and hasattr(uop.src[1], "arg"):
+      try: return s0 * float(1 << int(uop.src[1].arg))
+      except: pass
+  return 0.0
+
 def extract_features(uops) -> dict[str, float]:
   """
   Extract hardware-specific execution features from a Tinygrad UOp graph.
@@ -26,6 +49,7 @@ def extract_features(uops) -> dict[str, float]:
   vector_ops = 0
   invariant_mem_ops = 0
   strided_mem_ops = 0
+  unaligned_mem_ops = 0
   complex_math_ops = 0
   cmp_branch_ops = 0
   total_load_bytes = 0
@@ -111,8 +135,14 @@ def extract_features(uops) -> dict[str, float]:
         last_range = u_ranges[-1]
         if last_range is not idx_src and last_range not in getattr(idx_src, "ranges", {}):
           invariant_mem_ops += 1
-        elif any(x.op in {Ops.MUL, Ops.SHL} for x in getattr(idx_src, "src", ())):
-          strided_mem_ops += 1
+        else:
+          stride = _get_memory_stride(idx_src, last_range)
+          if stride > 0:
+            stride_bytes = stride * u.dtype.scalar().itemsize * getattr(u.dtype, "count", 1)
+            if stride_bytes % 16 != 0:
+              unaligned_mem_ops += 1
+          if any(x.op in {Ops.MUL, Ops.SHL} for x in getattr(idx_src, "src", ())):
+            strided_mem_ops += 1
 
   innermost_loop_trip_count = 1.0
   if ranges:
@@ -139,6 +169,7 @@ def extract_features(uops) -> dict[str, float]:
     "store_ratio": ratio(store_ops, mem_ops),
     "vectorized_ratio": ratio(vector_ops, total_uops),
     "strided_mem_ratio": ratio(strided_mem_ops, mem_ops),
+    "unaligned_mem_ratio": ratio(unaligned_mem_ops, mem_ops),
     "invariant_mem_ratio": ratio(invariant_mem_ops, mem_ops),
     "log_total_trip_count": math.log1p(total_trip_count),
     "log_innermost_loop_trip_count": math.log1p(innermost_loop_trip_count),
@@ -244,7 +275,11 @@ def estimate_cost(uops) -> float:
   # where the kernel becomes severely constrained by DMA AXI bus streaming limits.
   axi_penalty = math.exp(0.2 - arithmetic_intensity) - 1.0 if arithmetic_intensity < 0.2 else 0.0
   
-  x = np.append(x, [ast_scoping_depth, arithmetic_intensity, axi_penalty])
+  # Task 3.3.2.1.3: Apply a cost model penalty scaling linearly for operations 
+  # where the stride is not a multiple of 16 bytes (128-bit).
+  unaligned_penalty = features.get('unaligned_mem_ratio', 0.0) * 10.0
+  
+  x = np.append(x, [ast_scoping_depth, arithmetic_intensity, axi_penalty, unaligned_penalty])
   
   if _cost_model['w1'].shape[1] != len(x):
     # Old model loaded, fallback to analytical during dataset generation
@@ -356,10 +391,17 @@ def estimate_cost_analytical(uops) -> float:
           is_invariant = last_range is not idx_src and last_range not in getattr(idx_src, "ranges", {})
           if is_invariant:
             op_cost = 1.0 # Cache hit is almost free
-          elif any(x.op in {Ops.MUL, Ops.SHL} for x in getattr(idx_src, "src", ())):
-            # Penalty for potentially strided or complex index math in the inner loop
-            # We exclude Ops.ADD to avoid over-penalizing unrolled offsets
-            op_cost *= 1.2
+          else:
+            # Task 3.3.2.1.3: Analytical unaligned access penalty
+            stride = _get_memory_stride(idx_src, last_range)
+            if stride > 0:
+              stride_bytes = stride * u.dtype.scalar().itemsize * getattr(u.dtype, "count", 1)
+              if stride_bytes % 16 != 0:
+                op_cost += 5.0 # Linear unaligned access penalty per memory op
+            if any(x.op in {Ops.MUL, Ops.SHL} for x in getattr(idx_src, "src", ())):
+              # Penalty for potentially strided or complex index math in the inner loop
+              # We exclude Ops.ADD to avoid over-penalizing unrolled offsets
+              op_cost *= 1.2
 
         # Vector and non-32bit penalties (only if not a cache hit)
         if op_cost > 1.0 and hasattr(u.dtype, "count") and u.dtype.count > 1:
