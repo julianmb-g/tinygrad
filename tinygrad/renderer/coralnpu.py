@@ -514,13 +514,6 @@ class CoralNPURenderer(CStyleLanguage):
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
     prefix = prefix or []
     
-    # Instruction Blacklist Pipeline Parser & Exclusion Filter
-    blacklist = ['vl1re32.v', 'vs1r.v']
-    for uop in uops:
-      # We check both op and arg to ensure the generated AST does not invoke blacklisted ops
-      if uop.op in blacklist or str(uop.op) in blacklist or str(getattr(uop, 'arg', '')) in blacklist:
-        raise RuntimeError(f"Blacklisted instruction {uop.op} detected in UOp graph.")
-
     # Inject UOp Graph as a human-readable comment block
     from tinygrad.uop.ops import multirange_str, Ops
     import re
