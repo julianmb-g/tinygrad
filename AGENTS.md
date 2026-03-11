@@ -50,3 +50,4 @@ TESTING REPORT:
 - **IPC Watchdogs & Heartbeats:** Implement strict Heartbeat & Timeout Watchdogs differentiating compile vs runtime waits.
 - **PyBind11 Isolation:** Wrap PyBind11 calls in a managed `multiprocessing` pool.
 - **Memory Abstraction:** Implement a Virtual Memory Management (VMM) abstraction or pseudo-driver layer in `ops_coralnpu.py` to handle ITCM/DTCM mapping internally, preventing hardware abstraction leaks.
+- **Test Integrity (Cross-Compilation Fidelity):** Do not excessively mock `subprocess.check_call` to silently replace `riscv64-unknown-elf-gcc` with the host's native x86 `gcc`. This breaks environment fidelity. Ensure tests properly verify the invocation of the correct cross-compiler, or explicitly skip if the correct RISC-V toolchain is absent.
