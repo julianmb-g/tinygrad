@@ -19,7 +19,7 @@
 - **Test Erosion:** Testing the CoralNPU backend requires specific timeline testing and before-state assertions, avoiding pure 'happy-path' test logic. Masked tests must assert pre-operation state wasn't clobbered.
 - **Timeline Testing (Update):** Ensure timeline testing (e.g., `test_sqttmap.py`) validates timestamps, execution ordering, and duration boundaries rather than purely counting events.
 - **Fake Data "Happy-Path" Execution Padding**: Do not feed neural networks purely random garbage data without mathematical assertions. Implement deterministic golden inputs and strictly assert exact expected outputs.
-- **IPC Reliability & Timeouts:** Prevent silent timeout deadlocks by adding aggressive timeout fallbacks for out-of-band IPC executions. Use `PYTHONUNBUFFERED=1 pytest --timeout=120 --timeout-method=thread` to force thread dumps on timeout, allowing the agent to differentiate between active compute loops and true IPC deadlocks.
+- **IPC Reliability & Timeouts:** [FLAG: partially correct] Prevent silent timeout deadlocks by adding aggressive timeout fallbacks for out-of-band IPC executions. Use `PYTHONUNBUFFERED=1 pytest -n auto --timeout=120 --timeout-method=thread` to force thread dumps on timeout. *Crucially, the entire test suite cannot finish sequentially within the global 120s `bash` execution boundary, so parallel execution (`-n auto`) is strictly required to prevent the overarching harness from blindly terminating the process before pytest can dump threads.*
 
 ### Code Quality
 - **Code Quality:** Avoid magic variables like `BEAM_ENFORCE_BASELINE` without documentation. Do not fall back to native gcc when cross-compiling fails.

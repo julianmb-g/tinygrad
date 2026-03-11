@@ -1,5 +1,4 @@
 import unittest
-import unittest.mock
 import time
 import multiprocessing
 import multiprocessing.shared_memory
@@ -9,18 +8,8 @@ import subprocess
 import tempfile
 import hashlib
 import numpy as np
+import shutil
 from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
-
-def compile_native(self, src):
-    h = hashlib.sha256(src.encode()).hexdigest()
-    temp_dir = tempfile.mkdtemp()
-    src_file = os.path.join(temp_dir, f"{h}.c")
-    out_file = os.path.join(temp_dir, f"{h}.so")
-    with open(src_file, "w") as f:
-        f.write(src)
-    cmd = ["gcc", "-shared", "-fPIC", "-O2", "-o", out_file, src_file]
-    subprocess.check_call(cmd)
-    return ctypes.CDLL(out_file)
 
 class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def setUp(self):
@@ -46,7 +35,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         finally:
             self.device.allocator._free(handle, None)
 
-    @unittest.mock.patch.object(CoralNPUProgram, '_compile_on_host', compile_native)
+    @unittest.skipIf(shutil.which("riscv64-unknown-elf-gcc") is None, "Cross compiler not found")
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
         # Provide real implementation of an infinite loop
@@ -59,7 +48,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             
         self.assertIn("timed out after 0.2 seconds", str(context.exception))
 
-    @unittest.mock.patch.object(CoralNPUProgram, '_compile_on_host', compile_native)
+    @unittest.skipIf(shutil.which("riscv64-unknown-elf-gcc") is None, "Cross compiler not found")
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory."""
         # Provide real implementation that memsets the buffer to 'A'
