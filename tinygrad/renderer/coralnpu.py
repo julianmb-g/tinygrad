@@ -570,6 +570,27 @@ class CoralNPURenderer(CStyleLanguage):
       prefix.append(line.replace("*/", "* /"))
     prefix.append("=================== */")
 
+    # Task 3.3.3.2: Floating Point Allocation Cap
+    # Track active floating-point variable allocations during schedule generation.
+    depths = [0] * len(uops)
+    uop_to_idx = {u: i for i, u in enumerate(uops)}
+    fp_depth_counts = {}
+    from tinygrad.dtype import dtypes
+    from tinygrad.uop.ops import Ops, GroupOp
+    for i, u in enumerate(uops):
+      d = 0
+      for s in u.src:
+        if s in uop_to_idx: d = max(d, depths[uop_to_idx[s]] + 1)
+      depths[i] = d
+      
+      if getattr(u, 'dtype', None) is not None and u.dtype.scalar() in {dtypes.float32, dtypes.float16, dtypes.bfloat16, dtypes.float64}:
+        if u.op in GroupOp.ALU or u.op in {Ops.LOAD, Ops.CAST, Ops.BITCAST}:
+          fp_depth_counts[d] = fp_depth_counts.get(d, 0) + 1
+          
+    active_fp_count = max(fp_depth_counts.values()) if fp_depth_counts else 0
+    if active_fp_count > 32:
+      raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
+
     # Inject BEAM cost based on cost model
     from tinygrad.helpers import BEAM
     if BEAM.value > 0:
