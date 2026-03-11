@@ -228,14 +228,20 @@ def estimate_cost(uops) -> float:
   x = np.array([features.get(k, 0.0) for k in feature_keys], dtype=np.float32)
   
   # Task 2.3.2.2: Advanced Estimator Features
+  # AST scoping depth approximates live variable pressure relative to 
+  # the graph's critical path, modeling hardware register spilling overhead.
   ast_scoping_depth = features.get('log_max_reg_pressure', 0.0) * features.get('log_critical_path', 0.0)
   
+  # Arithmetic Intensity defines the ratio of ALU operations to memory bytes loaded.
+  # This serves as a key indicator of whether a kernel is compute-bound or memory-bound.
   alu_ratio = features.get('alu_ratio', 0.0)
   mem_ratio = features.get('mem_ratio', 0.0)
   avg_bytes = features.get('avg_bytes_per_load', 0.0)
   intensity_denom = (mem_ratio * avg_bytes) + 1e-6
   arithmetic_intensity = alu_ratio / intensity_denom
   
+  # Non-linear AXI penalty injection exponentially penalizes low arithmetic intensity
+  # where the kernel becomes severely constrained by DMA AXI bus streaming limits.
   axi_penalty = math.exp(0.2 - arithmetic_intensity) - 1.0 if arithmetic_intensity < 0.2 else 0.0
   
   x = np.append(x, [ast_scoping_depth, arithmetic_intensity, axi_penalty])
