@@ -387,16 +387,6 @@ def estimate_cost_analytical(uops) -> float:
     
   return cost
 
-def force_scalar_alu(alu:UOp):
-  """
-  Forces the UOp to map to purely scalar equivalent elements.
-  
-  Used via a PatternMatcher rule to safely unroll UOps (like WHERE or TRUNC)
-  into scalar implementations, bypassing auto-vectorizer bugs (e.g. GCC 15.1 ternary masks).
-  """
-  if alu.dtype.vcount == 1: return None
-  return UOp(Ops.VECTORIZE, alu.dtype, tuple(UOp(alu.op, alu.dtype.scalar(), tuple(s.gep(i) for s in alu.src), alu.arg) for i in range(alu.dtype.vcount)))
-
 def is_non_pow2(dt):
   """
   Check if a vectorized data type total size is not a power of 2 bytes.
@@ -507,8 +497,6 @@ class CoralNPURenderer(CStyleLanguage):
   pre_matcher = pm_scalarize_non_pow2 + sym
 
   extra_matcher = PatternMatcher([
-    
-    (UPat((Ops.WHERE, Ops.TRUNC), name="alu"), force_scalar_alu),
   ])
 
   def __init__(self):
