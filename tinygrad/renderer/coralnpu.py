@@ -52,6 +52,7 @@ def extract_features(uops) -> dict[str, float]:
   unaligned_mem_ops = 0
   complex_math_ops = 0
   cmp_branch_ops = 0
+  fma_hazard_ops = 0
   total_load_bytes = 0
   total_vector_lanes = 0
 
@@ -91,6 +92,8 @@ def extract_features(uops) -> dict[str, float]:
         complex_math_ops += 1
       elif u.op in {Ops.CMPLT, Ops.CMPNE}:
         cmp_branch_ops += 1
+      if u.op is Ops.ADD and any(getattr(s, 'op', None) is Ops.MUL for s in u.src):
+        fma_hazard_ops += 1
     elif u.op in {Ops.LOAD, Ops.STORE}:
       mem_ops += 1
       if u.op is Ops.LOAD:
@@ -180,7 +183,8 @@ def extract_features(uops) -> dict[str, float]:
     "complex_math_ratio": ratio(complex_math_ops, alu_ops),
     "cmp_branch_ratio": ratio(cmp_branch_ops, alu_ops),
     "avg_bytes_per_load": ratio(total_load_bytes, load_ops),
-    "avg_vector_width": ratio(total_vector_lanes, vector_ops)
+    "avg_vector_width": ratio(total_vector_lanes, vector_ops),
+    "fma_hazard_count": float(fma_hazard_ops)
   }
 
   return features
@@ -306,8 +310,12 @@ def estimate_cost(uops) -> float:
   # Sample from distribution
   sample = random.gauss(mu_log, stddev)
   
+  # Task 3.3.3.1: FMA Forwarding Penalty Injection
+  # Add +3 cycle penalty per occurrence to simulate pipeline stall
+  fma_penalty = features.get('fma_hazard_count', 0.0) * 3.0
+  
   # Convert log-cycles to cycles and ensure non-negative
-  return float(max(0.0, math.exp(sample) - 1.0))
+  return float(max(0.0, math.exp(sample) - 1.0)) + fma_penalty
 
 
 def estimate_cost_analytical(uops) -> float:
@@ -365,6 +373,7 @@ def estimate_cost_analytical(uops) -> float:
     elif u.op in GroupOp.ALU or u.op in {Ops.CAST, Ops.BITCAST}:
       op_cost = 1.0
       if u.op in GroupOp.ALU and u.dtype.scalar().itemsize < 4 and u.dtype.scalar() != dtypes.bool: op_cost = 50.0
+      if u.op is Ops.ADD and any(getattr(s, 'op', None) is Ops.MUL for s in getattr(u, 'src', [])): op_cost += 3.0
     elif u.op is Ops.INDEX:
       op_cost = 0.0
     
