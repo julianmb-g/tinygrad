@@ -293,8 +293,20 @@ def torch_load(t:Tensor) -> dict[str, Tensor]:
     fobj.seek(rwd)
     return TorchPickle(fobj).load()
 
-def tflite(*args, **kwargs):
-  raise NotImplementedError("TFLite loader not yet implemented.")
+def tflite(model_path):
+  import tf2onnx
+  import tempfile
+  import os
+  from tinygrad.nn.onnx import OnnxRunner
+  
+  onnx_graph, _ = tf2onnx.convert.from_tflite(model_path, opset=13, inputs_as_nchw=["input"])
+  fd, tmp_path = tempfile.mkstemp(suffix=".onnx")
+  os.close(fd)
+  with open(tmp_path, "wb") as f:
+    f.write(onnx_graph.SerializeToString())
+  runner = OnnxRunner(tmp_path)
+  os.remove(tmp_path)
+  return runner
 
 def ggml_data_to_tensor(t: Tensor, n: int, ggml_type: int) -> Tensor:
   """
