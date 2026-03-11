@@ -6,3 +6,4 @@
 - **Merge Constraints:** We must merge *local* feature branches instead of remote tracking branches (e.g., `git merge coralnpu-dev` instead of `git merge origin/coralnpu-dev`).
 - **Diff Sanity Checks:** A strict requirement is to perform a 'Final Diff Sanity Check' after submodule merges to ensure no logic was lost during conflict resolution.
 - **Upstream Integration:** Feature branch integration successfully validated. No logic was lost during conflict resolution.
+- **Submodule Pointer Synchronization:** Always ensure that subsequent commits made to the submodule (e.g., adding localized lessons to this file) are immediately followed by serializing the new submodule pointer in the parent workspace to prevent state drift.
