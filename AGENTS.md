@@ -9,7 +9,7 @@
 ### Git & Environment Management
 - **Multi-Agent Authorization:** To fix multi-agent authorization issues, we now use HTTPS instead of SSH for `.gitmodules` URLs.
 - **Git Environment Initialization**: Validated that pure environment initialization tasks (e.g., `git branch upstream-patch origin/master`) are stateful but produce no code diffs. The SDLC pipeline relies on explicit progression checkpoints, which are validated by verifying working tree status and branch targets across submodules using `git status`.
-- **Upstream Merge Safety:** Do not apply logic or test fixes while actively in an uncommitted merge state (`--no-commit`). The merge operation must strictly resolve conflicts and be committed before subsequent test suite remediations are atomically applied.
+- **Upstream Rebase Safety:** Do not apply new logic or test fixes while actively resolving a rebase conflict. The rebase operation must strictly resolve conflicts and complete (`git rebase --continue`) before subsequent test suite remediations are atomically applied.
 - **Upstream Validation:** Use `git worktree add ../tinygrad-baseline origin/master` to test upstream state without altering the current tracking branches or `.git` index, completely isolating tests from the local workspace.
 
 ### Testing & Verification
