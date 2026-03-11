@@ -46,3 +46,7 @@ TESTING REPORT:
 ### Cross-Compilation & Hardware Testing
 - **Cross-Compilation Ctypes Execution Error:** When testing CoralNPU C++ compiled payloads, do not use `ctypes.CDLL(out_file)` on an x86 host for a RISC-V `.so`. It throws `OSError: Exec format error`. All execution must be deferred to out-of-band simulators like `coralnpu-mpact`.
 - **CPU-Only Backend Enforcement:** To prevent ROCm/GPU compiler crashes in the orchestrator container, tests must forcefully use the CPU backend and ignore hardware-specific folders using `CPU=1 pytest --timeout=120 --timeout-method=thread test/backend/ test/unit/ test/null/ test/test_tiny.py`.
+
+- **IPC Watchdogs & Heartbeats:** Implement strict Heartbeat & Timeout Watchdogs differentiating compile vs runtime waits.
+- **PyBind11 Isolation:** Wrap PyBind11 calls in a managed `multiprocessing` pool.
+- **Memory Abstraction:** Implement a Virtual Memory Management (VMM) abstraction or pseudo-driver layer in `ops_coralnpu.py` to handle ITCM/DTCM mapping internally, preventing hardware abstraction leaks.
