@@ -7,8 +7,6 @@
 - **Submodule Pointer Synchronization:** Always ensure that subsequent commits made to the submodule (e.g., adding localized lessons to this file) are immediately followed by serializing the new submodule pointer in the parent workspace to prevent state drift.
 
 ### Git & Environment Management
-- **Multi-Agent Authorization:** To fix multi-agent authorization issues, we now use HTTPS instead of SSH for `.gitmodules` URLs.
-- **Git Environment Initialization**: Validated that pure environment initialization tasks (e.g., `git branch upstream-patch origin/master`) are stateful but produce no code diffs. The SDLC pipeline relies on explicit progression checkpoints, which are validated by verifying working tree status and branch targets across submodules using `git status`.
 - **Upstream Rebase Safety:** Do not apply new logic or test fixes while actively resolving a rebase conflict. The rebase operation must strictly resolve conflicts and complete (`git rebase --continue`) before subsequent test suite remediations are atomically applied.
 - **Upstream Validation:** Use `git worktree add ../tinygrad-baseline origin/master` to test upstream state without altering the current tracking branches or `.git` index, completely isolating tests from the local workspace.
 
@@ -19,7 +17,7 @@
 - **Test Erosion:** Testing the CoralNPU backend requires specific timeline testing and before-state assertions, avoiding pure 'happy-path' test logic. Masked tests must assert pre-operation state wasn't clobbered.
 - **Timeline Testing (Update):** Ensure timeline testing (e.g., `test_sqttmap.py`) validates timestamps, execution ordering, and duration boundaries rather than purely counting events.
 - **Fake Data "Happy-Path" Execution Padding**: Do not feed neural networks purely random garbage data without mathematical assertions. Implement deterministic golden inputs and strictly assert exact expected outputs.
-- **IPC Reliability & Timeouts:** [FLAG: partially correct] Prevent silent timeout deadlocks by adding aggressive timeout fallbacks for out-of-band IPC executions. Use `PYTHONUNBUFFERED=1 pytest -n auto --timeout=120 --timeout-method=thread` to force thread dumps on timeout. *Crucially, the entire test suite cannot finish sequentially within the global 120s `bash` execution boundary, so parallel execution (`-n auto`) is strictly required to prevent the overarching harness from blindly terminating the process before pytest can dump threads.*
+- **IPC Reliability & Timeouts:** Prevent silent timeout deadlocks by adding aggressive timeout fallbacks for out-of-band IPC executions. Use `PYTHONUNBUFFERED=1 pytest -n auto --timeout=120 --timeout-method=thread` to force thread dumps on timeout. *Crucially, the entire test suite cannot finish sequentially within the global 120s `bash` execution boundary, so parallel execution (`-n auto`) is strictly required to prevent the overarching harness from blindly terminating the process before pytest can dump threads.*
 
 ### Code Quality
 - **Code Quality:** Avoid magic variables like `BEAM_ENFORCE_BASELINE` without documentation. Do not fall back to native gcc when cross-compiling fails.
@@ -30,7 +28,6 @@ TESTING REPORT:
 - Content cross-referenced with QA.md and TEST_REPORT.md for accuracy.
 - Pipeline state (git status) checked and clean prior to committing.
 -->
-- **Strict Hardware Constraints (Register Thrashing):** Vector register pressure limits (MAX_VR_COUNT=32) must be strictly bounded during Tinygrad unrolling; over-allocation causes LSQ exhaustion or fatal traps in `coralnpu-mpact` and RTL.
 - **Test Suite Strictness**: Do not simplify mathematical constants (e.g. symbolic UOp division boundaries) merely to achieve a passing test.
 - **Hardware Backend Testing**: The `coralnpu` rendering and runtime backend must have dedicated unit tests inside the ML frontend (`tinygrad/test/`), rather than blindly relying on out-of-band simulator validation.
 - **NaN Validation in Memory Captures**: When restoring `before` memory states for masked operations (e.g., `test_invalid_tensor.py`), the validation loop must account for Python's `math.isnan` comparisons, as direct equality checks on `NaN` (i.e. `float('nan') == float('nan')`) will fail in python assertions.
