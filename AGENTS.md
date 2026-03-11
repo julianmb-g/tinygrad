@@ -42,3 +42,6 @@ TESTING REPORT:
 - **Test Baseline Serialization State**: When restoring `before` memory assertions (like `test_invalid_tensor`), avoid failing CI validations due to `NaN` comparison nuances in Python. `math.isnan` logic must be actively preserved alongside restored assertions to prevent tests from spuriously breaking during memory dump equality checks.
 - **IPC Watchdog Testing**: When implementing watchdogs for out-of-band IPC simulations to prevent pipeline deadlocks, tests should validate `multiprocessing.shared_memory.SharedMemory` channels and strictly assert that `multiprocessing.Process.join(timeout=...)` successfully terminates the hanging process and raises the expected timeout failure.
 - **Test Dependencies:** Ensure `huggingface_hub` is installed (`pip install huggingface_hub`) as it is a required dependency for tinygrad tests, preventing spurious failures during cross-submodule integration.
+
+### Cross-Compilation Execution Constraints
+- **Fatal x86/RISC-V `ctypes` Host Loading:** Do not attempt to use `ctypes.CDLL` to load cross-compiled `.so` shared libraries built for RISC-V (`-march=rv32imf_zve32x`) into the native x86 Python host process. This triggers `OSError: Exec format error`. The backend must explicitly dispatch execution to an out-of-band hardware simulator (e.g. `mpact` or `oss-cosim`).
