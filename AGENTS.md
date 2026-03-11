@@ -9,7 +9,7 @@
 ### Git & Environment Management
 - **Multi-Agent Authorization:** To fix multi-agent authorization issues, we now use HTTPS instead of SSH for `.gitmodules` URLs.
 - [FLAG: stale] **Merge Constraints:** We must merge *local* feature branches instead of remote tracking branches (e.g., `git merge coralnpu-dev` instead of `git merge origin/coralnpu-dev`).
-- **Diff Sanity Checks:** A strict requirement is to perform a 'Final Diff Sanity Check' after submodule merges to ensure no logic was lost during conflict resolution.
+- [FLAG: stale] **Diff Sanity Checks:** A strict requirement is to perform a 'Final Diff Sanity Check' after submodule merges to ensure no logic was lost during conflict resolution.
 
 ### Testing & Verification
 - **Test Integrity & Systemic Gaps:** The test suite currently has a complete void regarding the `coralnpu` backend (no unit tests for `ops_coralnpu.py` or fallback GCC logic). Furthermore, do not simplify symbolic math parameters or strip `before` assertions in memory tests to force a passing build. Avoid 'happy-path only' coverage and silent CI degradations (such as catching generic Exceptions to skip tests).
