@@ -5,3 +5,4 @@
 - **Multi-Agent Authorization:** To fix multi-agent authorization issues, we now use HTTPS instead of SSH for `.gitmodules` URLs.
 - **Merge Constraints:** We must merge *local* feature branches instead of remote tracking branches (e.g., `git merge coralnpu-dev` instead of `git merge origin/coralnpu-dev`).
 - **Diff Sanity Checks:** A strict requirement is to perform a 'Final Diff Sanity Check' after submodule merges to ensure no logic was lost during conflict resolution.
+- **Upstream Integration:** Feature branch integration successfully validated. No logic was lost during conflict resolution.
