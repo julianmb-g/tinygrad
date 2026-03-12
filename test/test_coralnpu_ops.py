@@ -1,8 +1,5 @@
 import unittest
-import ctypes
 import os
-import tempfile
-import subprocess
 from unittest.mock import patch, MagicMock
 from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUProgram, CoralNPUDevice
 from tinygrad.device import BufferSpec
