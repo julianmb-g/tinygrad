@@ -12,19 +12,16 @@ def _get_memory_stride(uop, target_range):
   if uop.op is Ops.MUL:
     s0 = _get_memory_stride(uop.src[0], target_range)
     s1 = _get_memory_stride(uop.src[1], target_range)
-    if s0 > 0 and hasattr(uop.src[1], "arg"):
-      try: return s0 * float(uop.src[1].arg)
-      except: pass
-    if s1 > 0 and hasattr(uop.src[0], "arg"):
-      try: return s1 * float(uop.src[0].arg)
-      except: pass
+    if s0 > 0 and hasattr(uop.src[1], "arg") and isinstance(uop.src[1].arg, (int, float, bool)):
+      return s0 * float(uop.src[1].arg)
+    if s1 > 0 and hasattr(uop.src[0], "arg") and isinstance(uop.src[0].arg, (int, float, bool)):
+      return s1 * float(uop.src[0].arg)
   elif uop.op is Ops.ADD:
     return max(_get_memory_stride(uop.src[0], target_range), _get_memory_stride(uop.src[1], target_range))
   elif uop.op is Ops.SHL:
     s0 = _get_memory_stride(uop.src[0], target_range)
-    if s0 > 0 and hasattr(uop.src[1], "arg"):
-      try: return s0 * float(1 << int(uop.src[1].arg))
-      except: pass
+    if s0 > 0 and hasattr(uop.src[1], "arg") and isinstance(uop.src[1].arg, (int, float, bool)):
+      return s0 * float(1 << int(uop.src[1].arg))
   return 0.0
 
 def extract_features(uops) -> dict[str, float]:
@@ -69,8 +66,7 @@ def extract_features(uops) -> dict[str, float]:
   total_trip_count = 1.0
 
   for r in ranges:
-    try: true_extents[r] = float(r.src[0].arg) if hasattr(r.src[0], 'arg') else 10.0
-    except: true_extents[r] = 10.0
+    true_extents[r] = float(r.src[0].arg) if hasattr(r.src[0], 'arg') and isinstance(r.src[0].arg, (int, float, bool)) else 10.0
     total_trip_count *= true_extents[r]
     if len(r.arg) > 1 and "REDUCE" in str(r.arg[1]):
       reduce_loops += 1
@@ -333,8 +329,10 @@ def estimate_cost_analytical(uops) -> float:
   loop_mem_count = {u: 0 for u in uops if u.op is Ops.RANGE}
   for u in uops:
     if u.op is Ops.RANGE:
-      try: true_extents[u] = float(u.src[0].arg) if hasattr(u.src[0], 'arg') else 1.0
-      except: true_extents[u] = 10.0
+      if hasattr(u.src[0], 'arg'):
+        true_extents[u] = float(u.src[0].arg) if isinstance(u.src[0].arg, (int, float, bool)) else 10.0
+      else:
+        true_extents[u] = 1.0
     for r in u.ranges:
       if r in loop_uop_count:
         loop_uop_count[r] += 1
