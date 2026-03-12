@@ -12,7 +12,7 @@
 
 ### Git & Environment Management
 - **Upstream Rebase Safety:** Do not apply new logic or test fixes while actively resolving a rebase conflict. The rebase operation must strictly resolve conflicts and complete (`git rebase --continue`) before subsequent test suite remediations are atomically applied.
-- **Upstream Validation:** Use `git worktree add ../tinygrad-baseline origin/master` to test upstream state without altering the current tracking branches or `.git` index, completely isolating tests from the local workspace.
+- **Upstream Validation:** Use `git worktree add ../tinygrad-baseline upstream/master` to test upstream state without altering the current tracking branches or `.git` index, completely isolating tests from the local workspace.
 
 ### Testing & Verification
 - **CPU-Only Backend Enforcement:** To prevent ROCm/GPU compiler crashes in the orchestrator container, tests must forcefully use the CPU backend and ignore hardware-specific folders using `CPU=1 pytest --timeout=120 --timeout-method=thread test/backend/ test/unit/ test/null/ test/test_tiny.py`.
