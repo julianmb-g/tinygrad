@@ -45,3 +45,4 @@
 - **IPC Environment Fidelity:** Never mock `subprocess.run` to fake IPC boundaries. Tests must definitively compile the real C binary using the cross-compiler and dispatch it to the out-of-band simulator.
 - **DTCM Double-Buffering Overflows:** When tiling loops for hardware memory constraints (e.g., 32KB DTCM), chunks must be strictly scaled to accommodate stack overhead (e.g., <= 12KB chunks, not 16KB) to prevent corruption.
 - **W8A8 Activation Quantization Void:** Before issuing an INT8 vector MAC operation (VDOT), the incoming fp16 activation tensors MUST be dynamically quantized; issuing x_int8.dot(w_int8) directly onto unquantized streams produces mathematical garbage.
+- **Missing ROCm Device Library**: In environments lacking the ROCm device library, AMD handwritten tests (like `test_mfma_fp8`) must be explicitly skipped using `@unittest.skip` to prevent CI failures when testing the `amdgcn-amd-amdhsa` target.
