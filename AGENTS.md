@@ -45,3 +45,6 @@
 - **CPU-Only Backend Enforcement:** To prevent ROCm/GPU compiler crashes in the orchestrator container, tests must forcefully use the CPU backend and ignore hardware-specific folders using `CPU=1 pytest --timeout=120 --timeout-method=thread test/backend/ test/unit/ test/null/ test/test_tiny.py`.
 - **Test Integrity (Cross-Compilation Fidelity):** Do not excessively mock `subprocess.check_call` to silently replace `riscv64-unknown-elf-gcc` with the host's native x86 `gcc`. This breaks environment fidelity. Ensure tests properly verify the invocation of the correct cross-compiler, or explicitly skip if the correct RISC-V toolchain is absent.
 - **IPC Watchdog Boundaries:** When implementing IPC watchdogs for out-of-band execution, the heartbeat checks must strictly differentiate between 'Build/Compile Waits' and 'Runtime IPC Waits' without preempting or masking the overarching global `pytest` timeout logic (120s).
+
+## Lessons Learned
+- **IPC Watchdog Testing**: IPC timeout mechanics must be verified by passing execution to an actual out-of-band dummy subprocess, rather than simply asserting a RuntimeError for native execution.
