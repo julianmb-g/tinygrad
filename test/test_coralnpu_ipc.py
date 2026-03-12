@@ -2,7 +2,6 @@ import unittest
 import time
 import multiprocessing
 import multiprocessing.shared_memory
-import ctypes
 import os
 import subprocess
 import tempfile
@@ -24,7 +23,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             self.device.allocator._copyin(handle, memoryview(test_data))
             
             # Verify data
-            # Use ctypes string buffer to safely copy out into bytearray/bytes
+            # Safely copy out into bytearray/bytes
             out = bytearray(len(test_data))
             self.device.allocator._copyout(memoryview(out).cast('B'), handle)
             self.assertEqual(bytes(out), test_data)
