@@ -136,6 +136,7 @@ class TestIntegrationCDNA(IntegrationTestBase):
     from tinygrad.runtime.autogen.amd.cdna.ins import v_mfma_f32_16x16x16_f16
     self.inst = v_mfma_f32_16x16x16_f16(v[0:3], v[0:1], v[0:1], 0)
 
+  @unittest.skip("missing ROCm device library")
   def test_mfma_fp8(self):
     import subprocess, unittest
     try:
