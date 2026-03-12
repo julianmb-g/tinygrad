@@ -34,3 +34,4 @@
 - **PyBind11 Out-of-Band Isolation:** Native PyBind11 bindings inside the Python tuning loop cause crashes. Extract and run calls via `multiprocessing` workers using zero-copy shared memory.
 - **Strict Timeout Watchdogs:** Subprocess workers must implement a fault handler (e.g., catching explicit IPC timeouts) to dump stack traces before termination.
 - **RISC-V Native Execution Error:** x86 Linux processes cannot natively execute RISC-V `ctypes`. The host-side `ctypes` bindings for RISC-V binaries must be severed and execution must route to an out-of-band hardware simulator.
+- **IPC Memory Mapping:** When using `multiprocessing.shared_memory.SharedMemory`, assign `shm.buf` directly to memory views. Do not cast it via `ctypes` `from_buffer` to avoid unnecessary dependencies and type checking errors.
