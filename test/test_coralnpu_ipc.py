@@ -1,5 +1,4 @@
 import unittest
-from unittest.mock import patch
 import time
 import multiprocessing
 import multiprocessing.shared_memory
@@ -36,33 +35,22 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             self.device.allocator._free(handle, None)
 
     @unittest.skipIf(shutil.which("riscv64-unknown-elf-gcc") is None, "Cross compiler not found")
-    @patch("tinygrad.runtime.ops_coralnpu.subprocess.run")
-    def test_watchdog_timeout_on_hang(self, mock_run):
+    @unittest.skipIf(shutil.which("coralnpu_v2_sim") is None, "Simulator coralnpu_v2_sim not found")
+    def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        import subprocess
-        mock_run.side_effect = subprocess.TimeoutExpired(cmd=["coralnpu_v2_sim"], timeout=0.2)
         program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
         
         with self.assertRaisesRegex(RuntimeError, "Simulator watchdog timeout after 0.2s"):
             program(vals=(10,), timeout=0.2)
 
     @unittest.skipIf(shutil.which("riscv64-unknown-elf-gcc") is None, "Cross compiler not found")
-    @patch("tinygrad.runtime.ops_coralnpu.subprocess.run")
-    def test_successful_execution_within_timeout(self, mock_run):
+    @unittest.skipIf(shutil.which("coralnpu_v2_sim") is None, "Simulator coralnpu_v2_sim not found")
+    def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory."""
         src = b"void write_success(void* ptr, int val, int size) { for(int i=0; i<size; i++) ((char*)ptr)[i] = val; }"
         program = CoralNPUProgram(self.device, "write_success", src)
         handle = self.device.allocator._alloc(1024, None)
         try:
-            def side_effect(cmd, **kwargs):
-                import subprocess, multiprocessing.shared_memory
-                shm_name = cmd[cmd.index("--shm")+1]
-                shm = multiprocessing.shared_memory.SharedMemory(name=shm_name)
-                for i in range(3):
-                    shm.buf[i] = 65
-                shm.close()
-                return subprocess.CompletedProcess(args=cmd, returncode=0)
-            mock_run.side_effect = side_effect
             program(handle, vals=(65, 3), timeout=1.0)
             out = bytearray(3)
             self.device.allocator._copyout(memoryview(out).cast('B'), handle)
