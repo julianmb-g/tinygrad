@@ -29,3 +29,8 @@
 - **Timeline Testing:** Ensure timeline testing (e.g., `test_sqttmap.py`) validates timestamps, execution ordering, and duration boundaries rather than purely counting events.
 - **ProfileRangeEvent Validation:** When implementing timeline checks on `ProfileRangeEvent` objects from `sqtt_timeline`, use `isinstance` for filtering, explicitly assert optional fields like `e.en` are not None before comparisons, and safely extract names from `TracingKey` using `getattr(e.name, 'display_name', e.name)` to prevent runtime and type assertion errors.
 - **Test Suite Granularity:** Comprehensive test creation tasks (e.g., covering operations, renderers, IPC layers) must be explicitly decomposed into distinct, atomic test creation tasks to prevent monolithic execution.
+
+### IPC & Orchestration Bottlenecks
+- **PyBind11 Out-of-Band Isolation:** Native PyBind11 bindings inside the Python tuning loop cause crashes. Extract and run calls via `multiprocessing` workers using zero-copy shared memory.
+- **Strict Timeout Watchdogs:** Subprocess workers must implement a fault handler (e.g., catching explicit IPC timeouts) to dump stack traces before termination.
+- **RISC-V Native Execution Error:** x86 Linux processes cannot natively execute RISC-V `ctypes`. The host-side `ctypes` bindings for RISC-V binaries must be severed and execution must route to an out-of-band hardware simulator.
