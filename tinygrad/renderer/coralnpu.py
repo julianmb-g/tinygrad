@@ -565,6 +565,15 @@ class CoralNPUCompiler(Compiler):
       os.makedirs(save_dir, exist_ok=True)
       with open(os.path.join(save_dir, f"kernel_{self.kernel_counter}.cc"), "w") as f:
         f.write(src)
+      with open(os.path.join(save_dir, f"kernel_{self.kernel_counter}.ld"), "w") as f:
+        f.write("MEMORY { EXTMEM (rwx) : ORIGIN = 0x80000000, LENGTH = 256M }\n")
+        f.write("SECTIONS {\n")
+        f.write("  .text : { *(.text*) } > EXTMEM\n")
+        f.write("  .noinit (NOLOAD) : { . = ALIGN(16); *(.noinit*) } > EXTMEM\n")
+        f.write("  .data : { *(.data*) } > EXTMEM\n")
+        f.write("  .bss : { *(.bss*) } > EXTMEM\n")
+        f.write("  _end = .;\n")
+        f.write("}\n")
       self.kernel_counter += 1
     return src.encode()
 
@@ -694,7 +703,23 @@ class CoralNPURenderer(CStyleLanguage):
         itemsize = dt.itemsize
         if scalar == dtypes.bool: itemsize = dt.count # force 1 byte per bool
         prefix.append(f"typedef {self.render_dtype(scalar)} {self.render_dtype(dt)} __attribute__((vector_size({itemsize})));")
-    return super().render_kernel(function_name, kernel, bufs, uops, prefix)
+    for name, (dtype, _) in bufs:
+      c_type = self.render_dtype(dtype.scalar() if hasattr(dtype, "scalar") else dtype)
+      # Allocate maximum VMM limit (32KB) per buffer to prevent OOM
+      prefix.append(f"__attribute__((section(\".noinit\"))) {c_type} {name}[32768 / sizeof({c_type})];")
+
+    src = super().render_kernel(function_name, kernel, bufs, uops, prefix)
+    
+    # Safely erase the function arguments to enforce global array usage
+    sig_start = f'extern "C" void {function_name}('
+    sig_end = ' {'
+    if sig_start in src:
+        pre, rest = src.split(sig_start, 1)
+        if ')' in rest:
+            _, post = rest.split(')', 1)
+            if post.startswith(sig_end):
+                src = pre + sig_start + ')' + post
+    return src
 
   # Map operations to C code
   code_for_op = {
