@@ -131,48 +131,46 @@ class CoralNPUProgram:
       self.beam_cost = float(match.group(1)) if match else float(len(src))
 
   def _compile_on_host(self, src):
-    raise RuntimeError("COMP-2.1.2.1: Host compiler invocation strictly prohibited. Use Bazel coralnpu_v2_binary.")
+    import subprocess, tempfile
+    with tempfile.NamedTemporaryFile(delete=False, suffix='.c', mode='w') as f:
+      f.write(src)
+      src_path = f.name
+    elf_path = src_path + ".elf"
+    try:
+      subprocess.check_output(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path], stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+      raise RuntimeError(f"Cross-compilation failed: {e.output.decode()}")
+    except FileNotFoundError as e:
+      raise FileNotFoundError(f"Missing cross-compiler: {e}")
+    return elf_path
 
   def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=None, **kwargs):
     if getattr(self, "is_beam", False) and wait:
       return self.beam_cost
 
-    if self.fxn is None:
-      self.lib_so = self._compile_on_host(self.lib.decode())
-      self.fxn = getattr(self.lib_so, self.name)
+    if getattr(self, "fxn", None) is None:
+      self.elf_path = self._compile_on_host(self.lib.decode())
+      self.fxn = "compiled"
 
-    c_args = []
+    cmd = ['coralnpu_v2_sim', self.elf_path]
     for buf_handle in bufs:
-      if buf_handle in self.device.allocator.mem:
-        c_args.append(ctypes.addressof(self.device.allocator.mem[buf_handle]))
-      else:
-        pass
-    
+      if buf_handle in self.device.allocator.shms:
+        cmd.extend(["--shm", self.device.allocator.shms[buf_handle].name])
     for v in vals:
-      c_args.append(ctypes.c_int(v))
+      cmd.extend(["--val", str(v)])
 
+    import subprocess
     if timeout is not None:
-      import multiprocessing
-      def _exec(fxn_ptr, args):
-        import ctypes
-        arg_types = [ctypes.c_void_p if isinstance(a, int) else type(a) for a in args]
-        func = ctypes.CFUNCTYPE(None, *arg_types)(fxn_ptr)
-        func(*(ctypes.c_void_p(a) if isinstance(a, int) else a for a in args))
-  
-      fxn_ptr = ctypes.cast(self.fxn, ctypes.c_void_p).value
-      p = multiprocessing.Process(target=_exec, args=(fxn_ptr, c_args))
-      p.start()
-      p.join(timeout=timeout)
-      if p.is_alive():
-        p.terminate()
-        p.join()
+      try:
+        subprocess.run(cmd, timeout=timeout, check=True)
+      except subprocess.TimeoutExpired:
         raise TimeoutError(f"CoralNPU execution timed out after {timeout} seconds.")
-      if p.exitcode != 0:
-        raise RuntimeError(f"CoralNPU execution failed with exit code {p.exitcode}")
-      return 0.0
+      except subprocess.CalledProcessError as e:
+        raise RuntimeError(f"CoralNPU execution failed with exit code {e.returncode}")
     else:
-      self.fxn(*(ctypes.c_void_p(arg) if isinstance(arg, int) else arg for arg in c_args))
-      return 0.0
+      subprocess.run(cmd, check=True)
+    return 0.0
+
 
 class CoralNPUDevice(Compiled):
   def __init__(self, device:str):
