@@ -27,3 +27,6 @@
 - **Test Fidelity on Missing Dependencies:** Tests explicitly targeting specific LLVM CPU targets or missing device libraries should use `@unittest.skip` instead of generic exception swallowing.
 - **Test Suite Granularity:** Comprehensive test creation tasks must be explicitly decomposed into distinct, atomic test creation tasks.
 - **Zero-Divisor Resolution via Offset:** When replacing standard normal distributions with uniform/positive-only distributions to prevent zero-divisors, apply a constant offset (like `Tensor.rand() + 1.0`) to guarantee mathematical stability during `assert_allclose`.
+- **Cross-Compilation Error Handing Coverage:** Do not delete host cross-compilation error testing. Tests must organically cover `FileNotFoundError` or `CalledProcessError` exceptions gracefully to prove the system handles pipeline failures.
+- **Analytical Model Mocking:** When testing analytical models (e.g., `test_estimate_cost`), implement deterministic golden data without trivializing mathematical complexity or stochastic limits. Do not use unrealistic fake arrays (like `np.ones * 0.1` or `np.eye(4)`) just to make tests pass.
+- **Dynamic VMM Testing:** VMM ELF parsing tests must dynamically parse the symbol boundaries from a structurally compliant mocked ELF without relying on hardcoded `.bss` baselines (e.g., an artificial `0x80004000` payload).
