@@ -52,3 +52,4 @@
 - **Inline Imports Anti-Pattern:** Relocate all standard library imports to the top of the file to prevent redundant scope evaluation.
 - **Process Group Suicide (SIGKILL):** When a python orchestrator needs to SIGKILL subprocesses, the `multiprocessing` worker must be explicitly spawned with a distinct process group (`preexec_fn=os.setpgrp`).
 - **The .noinit Symbol Resolution Black Hole:** If variables are `static` or mangled, the Host's Python ELF loader has zero visibility. The compiler must emit an explicit, predictable symbol map or define a fixed physical anchor point via a linker script.
+- **Dynamic VMM Allocation Constraint:** The virtual memory allocator must strictly forbid hardcoded `0x80000000` mapping baselines. It MUST dynamically parse `.elf` bounds and accurately constrain VMM assignments against the true 32KB hardware limits without regressions.
