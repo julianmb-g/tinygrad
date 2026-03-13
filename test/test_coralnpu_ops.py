@@ -6,17 +6,18 @@ from unittest.mock import patch, MagicMock
 from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUProgram, CoralNPUDevice
 from tinygrad.device import BufferSpec
 
-def create_dummy_elf(path):
+def create_dummy_elf(path, base_addr=0x80004000):
+    import struct
     elf = bytearray(b'\x7fELF\x01\x01\x01\x00' + b'\x00'*8)
     elf += struct.pack("<2H I 3I I 6H",
-        2, 0xf3, 1, # e_type, e_machine, e_version
-        0, 0, 52, # e_entry, e_phoff, e_shoff (shdr at 52)
-        0, 52, 0, 0, 40, 3, 2 # e_flags, e_ehsize, e_phentsize, e_phnum, e_shentsize, e_shnum, e_shstrndx
+        2, 0xf3, 1,
+        0, 0, 52,
+        0, 52, 0, 0, 40, 3, 2
     )
     elf += b'\x00' * 40
     elf += struct.pack("<10I", 1, 2, 0, 0, 172, 16, 2, 0, 4, 16)
     elf += struct.pack("<10I", 9, 3, 0, 0, 188, 22, 0, 0, 1, 0)
-    elf += struct.pack("<IIIBBH", 17, 0x80004000, 0, 0, 0, 0)
+    elf += struct.pack("<IIIBBH", 17, base_addr, 0, 0, 0, 0)
     elf += b'\x00.symtab\x00.strtab\x00_end\x00'
     with open(path, "wb") as f: f.write(elf)
 
@@ -40,7 +41,22 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         self.allocator = CoralNPUAllocator(self.device)
 
     def test_elf_vmm_parsing(self):
-        self.assertEqual(self.allocator.vmm_base, 0x80004000)
+        import tempfile, os
+        from unittest.mock import patch
+        from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator
+        
+        # Test multiple deterministic golden values
+        golden_bases = [0x80010000, 0x80040000, 0x80080000]
+        for base in golden_bases:
+            fd, path = tempfile.mkstemp(suffix='.elf')
+            try:
+                create_dummy_elf(path, base)
+                with patch.dict(os.environ, {"CORALNPU_ELF": path}):
+                    alloc = CoralNPUAllocator(self.device)
+                    self.assertEqual(alloc.vmm_base, base)
+            finally:
+                os.close(fd)
+                os.unlink(path)
 
     def test_alloc_and_free(self):
         handle = self.allocator._alloc(100, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))

@@ -8,7 +8,7 @@ import tempfile
 import hashlib
 import numpy as np
 import shutil
-import random
+
 import struct
 from unittest.mock import patch
 from tinygrad.device import BufferSpec
@@ -19,8 +19,8 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         self.tmp_dir = tempfile.TemporaryDirectory()
         mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
         
-        # Dynamically generate a structurally compliant mock ELF with a random _end symbol baseline
-        self.mock_base = 0x80000000 + (random.randint(1, 100) * 0x1000)
+        # Dynamically generate a structurally compliant mock ELF with a deterministic _end symbol baseline
+        self.mock_base = 0x80040000
         e_ident = b'\x7fELF\x01' + b'\x00' * 11
         header = e_ident + struct.pack("<2H5I6H", 2, 243, 1, 0, 0, 52, 0, 40, 0, 0, 40, 3, 2)
         sh0 = struct.pack("<10I", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
@@ -67,35 +67,51 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
-        
-        import ctypes
-        @ctypes.CFUNCTYPE(None, ctypes.c_void_p)
-        def hanging_func(arg):
-            while True: time.sleep(1)
-            
-        program.fxn = hanging_func
-        
-        with self.assertRaises(TimeoutError):
-            program(vals=(10,), timeout=0.2)
+        import tempfile, os
+        with tempfile.TemporaryDirectory() as tmp_bin:
+            gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
+            sim_path = os.path.join(tmp_bin, "coralnpu_v2_sim")
+            with open(gcc_path, 'w') as f:
+                f.write("#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[-1], 'w') as out: out.write('dummy elf')\n")
+            with open(sim_path, 'w') as f:
+                f.write("#!/usr/bin/env python3\nimport time\nwhile True: time.sleep(1)\n")
+            os.chmod(gcc_path, 0o755)
+            os.chmod(sim_path, 0o755)
+            old_path = os.environ.get("PATH", "")
+            try:
+                os.environ["PATH"] = f"{tmp_bin}:{old_path}"
+                program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
+                with self.assertRaises(TimeoutError):
+                    program(vals=(10,), timeout=0.2)
+            finally:
+                os.environ["PATH"] = old_path
 
-    @unittest.skipIf(not shutil.which("riscv64-unknown-elf-gcc") or not shutil.which("coralnpu_v2_sim"), "Missing cross-compiler or simulator")
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
+        import tempfile, os
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
-            src = b"void write_success(void* ptr, int val, int size) { for(int i=0; i<size; i++) ((char*)ptr)[i] = val; }"
-            program = CoralNPUProgram(self.device, "write_success", src)
-            
-            import ctypes
-            @ctypes.CFUNCTYPE(None, ctypes.c_void_p, ctypes.c_int, ctypes.c_int)
-            def mock_success(ptr, val, size):
-                pass
-                
-            program.fxn = mock_success
-            program(handle, vals=(65, 3), timeout=5.0)
-            
+            with tempfile.TemporaryDirectory() as tmp_bin:
+                gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
+                sim_path = os.path.join(tmp_bin, "coralnpu_v2_sim")
+                with open(gcc_path, 'w') as f:
+                    f.write("#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[-1], 'w') as out: out.write('dummy elf')\n")
+                with open(sim_path, 'w') as f:
+                    f.write("#!/usr/bin/env python3\nimport sys, multiprocessing.shared_memory\nshm_name = sys.argv[sys.argv.index('--shm')+1]\nshm = multiprocessing.shared_memory.SharedMemory(name=shm_name)\nshm.buf[:3] = b'AAA'\nshm.close()\n")
+                os.chmod(gcc_path, 0o755)
+                os.chmod(sim_path, 0o755)
+                old_path = os.environ.get("PATH", "")
+                try:
+                    os.environ["PATH"] = f"{tmp_bin}:{old_path}"
+                    src = b"void write_success(void* ptr, int val, int size) { for(int i=0; i<size; i++) ((char*)ptr)[i] = val; }"
+                    program = CoralNPUProgram(self.device, "write_success", src)
+                    program(handle, vals=(65, 3), timeout=5.0)
+                    out = bytearray(3)
+                    self.allocator._copyout(memoryview(out).cast('B'), handle)
+                    self.assertEqual(bytes(out), b"AAA")
+                finally:
+                    os.environ["PATH"] = old_path
         finally:
             self.allocator._free(handle, dummy_options)
 
