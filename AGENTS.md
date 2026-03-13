@@ -3,14 +3,16 @@
 ## Lessons Learned
 
 ### Architecture Quirks
-- **Architecture Update:** Added a dynamic `coralnpu` backend compiling UOps into GCC RISC-V Zve32x code. Simulates out-of-band execution using an embedded neural network cost model (`BEAM_COST`) for auto-tuning.
 - **AST Limits:** Enforce `max_upcast = 32` in the custom renderer (e.g. `CoralNPURenderer`) to prevent massive AST explosion during auto-vectorization passes.
+- **Architecture Update:** Added a dynamic `coralnpu` backend compiling UOps into GCC RISC-V Zve32x code. Simulates out-of-band execution using an embedded neural network cost model (`BEAM_COST`) for auto-tuning.
 - **The Phantom DMA Engine Paradox:** An in-order scalar core cannot interleave an AXI `memcpy` loop with Vector ALU execution without a dedicated autonomous DMA controller. Memory fetch UOp passes must be strictly synchronous unless hardware DMA exists.
 - **W8A8 Activation Quantization Void:** Before issuing an INT8 vector MAC operation (`VDOT`), the incoming `fp16` activation tensors MUST be dynamically quantized; issuing `x_int8.dot(w_int8)` directly onto unquantized streams produces mathematical garbage.
 
 ### Testing Gotchas
-- **Architecture Update (Integration of ML to HW):** The ecosystem supports an end-to-end integration path. Tinygrad compiles to GCC RISC-V Zve32x C++, verified against the `mpact` instruction simulator (with Map-Elites) and `coralnpu` hardware co-simulation.
 - **AST Erasure via Hardcoded Compiler Defects:** Do not hardcode mathematically bloated compiler outputs as expected test boundaries just to achieve a passing test. Test assertions must enforce optimal algebraic representations.
+- **AST Simplification Fidelity:** Tests MUST mathematically assert the fully simplified optimal AST representation (e.g., `(b+a*15)`) instead of hardcoding bloated asymmetric fold defects.
+- **Analytical Cost Modeling Data:** Analytical validation tests MUST NOT excessively mock stochastic variance (`random.gauss`) or replace zeros with fake "happy-path" `np.ones` padding. Use deterministic golden tensors.
+- **Architecture Update (Integration of ML to HW):** The ecosystem supports an end-to-end integration path. Tinygrad compiles to GCC RISC-V Zve32x C++, verified against the `mpact` instruction simulator (with Map-Elites) and `coralnpu` hardware co-simulation.
 - **Autogen Dependencies (`libclang`):** When integrating or testing `tinygrad` or any autogen modules relying on `libclang`, ensure `LIBCLANG_PATH` is correctly exported in the container environment or the required LLVM package is installed. Failure to do so causes `AttributeError: failed to load library libclang` during test execution.
 - **CPU-Only Backend Enforcement:** To prevent ROCm/GPU compiler crashes in the orchestrator container, tests must forcefully use the CPU backend and ignore hardware-specific folders using `CPU=1 pytest --timeout=120 --timeout-method=thread test/backend/ test/unit/ test/null/ test/test_tiny.py`.
 - **CoralNPURenderer Unit Testing:** When testing AST limit boundaries (e.g. `RuntimeError` due to >32 float allocations), nodes must have identical depth constraints. Chaining dependents results in scalarized depths preventing the max-width check from exceeding limits. Use `unittest.mock.patch` to sidestep strict file constraints for missing ML models during environment-agnostic tests.
@@ -22,7 +24,9 @@
 - **Hardware Backend Testing:** The `coralnpu` rendering and runtime backend must have dedicated unit tests inside the ML frontend (`tinygrad/test/`), rather than blindly relying on out-of-band simulator validation.
 - **Hardware Co-Simulation Flow:** The hardware integration spans from `tinygrad` C++ kernels loaded as RISC-V ELF binaries into the `mpact` ISS to `cocotb` testbenches orchestrating Verilog/SystemVerilog RTL.
 - **IPC Reliability & Timeouts:** Prevent silent timeout deadlocks by adding aggressive timeout fallbacks for out-of-band IPC executions. Use `PYTHONUNBUFFERED=1 pytest -n auto --timeout=120 --timeout-method=thread` to force thread dumps on timeout. *Crucially, parallel execution (`-n auto`) is strictly required to prevent the overarching harness from blindly terminating the process before pytest can dump threads.*
+- **IPC Verification Boundary:** IPC watchdog tests must organically trigger via dummy out-of-band executables rather than skipping via `@unittest.skipIf`.
 - **IPC Watchdog Testing:** When testing execution watchdogs, do not bypass the application's runtime compilation and dispatch boundaries using `subprocess.run` mocks. Instead, organically trigger the application's `TimeoutError` paths by creating dummy out-of-band executables (e.g. an infinite sleep script) and temporarily injecting them into the environment `PATH` to guarantee full-fidelity evaluation.
+- **JIT Timeouts:** Property testing MUST implement explicit timeouts. Disabling deadlines completely via `@settings(deadline=None)` creates silent infinite loop masking vulnerabilities.
 - **ML Cost Validation:** Tests relying on ML cost model assertions must NOT filter by `cost > 0`. Because stochastic noise was replaced by deterministic outputs, the predicted cost for models can legitimately evaluate to exactly `0.0`. Hard filters on positive values will incorrectly drop valid model generations, failing the CI with `No valid candidates found`.
 - **Missing ROCm Device Library**: In environments lacking the ROCm device library, AMD handwritten tests (like `test_mfma_fp8`) must be explicitly skipped using `@unittest.skip` to prevent CI failures when testing the `amdgcn-amd-amdhsa` target.
 - **Mock Test Pruning:** When updating methods to explicitly raise `RuntimeError` (e.g., prohibiting host compilation), ensure any legacy tests that mock these methods (like `subprocess.check_call` for compiler fallback testing) are deleted rather than fixed, as they test obsolete behavior.
@@ -33,6 +37,7 @@
 - **Test Suite Masking (tinygrad):** A 'passing' test suite does not guarantee full validation if a massive amount of tests are skipped. Ensure skipped tests are analyzed to avoid masking true architectural failure surface areas.
 - **Test Suite Verification & Integrity:** Tests should not pass by blindly relying on string printing (e.g., `uart_puts("PASS")`) from unverified simulator environments. Structural architectural state (e.g., `mtval`/`stval` CSRs) must be verified. Implement deterministic golden inputs and strictly assert exact expected classification outputs (e.g., MobileNet).
 - **The $TEST_TMPDIR Inode Exhaustion Leak:** `mmap.close()` does not delete the file. High-frequency beam-search will exhaust disk inodes and crash the CI node. Mandate explicit `os.unlink(filepath)` for shared files immediately after subprocess termination.
+- **Unbounded Property Test Masking:** Do not disable execution timeouts on property-based tests (e.g., `@settings(deadline=None)` in Hypothesis) to mask flaky CI failures. This creates an unbounded timeline that masks infinite loops or severe JIT compilation regressions. Implement explicit bounding.
 
 ### Build Dependencies
 - **Hardcoded Executable Path Coupling:** Extract cross-compiler paths into configurable attributes rather than hardcoding to maintain hermetic Bazel execution.
@@ -52,9 +57,3 @@
 - **Process Group Suicide (SIGKILL):** When a python orchestrator needs to SIGKILL subprocesses, the `multiprocessing` worker must be explicitly spawned with a distinct process group (`preexec_fn=os.setpgrp`), otherwise `os.killpg` will instantly kill the parent CI pipeline.
 - **The .noinit Symbol Resolution Black Hole:** If variables are `static` or mangled, the Host's Python ELF loader has zero visibility. The compiler must emit an explicit, predictable symbol map or define a fixed physical anchor point via a linker script.
 
-### Recent Learnings
-- **AST Simplification Fidelity:** Tests MUST mathematically assert the fully simplified optimal AST representation (e.g., `(b+a*15)`) instead of hardcoding bloated asymmetric fold defects.
-- **IPC Verification Boundary:** IPC watchdog tests must organically trigger via dummy out-of-band executables rather than skipping via `@unittest.skipIf`. 
-- **Analytical Cost Modeling Data:** Analytical validation tests MUST NOT excessively mock stochastic variance (`random.gauss`) or replace zeros with fake "happy-path" `np.ones` padding. Use deterministic golden tensors.
-- **JIT Timeouts:** Property testing MUST implement explicit timeouts. Disabling deadlines completely via `@settings(deadline=None)` creates silent infinite loop masking vulnerabilities.
-- **Unbounded Property Test Masking:** Do not disable execution timeouts on property-based tests (e.g., `@settings(deadline=None)` in Hypothesis) to mask flaky CI failures. This creates an unbounded timeline that masks infinite loops or severe JIT compilation regressions. Implement explicit bounding.
