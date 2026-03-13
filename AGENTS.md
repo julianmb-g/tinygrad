@@ -33,3 +33,8 @@
 ### Miscellaneous
 - **W8A8 Activation Quantization Void:** Before issuing an INT8 vector MAC operation (`VDOT`), the incoming `fp16` activation tensors MUST be dynamically quantized; issuing `x_int8.dot(w_int8)` directly onto unquantized streams produces mathematical garbage.
 
+# Repo-Specific Lessons Learned (tinygrad)
+- **The $TEST_TMPDIR Inode Exhaustion Leak:** `mmap.close()` does not delete the file. High-frequency beam-search will exhaust disk inodes and crash the CI node. Mandate explicit `os.unlink(filepath)` for shared files immediately after subprocess termination.
+- **The Phantom DMA Engine Paradox:** An in-order scalar core cannot interleave an AXI `memcpy` loop with Vector ALU execution without a dedicated autonomous DMA controller. Memory fetch UOp passes must be strictly synchronous unless hardware DMA exists.
+- **The .noinit Symbol Resolution Black Hole:** If variables are `static` or mangled, the Host's Python ELF loader has zero visibility. The compiler must emit an explicit, predictable symbol map or define a fixed physical anchor point via a linker script.
+- **Process Group Suicide (SIGKILL):** When a python orchestrator needs to SIGKILL subprocesses, the `multiprocessing` worker must be explicitly spawned with a distinct process group (`preexec_fn=os.setpgrp`), otherwise `os.killpg` will instantly kill the parent CI pipeline.
