@@ -52,10 +52,11 @@ class TestCoralNPURenderer(unittest.TestCase):
     renderer = CoralNPURenderer()
     buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 128))
     buf_src = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
-    # A COPY uop copies from buf_src to buf_dest. In tinygrad AST, COPY returns void and takes (dest, src) in older versions, 
-    # but here we use the signature expected by our new code_for_op mapping which is (dest, src, dtype)
-    # Actually, UOp(Ops.COPY, dtype, (buf_src, buf_dest))
-    copy_uop = UOp(Ops.COPY, dtypes.float, (buf_dest, buf_src))
+    
+    # We define a chunk size via the COPY operation.
+    # In this custom lowering, COPY takes (dest, src) and returning void to emit as statement.
+    copy_uop = UOp(Ops.COPY, dtypes.void, (buf_dest, buf_src), arg=128 * 4) # arg is the byte size!
+    
     uops = [buf_dest, buf_src, copy_uop]
     src = renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
     self.assertIn("CORAL_DMA_ASYNC", src)

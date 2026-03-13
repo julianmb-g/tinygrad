@@ -736,9 +736,11 @@ class CoralNPURenderer(CStyleLanguage):
                 src = pre + sig_start + ')' + post
     return src
 
-  # Map operations to C code
   code_for_op = {
     **CStyleLanguage.code_for_op,
     Ops.MAX: lambda a,b,dtype: f"(({a}>{b})?{a}:{b})",
-    Ops.COPY: lambda dest, src, dtype: f"(CORAL_DMA_ASYNC(&({dest}), &({src}), sizeof({dtype.name})), CORAL_DMA_WAIT(), {dest})",
   }
+
+  string_rewrite = PatternMatcher([
+    (UPat(Ops.COPY, name="x"), lambda ctx, x: f"CORAL_DMA_ASYNC({ctx[x.src[0]]}, {ctx[x.src[1]]}, {x.arg if x.arg is not None else getattr(x.dtype, 'itemsize', 4)}); CORAL_DMA_WAIT()"),
+  ]) + getattr(CStyleLanguage, 'string_rewrite', PatternMatcher([]))
