@@ -53,3 +53,10 @@
 - **Process Group Suicide (SIGKILL):** When a python orchestrator needs to SIGKILL subprocesses, the `multiprocessing` worker must be explicitly spawned with a distinct process group (`preexec_fn=os.setpgrp`).
 - **The .noinit Symbol Resolution Black Hole:** If variables are `static` or mangled, the Host's Python ELF loader has zero visibility. The compiler must emit an explicit, predictable symbol map or define a fixed physical anchor point via a linker script.
 - **Dynamic VMM Allocation Constraint:** The virtual memory allocator must strictly forbid hardcoded `0x80000000` mapping baselines. It MUST dynamically parse `.elf` bounds and accurately constrain VMM assignments against the true 32KB hardware limits without regressions.
+# Lessons Learned
+
+## JIT Latency and Environment Masking
+- **Property Test Timeouts:** JIT compilation latency regressions that trigger property test timeouts (e.g., Hypothesis `DeadlineExceeded`) must never be bypassed by removing the explicit time bound (`deadline=None`). The latency bound is critical to preventing infinite loop masks and must either be explicitly scaled to accommodate the sandbox or the underlying regression fixed.
+- **Environment Masking:** IPC Watchdog tests must not be bypassed using trivial test skipping (e.g., `@unittest.skipIf`) on nodes lacking cross-compilers. They must be organically evaluated using injected dummy out-of-band executables to guarantee full-fidelity execution.
+- **Asymmetric AST Simplification:** Compilation defects producing mathematically unsimplified AST representations must not be "fixed" by hardcoding the bloated AST into test expectations. Tests must strictly assert the optimal, simplified representation to force compiler correction.
+
