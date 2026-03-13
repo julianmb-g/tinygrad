@@ -39,6 +39,27 @@ class TestCoralNPURenderer(unittest.TestCase):
     
     with self.assertRaisesRegex(RuntimeError, "AST upcast limit exceeded"):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
+
+  def test_dtcm_tiling_limit(self):
+    renderer = CoralNPURenderer()
+    # Create DEFINE_LOCAL UOp exceeding 12KB (12288 bytes)
+    # 3073 floats * 4 bytes/float = 12292 bytes
+    local_buf = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 3073))
+    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 12KB limit"):
+      renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], [local_buf])
+
+  def test_dma_macro_injection(self):
+    renderer = CoralNPURenderer()
+    buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 128))
+    buf_src = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
+    # A COPY uop copies from buf_src to buf_dest. In tinygrad AST, COPY returns void and takes (dest, src) in older versions, 
+    # but here we use the signature expected by our new code_for_op mapping which is (dest, src, dtype)
+    # Actually, UOp(Ops.COPY, dtype, (buf_src, buf_dest))
+    copy_uop = UOp(Ops.COPY, dtypes.float, (buf_dest, buf_src))
+    uops = [buf_dest, buf_src, copy_uop]
+    src = renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
+    self.assertIn("CORAL_DMA_ASYNC", src)
+    self.assertIn("CORAL_DMA_WAIT()", src)
     
   def test_estimate_cost_analytical(self):
     cost = estimate_cost_analytical(self.uops)

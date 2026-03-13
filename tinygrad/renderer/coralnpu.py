@@ -635,6 +635,21 @@ class CoralNPURenderer(CStyleLanguage):
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
         raise RuntimeError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
 
+    # Enforce DTCM Tiling limit (12KB)
+    dtcm_size = 0
+    from tinygrad.uop.ops import Ops
+    for u in uops:
+      if u.op is Ops.DEFINE_LOCAL:
+        size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
+        dtcm_size += size * getattr(u.dtype.base, 'itemsize', 1)
+    if dtcm_size > 12288:
+      raise RuntimeError(f"DTCM Tiling exceeded 12KB limit: {dtcm_size} bytes")
+
+    prefix.append("#ifndef CORAL_DMA_ASYNC")
+    prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) memcpy(dest, src, size)")
+    prefix.append("#define CORAL_DMA_WAIT() /* sync */")
+    prefix.append("#endif")
+
     # Inject UOp Graph as a human-readable comment block
     from tinygrad.uop.ops import multirange_str, Ops
     import re
@@ -725,4 +740,5 @@ class CoralNPURenderer(CStyleLanguage):
   code_for_op = {
     **CStyleLanguage.code_for_op,
     Ops.MAX: lambda a,b,dtype: f"(({a}>{b})?{a}:{b})",
+    Ops.COPY: lambda dest, src, dtype: f"(CORAL_DMA_ASYNC(&({dest}), &({src}), sizeof({dtype.name})), CORAL_DMA_WAIT(), {dest})",
   }
