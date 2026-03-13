@@ -33,3 +33,10 @@
 - **Test Environment Masking via Trivial Skipping:** Watchdog tests must organically evaluate the IPC boundary using isolated dummy script injections to guarantee full-fidelity execution. Trivial `@unittest.skipIf` checks masking missing toolchains are forbidden.
 - **JIT Compilation Latency Regressions:** Property test timeout regressions (e.g. `DeadlineExceeded` in Hypothesis) MUST NOT be bypassed by stripping the latency bound (`deadline=None`). The explicit timeout bound must be preserved and carefully scaled, or the underlying regression fixed, to prevent unbounded wait times masking infinite loops. This prevents flaky CI failures and silent infinite loops.
 - **EXTMEM Boundary & NaN Preservation:** When writing tests to verify that `before` memory states are not clobbered by allocations (e.g., asserting EXTMEM boundaries), explicitly encode and preserve `NaN` values using `struct.pack('f', float('nan'))` and `math.isnan()`. Do not rely on simplistic byte matching or zero-padding, as this falsely masks the `NaN` propagation rules and memory bounds nuances inside the runtime.
+
+### QA Lessons Learned (Cycle 28)
+- IPC boundaries must be organically evaluated using dummy executables, not skipped with `@unittest.skipIf`.
+- Cost models must be tested with deterministic golden data, avoiding simplistic fake arrays (`np.ones`, `np.eye`) or trivialized stochastics (`random.gauss` mocked).
+- Host cross-compilation execution tests must organically cover `FileNotFoundError` and `CalledProcessError` via dummy failing scripts, rather than being deleted.
+- VMM tests must dynamically parse symbol boundaries from structurally compliant mocked ELFs, strictly avoiding hardcoded baseline fallbacks (e.g. `0x80004000`).
+- JIT Compilation explicit timeout bounds must be preserved and scaled, not stripped, even during latency regressions.
