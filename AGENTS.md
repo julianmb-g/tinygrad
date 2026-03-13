@@ -51,3 +51,9 @@
 - **Inline Imports Anti-Pattern:** Relocate all standard library imports to the top of the file to prevent redundant scope evaluation.
 - **Process Group Suicide (SIGKILL):** When a python orchestrator needs to SIGKILL subprocesses, the `multiprocessing` worker must be explicitly spawned with a distinct process group (`preexec_fn=os.setpgrp`), otherwise `os.killpg` will instantly kill the parent CI pipeline.
 - **The .noinit Symbol Resolution Black Hole:** If variables are `static` or mangled, the Host's Python ELF loader has zero visibility. The compiler must emit an explicit, predictable symbol map or define a fixed physical anchor point via a linker script.
+
+### Recent Learnings
+- **AST Simplification Fidelity:** Tests MUST mathematically assert the fully simplified optimal AST representation (e.g., `(b+a*15)`) instead of hardcoding bloated asymmetric fold defects.
+- **IPC Verification Boundary:** IPC watchdog tests must organically trigger via dummy out-of-band executables rather than skipping via `@unittest.skipIf`. 
+- **Analytical Cost Modeling Data:** Analytical validation tests MUST NOT excessively mock stochastic variance (`random.gauss`) or replace zeros with fake "happy-path" `np.ones` padding. Use deterministic golden tensors.
+- **JIT Timeouts:** Property testing MUST implement explicit timeouts. Disabling deadlines completely via `@settings(deadline=None)` creates silent infinite loop masking vulnerabilities.
