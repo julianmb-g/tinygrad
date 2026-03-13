@@ -22,7 +22,7 @@ def _simple_test(add, extract=lambda x: x, N=10):
 
 class TestJit(unittest.TestCase):
 
-  @settings(deadline=10000)
+  @settings(deadline=int(getenv("CI_TIMEOUT", 10000)))
   @unittest.skipUnless(Device.DEFAULT in ["CPU"], f"no support on {Device.DEFAULT}")
   @given(strat.sampled_from([Tensor.exp2, Tensor.log2, Tensor.sin]))
   def test_approx_jit_timeout(self, op):
@@ -170,13 +170,13 @@ class TestJit(unittest.TestCase):
     @TinyJit
     def add_kwargs(first, second): return (first/second).realize()
     for _ in range(2):
-      a = Tensor.rand(10, 10) + 1.0
-      b = Tensor.rand(10, 10) + 1.0
+      a = Tensor.arange(100).reshape(10, 10) + 1.0
+      b = Tensor.arange(100).reshape(10, 10) + 2.0
       c = add_kwargs(second=b, first=a)
       np.testing.assert_allclose(c.numpy(), a.numpy()/b.numpy(), atol=1e-4, rtol=1e-5)
     for _ in range(2):
-      a = Tensor.rand(10, 10) + 1.0
-      b = Tensor.rand(10, 10) + 1.0
+      a = Tensor.arange(100).reshape(10, 10) + 1.0
+      b = Tensor.arange(100).reshape(10, 10) + 2.0
       c = add_kwargs(first=a, second=b)
       np.testing.assert_allclose(c.numpy(), a.numpy()/b.numpy(), atol=1e-4, rtol=1e-5)
     assert_jit_cache_len(add_kwargs, 1)

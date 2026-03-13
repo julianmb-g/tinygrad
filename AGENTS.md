@@ -68,3 +68,4 @@
 
 ### Lessons Learned
 - **Performance Regression Masking (Fragility):** Do not use `@settings(deadline=None)` for Hypothesis tests, as this masks infinite JIT loops.
+- **Zero-Divisor Resolution via Offset:** When replacing standard normal distributions (`Tensor.randn`) with uniform or positive-only distributions to prevent zero-divisors (e.g., `test_reorder_kwargs_jit`), applying a constant offset (like `Tensor.rand() + 1.0`) guarantees strict finite bounds and mathematical stability during `assert_allclose` checks.
