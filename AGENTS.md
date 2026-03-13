@@ -62,3 +62,6 @@
 - **Inline Imports Anti-Pattern:** All standard library imports must be placed at the top of the file.
 
 - **Upstream Sync LIBCLANG_PATH Dependency:** When running `pytest` in `tinygrad` to verify the upstream baseline or after a rebase, always explicitly provide `LIBCLANG_PATH=/usr/lib/llvm-19/lib/libclang.so` (or the equivalent dynamic object path), otherwise `libclang` binding failures will mask true test statuses.
+- **Dequantization FPU Dependency:** Dequantizing via FP16 scaling factors after a VDOT reduction loop still requires floating-point operations. If the hardware lacks an FPU, this will trigger an illegal instruction trap.
+- **VMM Heap Base Address Collision:** The Virtual Memory Manager cannot blindly assume a base address of `0x80000000`. It must dynamically parse the `.elf` symbol table to find the `_end` of static allocations or risk overwriting `.data` and `.bss` segments.
+- **DTCM Double-Buffering Mathematical Overflow:** When tiling loops, the limit (e.g., 12KB) must apply to the *sum* of all live `LOCAL` tensors to accommodate the stack overhead and prevent DTCM capacity overflow.
