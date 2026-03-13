@@ -1,1 +1,2 @@
 ### tinygrad Lessons Learned\n- **.bss Section Obliteration Flaw:** When using out-of-band IPC to stream host tensors before boot, explicitly declare main I/O arrays as file-scoped global arrays tagged with `__attribute__((section(".noinit")))` to prevent the C runtime `_start` sequence from zeroing them out.
+- **DTCM Tiling Limits:** Always enforce the 12KB DTCM limit in the renderer by explicitly verifying the sum of `Ops.DEFINE_LOCAL` buffer sizes to prevent runtime memory overflow, and lower DMA via `Ops.COPY` to asynchronous hardware macros like `CORAL_DMA_ASYNC`.
