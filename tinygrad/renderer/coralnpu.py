@@ -591,6 +591,9 @@ class CoralNPURenderer(CStyleLanguage):
   global_max = (1, 1, 1)
   local_max = (1, 1, 1)
   
+  # Limit upcasting to avoid massive AST explosions
+  max_upcast = 32
+  
   # Disable float vectorization to avoid scalarization issues with GCC + RISC-V Zve32x
   # Integer vectorization is handled by GCC auto-vectorization from scalar loops.
   supports_float4 = False
