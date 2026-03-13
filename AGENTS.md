@@ -39,3 +39,4 @@
 ### Miscellaneous
 - **Process Group Suicide (SIGKILL):** When a python orchestrator needs to SIGKILL subprocesses, the `multiprocessing` worker must be explicitly spawned with a distinct process group (`preexec_fn=os.setpgrp`), otherwise `os.killpg` will instantly kill the parent CI pipeline.
 - **W8A8 Activation Quantization Void:** Before issuing an INT8 vector MAC operation (`VDOT`), the incoming `fp16` activation tensors MUST be dynamically quantized; issuing `x_int8.dot(w_int8)` directly onto unquantized streams produces mathematical garbage.
+- **IPC Watchdog Testing:** When testing execution watchdogs, do not bypass the application's runtime compilation and dispatch boundaries using `subprocess.run` mocks. Instead, organically trigger the application's `TimeoutError` paths by creating dummy out-of-band executables (e.g. an infinite sleep script) and temporarily injecting them into the environment `PATH` to guarantee full-fidelity evaluation.
