@@ -38,14 +38,25 @@ class TestCoralNPURenderer(unittest.TestCase):
     
     # Test with mock dummy model
     import numpy as np
+    import random
+    w1 = np.arange(108, dtype=np.float32).reshape(27, 4) * 0.01 - 0.5
+    b1 = np.array([0.1, -0.2, 0.3, -0.4], dtype=np.float32)
+    w2 = np.arange(16, dtype=np.float32).reshape(4, 4) * 0.05 - 0.4
+    b2 = np.array([0.5, -0.1, 0.2, 0.0], dtype=np.float32)
+    w3 = np.array([[1.0, 0.5], [-1.0, 0.2], [0.5, -0.5], [0.1, 0.1]], dtype=np.float32)
+    b3 = np.array([2.0, 1.0], dtype=np.float32)
+    mean = np.arange(27, dtype=np.float32) * 0.1
+    std = np.arange(27, dtype=np.float32) * 0.05 + 0.1
+    
     coralnpu._cost_model = {
-      'w1': np.zeros((27, 4)), 'b1': np.zeros(4),
-      'w2': np.zeros((4, 4)), 'b2': np.zeros(4),
-      'w3': np.zeros((4, 2)), 'b3': np.array([1.0, 1.0]),
-      'mean': np.zeros(27), 'std': np.ones(27)
+      'w1': w1, 'b1': b1,
+      'w2': w2, 'b2': b2,
+      'w3': w3, 'b3': b3,
+      'mean': mean, 'std': std
     }
+    random.seed(42)
     cost = estimate_cost(self.uops)
-    self.assertTrue(cost >= 0)
+    self.assertAlmostEqual(cost, 8.493139132982789, places=5)
 
   def test_is_non_pow2(self):
     self.assertFalse(is_non_pow2(dtypes.float.vec(2)))
