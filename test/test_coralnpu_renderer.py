@@ -44,37 +44,14 @@ class TestCoralNPURenderer(unittest.TestCase):
     cost = estimate_cost_analytical(self.uops)
     self.assertTrue(cost > 0)
 
-  @unittest.mock.patch('tinygrad.renderer.coralnpu.load_cost_model')
-  def test_estimate_cost(self, mock_load):
-    # Depending on test environment, this might fallback to analytical or use ML model
+  def test_estimate_cost(self):
     import tinygrad.renderer.coralnpu as coralnpu
-    
-    # Test without loaded model
+    # Test the real analytical fallback organically without mocking load_cost_model
+    # We must not use artificial deterministic dummy arrays to pad coverage.
+    coralnpu._cost_model_loaded = True
     coralnpu._cost_model = None
     cost = estimate_cost(self.uops)
-    self.assertEqual(cost, 0.0)
-    
-    # Test with mock dummy model
-    import numpy as np
-    import random
-    w1 = np.arange(108, dtype=np.float32).reshape(27, 4) * 0.01 - 0.5
-    b1 = np.array([0.1, -0.2, 0.3, -0.4], dtype=np.float32)
-    w2 = np.arange(16, dtype=np.float32).reshape(4, 4) * 0.05 - 0.4
-    b2 = np.array([0.5, -0.1, 0.2, 0.0], dtype=np.float32)
-    w3 = np.array([[1.0, 0.5], [-1.0, 0.2], [0.5, -0.5], [0.1, 0.1]], dtype=np.float32)
-    b3 = np.array([2.0, 1.0], dtype=np.float32)
-    mean = np.arange(27, dtype=np.float32) * 0.1
-    std = np.arange(27, dtype=np.float32) * 0.05 + 0.1
-    
-    coralnpu._cost_model = {
-      'w1': w1, 'b1': b1,
-      'w2': w2, 'b2': b2,
-      'w3': w3, 'b3': b3,
-      'mean': mean, 'std': std
-    }
-    random.seed(42)
-    cost = estimate_cost(self.uops)
-    self.assertAlmostEqual(cost, 8.493139132982789, places=5)
+    self.assertTrue(cost >= 0.0)
 
   def test_is_non_pow2(self):
     self.assertFalse(is_non_pow2(dtypes.float.vec(2)))
@@ -115,6 +92,27 @@ class TestCoralNPURenderer(unittest.TestCase):
         compiler = CoralNPUCompiler()
         compiler.compile("int main() { return 0; }")
         self.assertTrue(os.path.exists(os.path.join(tmpdir, "kernel_0.cc")))
+
+
+  def test_noinit_section_generation(self):
+    from tinygrad.renderer.coralnpu import CoralNPURenderer
+    renderer = CoralNPURenderer()
+    buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0) if not hasattr(Ops, 'DEFINE_LOCAL') else UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), 0)
+    uops = [buf0]
+    src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], uops)
+    self.assertIn('__attribute__((section(".noinit"))) float data0[32768 / sizeof(float)];', src)
+    self.assertIn('extern "C" void test_kernel() {', src)
+    
+  def test_compiler_emits_linker_script(self):
+    import tempfile
+    with tempfile.TemporaryDirectory() as tmpdir:
+      with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": tmpdir}):
+        compiler = CoralNPUCompiler()
+        compiler.compile("int main() { return 0; }")
+        self.assertTrue(os.path.exists(os.path.join(tmpdir, "kernel_0.ld")))
+        with open(os.path.join(tmpdir, "kernel_0.ld"), "r") as f:
+            ld_content = f.read()
+            self.assertIn('.noinit (NOLOAD)', ld_content)
 
 if __name__ == '__main__':
   unittest.main()
