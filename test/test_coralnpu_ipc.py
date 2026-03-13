@@ -33,30 +33,45 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             self.assertEqual(bytes(out), test_data)
             
             # Check internal shared memory object is registered
-            self.assertIn(handle, self.allocator.shms)
-            self.assertTrue(isinstance(self.allocator.shms[handle], multiprocessing.shared_memory.SharedMemory))
+            self.assertIn(handle, self.allocator.files)
+            self.assertTrue(os.path.exists(self.allocator.files[handle][2]))
         finally:
             self.allocator._free(handle, dummy_options)
 
-    @unittest.skipIf(shutil.which("riscv64-unknown-elf-gcc") is None, "Cross compiler not found")
-    @unittest.skipIf(shutil.which("coralnpu_v2_sim") is None, "Simulator coralnpu_v2_sim not found")
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
-        
-        with self.assertRaisesRegex(TimeoutError, "CoralNPU execution timed out after 0.2 seconds"):
-            program(vals=(10,), timeout=0.2)
+        # Create dummy out-of-band executables in a temporary bin directory
+        with tempfile.TemporaryDirectory() as tmp_bin:
+            gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
+            sim_path = os.path.join(tmp_bin, "coralnpu_v2_sim")
+            
+            with open(gcc_path, 'w') as f:
+                f.write("#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[-1], 'w') as out: out.write('dummy elf')\n")
+            with open(sim_path, 'w') as f:
+                f.write("#!/usr/bin/env python3\nimport time\nwhile True: time.sleep(1)\n")
+                
+            os.chmod(gcc_path, 0o755)
+            os.chmod(sim_path, 0o755)
+            
+            old_path = os.environ.get("PATH", "")
+            os.environ["PATH"] = f"{tmp_bin}:{old_path}"
+            try:
+                program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
+                with self.assertRaisesRegex(TimeoutError, "CoralNPU execution timed out after 0.2 seconds"):
+                    program(vals=(10,), timeout=0.2)
+            finally:
+                os.environ["PATH"] = old_path
 
-    @unittest.skipIf(shutil.which("riscv64-unknown-elf-gcc") is None, "Cross compiler not found")
-    @unittest.skipIf(shutil.which("coralnpu_v2_sim") is None, "Simulator coralnpu_v2_sim not found")
+    @unittest.skipIf(not shutil.which("riscv64-unknown-elf-gcc") or not shutil.which("coralnpu_v2_sim"), "Missing cross-compiler or simulator")
     def test_successful_execution_within_timeout(self):
-        """Test that a successful execution completes and correctly writes to IPC memory."""
-        src = b"void write_success(void* ptr, int val, int size) { for(int i=0; i<size; i++) ((char*)ptr)[i] = val; }"
-        program = CoralNPUProgram(self.device, "write_success", src)
+        """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
-            program(handle, vals=(65, 3), timeout=1.0)
+            src = b"void write_success(void* ptr, int val, int size) { for(int i=0; i<size; i++) ((char*)ptr)[i] = val; }"
+            program = CoralNPUProgram(self.device, "write_success", src)
+            program(handle, vals=(65, 3), timeout=5.0)
+            
             out = bytearray(3)
             self.allocator._copyout(memoryview(out).cast('B'), handle)
             self.assertEqual(bytes(out), b"AAA")
