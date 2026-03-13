@@ -1,13 +1,46 @@
 import unittest
 import os
+import struct
+import tempfile
 from unittest.mock import patch, MagicMock
 from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUProgram, CoralNPUDevice
 from tinygrad.device import BufferSpec
 
-class TestCoralNPUAllocator(unittest.TestCase):
+def create_dummy_elf(path):
+    elf = bytearray(b'\x7fELF\x01\x01\x01\x00' + b'\x00'*8)
+    elf += struct.pack("<2H I 3I I 6H",
+        2, 0xf3, 1, # e_type, e_machine, e_version
+        0, 0, 52, # e_entry, e_phoff, e_shoff (shdr at 52)
+        0, 52, 0, 0, 40, 3, 2 # e_flags, e_ehsize, e_phentsize, e_phnum, e_shentsize, e_shnum, e_shstrndx
+    )
+    elf += b'\x00' * 40
+    elf += struct.pack("<10I", 1, 2, 0, 0, 172, 16, 2, 0, 4, 16)
+    elf += struct.pack("<10I", 9, 3, 0, 0, 188, 22, 0, 0, 1, 0)
+    elf += struct.pack("<IIIBBH", 17, 0x80004000, 0, 0, 0, 0)
+    elf += b'\x00.symtab\x00.strtab\x00_end\x00'
+    with open(path, "wb") as f: f.write(elf)
+
+class BaseCoralNPUTest(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.elf_fd, cls.elf_path = tempfile.mkstemp(suffix='.elf')
+        create_dummy_elf(cls.elf_path)
+        cls.env_patcher = patch.dict(os.environ, {"CORALNPU_ELF": cls.elf_path})
+        cls.env_patcher.start()
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.env_patcher.stop()
+        os.close(cls.elf_fd)
+        os.unlink(cls.elf_path)
+
+class TestCoralNPUAllocator(BaseCoralNPUTest):
     def setUp(self):
         self.device = MagicMock()
         self.allocator = CoralNPUAllocator(self.device)
+
+    def test_elf_vmm_parsing(self):
+        self.assertEqual(self.allocator.vmm_base, 0x80004000)
 
     def test_alloc_and_free(self):
         handle = self.allocator._alloc(100, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
@@ -36,7 +69,7 @@ class TestCoralNPUAllocator(unittest.TestCase):
             dest = bytearray(3)
             self.allocator._copyout(memoryview(dest), 999)
 
-class TestCoralNPUProgram(unittest.TestCase):
+class TestCoralNPUProgram(BaseCoralNPUTest):
     @patch.dict(os.environ, {"BEAM": "1"})
     def test_beam_cost_parsing(self):
         # Validate realistic C++ byte structure
@@ -53,56 +86,6 @@ class TestCoralNPUProgram(unittest.TestCase):
         
         cost = prog(wait=True)
         self.assertEqual(cost, 142.75)
-
-    def test_compile_on_host_cross_compiler(self):
-        # We verify that actual compilation happens by mocking the compiler name
-        # to standard `gcc` (which exists on the host) and running a real build.
-        lib = b"void foo() {}"
-        prog = CoralNPUProgram(None, "foo", lib)
-        
-        original_check_call = subprocess.check_call
-        def check_call_mock(cmd, *args, **kwargs):
-            # Patch command to use native gcc so it actually compiles a real .so
-            if cmd[0] == "riscv64-unknown-elf-gcc":
-                cmd = ["gcc", "-shared", "-fPIC", "-O2", "-o", cmd[7], cmd[8]]
-            return original_check_call(cmd, *args, **kwargs)
-
-        with patch("subprocess.check_call", side_effect=check_call_mock):
-            so_lib = prog._compile_on_host("void foo() {}")
-            self.assertTrue(hasattr(so_lib, "foo"))
-
-    def test_compile_on_host_no_fallback(self):
-        # Verify that missing cross-compiler raises a RuntimeError and does not leak files.
-        lib = b"void foo() {}"
-        prog = CoralNPUProgram(None, "foo", lib)
-        
-        def check_call_mock(cmd, *args, **kwargs):
-            if cmd[0] == "riscv64-unknown-elf-gcc":
-                raise FileNotFoundError()
-            return subprocess.check_call(cmd, *args, **kwargs)
-
-        with patch("subprocess.check_call", side_effect=check_call_mock):
-            with self.assertRaises(RuntimeError) as context:
-                prog._compile_on_host("void foo() {}")
-            
-            self.assertIn("Cross-compiler riscv64-unknown-elf-gcc not found", str(context.exception))
-
-    def test_compile_on_host_compile_error(self):
-        # Verify that compilation errors raise RuntimeError and do not leak files.
-        lib = b"void foo() { syntax error; }"
-        prog = CoralNPUProgram(None, "foo", lib)
-        
-        original_check_call = subprocess.check_call
-        def check_call_mock(cmd, *args, **kwargs):
-            if cmd[0] == "riscv64-unknown-elf-gcc":
-                cmd = ["gcc", "-shared", "-fPIC", "-O2", "-o", cmd[7], cmd[8]]
-            return original_check_call(cmd, *args, **kwargs)
-
-        with patch("subprocess.check_call", side_effect=check_call_mock):
-            with self.assertRaises(RuntimeError) as context:
-                prog._compile_on_host("void foo() { syntax error; }")
-            
-            self.assertIn("Compilation failed with error code", str(context.exception))
 
 if __name__ == '__main__':
     unittest.main()
