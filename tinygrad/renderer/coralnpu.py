@@ -621,6 +621,11 @@ class CoralNPURenderer(CStyleLanguage):
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
     prefix = prefix or []
     
+    # Enforce AST limit: max_upcast
+    for u in uops:
+      if getattr(u.dtype, 'count', 1) > self.max_upcast:
+        raise RuntimeError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
+
     # Inject UOp Graph as a human-readable comment block
     from tinygrad.uop.ops import multirange_str, Ops
     import re

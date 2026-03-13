@@ -22,6 +22,24 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn('mem_ratio', feats)
     self.assertTrue(feats['log_total_uops'] > 0)
     
+  def test_max_upcast(self):
+    renderer = CoralNPURenderer()
+    
+    uops = []
+    buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
+    idx = UOp(Ops.CONST, dtypes.int, (), 0)
+    
+    vec_srcs = []
+    for i in range(33):
+      ld = UOp(Ops.LOAD, dtypes.float, (buf0, UOp(Ops.CONST, dtypes.int, (), i)), None)
+      vec_srcs.append(ld)
+    
+    vec = UOp(Ops.VECTORIZE, dtypes.float.vec(33), tuple(vec_srcs), None)
+    uops = [buf0, idx] + vec_srcs + [vec]
+    
+    with self.assertRaisesRegex(RuntimeError, "AST upcast limit exceeded"):
+      renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
+    
   def test_estimate_cost_analytical(self):
     cost = estimate_cost_analytical(self.uops)
     self.assertTrue(cost > 0)
