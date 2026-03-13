@@ -49,3 +49,9 @@
 - **Tinygrad W8A8 Activation Quantization Void:** Full INT8 Quantization (`x_int8.dot(w_int8)`) requires dynamically quantizing incoming `fp16` activations *before* issuing `VDOT`.
 - **W8A8 Activation Quantization Void:** Before issuing an INT8 vector MAC operation (`VDOT`), the incoming `fp16` activation tensors MUST be dynamically quantized; issuing `x_int8.dot(w_int8)` directly onto unquantized streams produces mathematical garbage.
 
+- **AST Erasure via Hardcoded Compiler Defects:** Tests must mathematically assert the optimal AST representation to enforce compilation fidelity. Do not hardcode mathematically unsimplified, bloated AST representations.
+- **Test Environment Masking via Trivial Skipping:** Tests must organically evaluate the IPC boundary using isolated dummy script injections instead of using `@unittest.skipIf`.
+- **The .noinit Symbol Resolution Black Hole:** `static` or mangled variables prevent host Python ELF loader visibility. The compiler MUST emit a deterministic linker script or physical anchor point.
+- **The Phantom DMA Engine Paradox:** In-order scalar cores cannot organically interleave AXI memcpy loops with Vector ALU execution. Operations crossing the AddrSpace boundary MUST emit synchronous DMA burst abstractions if an autonomous hardware DMA controller is absent.
+- **Deterministic Verification Masking via Zero-Divisors:** Forbid unhandled zero-tensors and reliance on `Inf`/`NaN` comparisons during tensor output checks to avoid fraudulent 'happy-path' assertions.
+- **Test-Ignorant Pipeline Deadlock Defenses:** Test suite execution must exclude inherently flaky property-testing frameworks or explicitly configure timeouts (like `@settings(deadline=None)`) to prevent sandbox latency from triggering false mathematical failures.
