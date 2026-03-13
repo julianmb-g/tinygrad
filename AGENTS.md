@@ -57,3 +57,6 @@
 - **Process Group Suicide (SIGKILL):** When a python orchestrator needs to SIGKILL subprocesses, the `multiprocessing` worker must be explicitly spawned with a distinct process group (`preexec_fn=os.setpgrp`), otherwise `os.killpg` will instantly kill the parent CI pipeline.
 - **The .noinit Symbol Resolution Black Hole:** If variables are `static` or mangled, the Host's Python ELF loader has zero visibility. The compiler must emit an explicit, predictable symbol map or define a fixed physical anchor point via a linker script.
 
+- **Zero-Divisor Prevention:** Tests verifying complex neural networks or JIT compilation MUST explicitly forbid passing validations based on zero-divisors or NaN/Inf comparisons inside assert_allclose().
+- **Global PATH Coupling in Tests:** Do not mutate os.environ["PATH"] globally in tests; use unittest.mock.patch.dict or parameterized binary paths.
+- **Inline Imports Anti-Pattern:** All standard library imports must be placed at the top of the file.
