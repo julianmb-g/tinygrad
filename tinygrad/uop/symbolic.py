@@ -35,13 +35,21 @@ def fold_add_divmod_recombine(x:UOp) -> UOp|None:
     for j,v in enumerate(terms):
       if i == j: continue
       if v.op is not Ops.MUL or v.src[1].op is not Ops.CONST or v.src[1].arg != div*mul: continue
-      q, exact = v.src[0], False
-      # (base%div)*mul + (base//div)*(div*mul) -> base*mul
-      if q.op is Ops.IDIV and q.src[1].op is Ops.CONST and q.src[1].arg == div: exact = q.src[0] is base
-      # ((base//d)%div)*mul + (base//(d*div))*(div*mul) -> (base//d)*mul
+      q = v.src[0]
+      q_terms = list(q.split_uop(Ops.ADD))
+      match_div, exact = None, False
+      base_div1 = (base // div).simplify()
+      for qi in q_terms:
+        if qi is base_div1: match_div, exact = qi, True; break
       if not exact and base.op is Ops.IDIV and base.src[1].op is Ops.CONST:
-        exact = q.op is Ops.IDIV and q.src[1].op is Ops.CONST and q.src[0] is base.src[0] and q.src[1].arg == base.src[1].arg*div
-      if exact: return functools.reduce(operator.add, (t for k,t in enumerate(terms) if k not in (i,j)), base*mul)
+        base_div2 = (base.src[0] // (base.src[1].arg * div)).simplify()
+        for qi in q_terms:
+          if qi is base_div2: match_div, exact = qi, True; break
+      if exact:
+        new_term = base * mul
+        q_rest = [t for t in q_terms if t is not match_div]
+        if len(q_rest) > 0: new_term += functools.reduce(operator.add, q_rest) * (div*mul)
+        return functools.reduce(operator.add, (t for k,t in enumerate(terms) if k not in (i,j)), new_term)
       # ((base//div)%d)*div + base%div -> base%(div*d)
       if mul == 1 and div > 0 and q.op is Ops.MOD and q.src[1].op is Ops.CONST and (d:=q.src[1].arg) > 0 and q.src[0].op is Ops.IDIV:
         if q.src[0].src[0] is base and q.src[0].src[1].op is Ops.CONST and q.src[0].src[1].arg == div:

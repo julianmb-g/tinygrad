@@ -60,3 +60,4 @@
 - **Environment Masking:** IPC Watchdog tests must not be bypassed using trivial test skipping (e.g., `@unittest.skipIf`) on nodes lacking cross-compilers. They must be organically evaluated using injected dummy out-of-band executables to guarantee full-fidelity execution.
 - **Asymmetric AST Simplification:** Compilation defects producing mathematically unsimplified AST representations must not be "fixed" by hardcoding the bloated AST into test expectations. Tests must strictly assert the optimal, simplified representation to force compiler correction.
 
+- **Asymmetric AST Simplification Logic**: When recombining `IDIV` and `MOD` operations within factored `Ops.ADD` UOps, the symbolic simplifier must evaluate `(base // div).simplify()` and search the expanded additive terms rather than naively checking `q.src[0] is base`. Constant term factoring causes equivalent operations (e.g., `(a*5+b)//10`) to simplify to unrelated AST branches (e.g., `(a+b//5)//2`).
