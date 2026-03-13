@@ -55,3 +55,8 @@
 - **The Phantom DMA Engine Paradox:** In-order scalar cores cannot organically interleave AXI memcpy loops with Vector ALU execution. Operations crossing the AddrSpace boundary MUST emit synchronous DMA burst abstractions if an autonomous hardware DMA controller is absent.
 - **Deterministic Verification Masking via Zero-Divisors:** Forbid unhandled zero-tensors and reliance on `Inf`/`NaN` comparisons during tensor output checks to avoid fraudulent 'happy-path' assertions.
 - **Test-Ignorant Pipeline Deadlock Defenses:** Test suite execution must exclude inherently flaky property-testing frameworks or explicitly configure timeouts (like `@settings(deadline=None)`) to prevent sandbox latency from triggering false mathematical failures.
+# Tinygrad Lessons Learned
+
+- **Inline Imports Anti-Pattern:** Relocate all standard library imports to the top of the file to prevent redundant scope evaluation.
+- **Global State Mutation in Tests:** Use `unittest.mock.patch.dict` for `os.environ` modifications to avoid race conditions during parallel testing (`pytest -n auto`).
+- **Hardcoded Executable Path Coupling:** Extract cross-compiler paths into configurable attributes rather than hardcoding to maintain hermetic Bazel execution.
