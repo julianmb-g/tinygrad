@@ -57,3 +57,4 @@
 - **IPC Verification Boundary:** IPC watchdog tests must organically trigger via dummy out-of-band executables rather than skipping via `@unittest.skipIf`. 
 - **Analytical Cost Modeling Data:** Analytical validation tests MUST NOT excessively mock stochastic variance (`random.gauss`) or replace zeros with fake "happy-path" `np.ones` padding. Use deterministic golden tensors.
 - **JIT Timeouts:** Property testing MUST implement explicit timeouts. Disabling deadlines completely via `@settings(deadline=None)` creates silent infinite loop masking vulnerabilities.
+- **Unbounded Property Test Masking:** Do not disable execution timeouts on property-based tests (e.g., `@settings(deadline=None)` in Hypothesis) to mask flaky CI failures. This creates an unbounded timeline that masks infinite loops or severe JIT compilation regressions. Implement explicit bounding.
