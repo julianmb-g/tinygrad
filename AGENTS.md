@@ -60,3 +60,5 @@
 - **Zero-Divisor Prevention:** Tests verifying complex neural networks or JIT compilation MUST explicitly forbid passing validations based on zero-divisors or NaN/Inf comparisons inside assert_allclose().
 - **Global PATH Coupling in Tests:** Do not mutate os.environ["PATH"] globally in tests; use unittest.mock.patch.dict or parameterized binary paths.
 - **Inline Imports Anti-Pattern:** All standard library imports must be placed at the top of the file.
+
+- **Upstream Sync LIBCLANG_PATH Dependency:** When running `pytest` in `tinygrad` to verify the upstream baseline or after a rebase, always explicitly provide `LIBCLANG_PATH=/usr/lib/llvm-19/lib/libclang.so` (or the equivalent dynamic object path), otherwise `libclang` binding failures will mask true test statuses.
