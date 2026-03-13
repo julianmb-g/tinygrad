@@ -2,7 +2,9 @@ import unittest
 import os
 import struct
 import tempfile
+import subprocess
 from unittest.mock import patch, MagicMock
+import math
 from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUProgram, CoralNPUDevice
 from tinygrad.device import BufferSpec
 
@@ -41,7 +43,6 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         self.allocator = CoralNPUAllocator(self.device)
 
     def test_elf_vmm_parsing(self):
-        import tempfile, os
         from unittest.mock import patch
         from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator
         
@@ -84,6 +85,41 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         with self.assertRaises(ValueError):
             dest = bytearray(3)
             self.allocator._copyout(memoryview(dest), 999)
+            
+    def test_invalid_tensor_extmem_boundary(self):
+        # Assert that the allocator preserves EXTMEM before space and handles NaN during execution
+        handle = self.allocator._alloc(4, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        
+        # Pack a NaN float into 4 bytes
+        nan_bytes = struct.pack('f', float('nan'))
+        self.allocator._copyin(handle, memoryview(nan_bytes))
+        
+        # Allocate adjacent tensor for the execution to write to, ensuring it doesn't overflow to handle
+        handle2 = self.allocator._alloc(4, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        
+        # Execute a dummy program that does nothing (or writes to handle2) to see if simulator clobbers handle's memory space
+        # We need a dummy simulator!
+        with tempfile.TemporaryDirectory() as tmp_bin:
+            gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
+            sim_path = os.path.join(tmp_bin, "coralnpu_v2_sim")
+            with open(gcc_path, 'w') as f:
+                f.write("#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[-1], 'w') as out: out.write('dummy elf')\n")
+            with open(sim_path, 'w') as f:
+                f.write("#!/usr/bin/env python3\nimport sys, multiprocessing.shared_memory\nshm_name = sys.argv[sys.argv.index('--shm')+1]\nshm = multiprocessing.shared_memory.SharedMemory(name=shm_name)\nshm.close()\n")
+            os.chmod(gcc_path, 0o755)
+            os.chmod(sim_path, 0o755)
+            
+            with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{os.environ.get('PATH', '')}"}):
+                self.allocator.device.allocator = self.allocator
+                prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
+                prog(handle2, wait=False)
+
+        dest = bytearray(4)
+        self.allocator._copyout(memoryview(dest), handle)
+        out_val = struct.unpack('f', dest)[0]
+        self.assertTrue(math.isnan(out_val), "EXTMEM before space clobbered by simulator execution")
+        self.allocator._free(handle, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        self.allocator._free(handle2, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
 
 class TestCoralNPUProgram(BaseCoralNPUTest):
     @patch.dict(os.environ, {"BEAM": "1"})
@@ -102,6 +138,26 @@ class TestCoralNPUProgram(BaseCoralNPUTest):
         
         cost = prog(wait=True)
         self.assertEqual(cost, 142.75)
+
+    def test_compile_error(self):
+        with tempfile.TemporaryDirectory() as tmp_bin:
+            gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
+            with open(gcc_path, 'w') as f:
+                f.write("#!/usr/bin/env bash\necho 'syntax error' >&2\nexit 1\n")
+            os.chmod(gcc_path, 0o755)
+            with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{os.environ.get('PATH', '')}"}):
+                prog = CoralNPUProgram(None, "kernel", b"void kernel() {}")
+                with self.assertRaises(RuntimeError) as ctx:
+                    prog(wait=False)
+                self.assertIn("Cross-compilation failed", str(ctx.exception))
+
+    def test_missing_compiler(self):
+        with tempfile.TemporaryDirectory() as tmp_bin:
+            with patch.dict(os.environ, {"PATH": tmp_bin}):
+                prog = CoralNPUProgram(None, "kernel", b"void kernel() {}")
+                with self.assertRaises(FileNotFoundError) as ctx:
+                    prog(wait=False)
+                self.assertIn("Missing cross-compiler", str(ctx.exception))
 
 if __name__ == '__main__':
     unittest.main()
