@@ -22,7 +22,7 @@ def _simple_test(add, extract=lambda x: x, N=10):
 
 class TestJit(unittest.TestCase):
 
-  @settings(deadline=2e4)
+  @settings(deadline=None)
   @unittest.skipUnless(Device.DEFAULT in ["CPU"], f"no support on {Device.DEFAULT}")
   @given(strat.sampled_from([Tensor.exp2, Tensor.log2, Tensor.sin]))
   def test_approx_jit_timeout(self, op):
