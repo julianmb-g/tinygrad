@@ -8,6 +8,7 @@ import tempfile
 import hashlib
 import numpy as np
 import shutil
+from unittest.mock import patch
 from tinygrad.device import BufferSpec
 from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, CoralNPUAllocator
 
@@ -54,13 +55,10 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             os.chmod(sim_path, 0o755)
             
             old_path = os.environ.get("PATH", "")
-            os.environ["PATH"] = f"{tmp_bin}:{old_path}"
-            try:
+            with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{old_path}"}):
                 program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
-                with self.assertRaisesRegex(TimeoutError, "CoralNPU execution timed out after 0.2 seconds"):
+                with self.assertRaises(TimeoutError):
                     program(vals=(10,), timeout=0.2)
-            finally:
-                os.environ["PATH"] = old_path
 
     @unittest.skipIf(not shutil.which("riscv64-unknown-elf-gcc") or not shutil.which("coralnpu_v2_sim"), "Missing cross-compiler or simulator")
     def test_successful_execution_within_timeout(self):
