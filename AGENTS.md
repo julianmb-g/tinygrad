@@ -61,3 +61,7 @@
 - **Asymmetric AST Simplification:** Compilation defects producing mathematically unsimplified AST representations must not be "fixed" by hardcoding the bloated AST into test expectations. Tests must strictly assert the optimal, simplified representation to force compiler correction.
 
 - **Asymmetric AST Simplification Logic**: When recombining `IDIV` and `MOD` operations within factored `Ops.ADD` UOps, the symbolic simplifier must evaluate `(base // div).simplify()` and search the expanded additive terms rather than naively checking `q.src[0] is base`. Constant term factoring causes equivalent operations (e.g., `(a*5+b)//10`) to simplify to unrelated AST branches (e.g., `(a+b//5)//2`).
+
+- **Test Environment Masking via Trivial Skipping:** Watchdog tests must organically evaluate the IPC boundary using isolated dummy script injections to guarantee full-fidelity execution. Trivial `@unittest.skipIf` checks masking missing toolchains are forbidden.
+- **Deterministic Mathematical Verification & Zero-Divisors:** Tests verifying mathematical correctness must explicitly forbid unhandled zero-tensors and reliance on `Inf`/`NaN` comparisons during tensor output checks.
+- **Property Test Timeout Vacuum:** Tests must have explicit latency bounds. Allowing unbounded deadlines (e.g., `@settings(deadline=None)`) bypasses sandbox latency boundaries and masks infinite JIT compilation loops, which is strictly forbidden.
