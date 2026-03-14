@@ -577,6 +577,13 @@ class CoralNPUCompiler(Compiler):
       self.kernel_counter += 1
     return src.encode()
 
+def _vdot_rewrite(m, a, b):
+  if m.dtype.scalar() != dtypes.float16: return None
+  if a.dtype.scalar() not in (dtypes.int8, dtypes.uint8): return None
+  if b.dtype.scalar() not in (dtypes.int8, dtypes.uint8): return None
+  out_dtype = dtypes.int32.vec(a.dtype.count) if getattr(a.dtype, 'count', 1) > 1 else dtypes.int32
+  return UOp(Ops.CAST, m.dtype, (UOp(Ops.CUSTOM, out_dtype, (a, b), arg="VDOT({0}, {1})"),))
+
 class CoralNPURenderer(CStyleLanguage):
   """
   Define the syntax structures, type maps, and code-generation rules tailored to
@@ -620,8 +627,12 @@ class CoralNPURenderer(CStyleLanguage):
   type_map = {dtypes.bool: "signed char", dtypes.int8: "int8_t", dtypes.uint8: "uint8_t", dtypes.int16: "int16_t", dtypes.uint16: "uint16_t", dtypes.int32: "int32_t", dtypes.uint32: "uint32_t", dtypes.int64: "int64_t", dtypes.uint64: "uint64_t", dtypes.float32: "float", dtypes.float64: "double"}
 
   pre_matcher = pm_scalarize_non_pow2 + sym
-
+  
   extra_matcher = PatternMatcher([
+    (UPat(Ops.MUL, name="m", src=(
+      UPat(Ops.CAST, src=(UPat(name="a"),)),
+      UPat(Ops.CAST, src=(UPat(name="b"),))
+    )), _vdot_rewrite)
   ])
 
   def __init__(self):
