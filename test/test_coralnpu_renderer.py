@@ -86,10 +86,11 @@ class TestCoralNPURenderer(unittest.TestCase):
     coralnpu._cost_model_loaded = True
     coralnpu._cost_model = {'w1': w1, 'b1': b1, 'w2': w2, 'b2': b2, 'w3': w3, 'b3': b3, 'mean': mean, 'std': std}
     
+    random.seed(0)
     cost = estimate_cost(self.uops)
     
     # Asserting the specific cost derived from the model weights within stochastic bounds
-    self.assertTrue(500.0 < cost < 1500.0, f"Stochastic cost {cost} out of bounds")
+    self.assertAlmostEqual(cost, 812.5814072431974, places=5)
 
   @unittest.expectedFailure
   def test_bss_obliteration_expected_failure(self):
