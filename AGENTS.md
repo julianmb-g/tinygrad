@@ -1,2 +1,7 @@
-### tinygrad Lessons Learned\n- **.bss Section Obliteration Flaw:** When using out-of-band IPC to stream host tensors before boot, explicitly declare main I/O arrays as file-scoped global arrays tagged with `__attribute__((section(".noinit")))` to prevent the C runtime `_start` sequence from zeroing them out.
-- **DTCM Tiling Limits:** Always enforce the 12KB DTCM limit in the renderer by explicitly verifying the sum of `Ops.DEFINE_LOCAL` buffer sizes to prevent runtime memory overflow, and lower DMA via `Ops.COPY` to asynchronous hardware macros like `CORAL_DMA_ASYNC`.
+# tinygrad Agent Instructions
+
+## Lessons Learned
+
+### Architecture Quirks
+- **.bss Section Obliteration Flaw:** When using out-of-band IPC to stream host tensors before boot, explicitly declare main I/O arrays as file-scoped global arrays tagged with `__attribute__((section(".noinit")))` to prevent the C runtime `_start` sequence from zeroing them out.
+- **DTCM Tiling Limits & Double-Buffering Overflows:** Always enforce the 12KB DTCM limit in the renderer by explicitly verifying the sum of `Ops.DEFINE_LOCAL` buffer sizes. When tiling loops, chunks must be strictly scaled to accommodate stack overhead (e.g., <= 12KB chunks, not 16KB). The limit applies to the sum of all live `LOCAL` tensors to prevent runtime memory overflow, and lower DMA via `Ops.COPY` to asynchronous hardware macros like `CORAL_DMA_ASYNC`.
