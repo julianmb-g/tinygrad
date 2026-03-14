@@ -136,5 +136,35 @@ class TestCoralNPURenderer(unittest.TestCase):
             ld_content = f.read()
             self.assertIn('.noinit (NOLOAD)', ld_content)
 
+
+  def test_vdot_mapping(self):
+    from tinygrad.tensor import Tensor
+    from tinygrad.device import Device
+    import unittest.mock
+    
+    with unittest.mock.patch('tinygrad.runtime.ops_coralnpu.CoralNPUAllocator'):
+      old_default = Device.DEFAULT
+      Device.DEFAULT = "CORALNPU"
+      try:
+        x = Tensor.empty(1, 16).cast("int8")
+        w = Tensor.empty(16, 16).cast("int8")
+        out = x.cast("float16").matmul(w.cast("float16").T)
+        
+        schedule = out.schedule()
+        vdot_found = False
+        
+        for si in schedule:
+          if si.ast.op.name == "SINK":
+            from tinygrad.engine.realize import get_runner
+            device = getattr(si.bufs[0], "device", "CORALNPU")
+            runner = get_runner(device, si.ast)
+            src = runner.p.src
+            if "VDOT" in src and "int32_t" in src:
+              vdot_found = True
+              break
+              
+        self.assertTrue(vdot_found, "VDOT and int32_t accumulator deferral not found in organic compilation.")
+      finally:
+        Device.DEFAULT = old_default
 if __name__ == '__main__':
   unittest.main()
