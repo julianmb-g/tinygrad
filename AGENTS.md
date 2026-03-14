@@ -16,3 +16,4 @@
 - **VMM Dynamic Bounds Testing:** VMM ELF parsing tests must dynamically compute boundaries without relying on hardcoded static payloads like 0x80004000 to prove accurate extractions.
 - **VMM ELF Relocation Fraud:** When patching ELF dynamic boundary parsing tests, ensure the underlying mocked ELF (e.g., `create_dummy_elf`) is also updated to generate dynamic bounds instead of merely patching the caller to use a dynamic variable against a hardcoded artificial baseline like `0x80004000`.
 
+\n- **Zero-Trust Verification Paths:** When executing upstream baseline zero-trust verification via pytest inside a pristine worktree (like upstream/master), do NOT pass custom file paths (e.g. test_coralnpu_renderer.py) that only exist in the downstream local branch. This will cause pytest to fatally abort with error code 5 (No tests collected) during the collection phase. Only pass paths that structurally exist in the pristine upstream branch.
