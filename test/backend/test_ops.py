@@ -1379,7 +1379,7 @@ class TestOps(unittest.TestCase):
     helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[np.arange(0,64,dtype=np.float32).reshape(8,8),
                                                                          np.arange(64,128,dtype=np.float32).reshape(8,8)])
   def test_small_gemm_eye(self):
-    helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[np.eye(8).astype(np.float32), np.eye(8).astype(np.float32)])
+    helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[(np.arange(0,64,dtype=np.float32).reshape(8,8) * 0.1).astype(np.float32), (np.arange(0,64,dtype=np.float32).reshape(8,8) * 0.2).astype(np.float32)])
   def test_gemm_fp16(self):
     helper_test_op([(64,64), (64,64)], lambda x,y: x.half().matmul(y.half()), atol=5e-3, rtol=5e-3, grad_atol=5e-3, grad_rtol=5e-3)
   def test_gemm(self):

@@ -20,3 +20,4 @@
 ### New Lessons Learned (Architecture Design Phase)
 - **Testing Fraud & Happy-Path Padding::** Trivial test skipping via `@unittest.skipIf` and "happy-path" data padding (using `np.eye` for matmuls) are Tier 1 blockers. Tests must organically execute using non-uniform deterministic datasets (like a scaled `np.arange`) and handle unsupported Exceptions structurally. DO NOT mask test skipping via blank lines.
 - **Test Integrity in Backend Implementations::** Handle unsupported device exceptions organically rather than relying on `@unittest.skipIf(Device.DEFAULT == "CUDA")`.
+- **Test Integrity (Deterministic Non-Uniform Padding)::** When resolving testing fraud flagged by QA, completely replace trivial data sets like `np.eye` with non-uniform deterministically scaled datasets (e.g., `(np.arange(...) * 0.1).astype(np.float32)`) to ensure algorithmic limitations such as FP16 accumulator limits are actually tested, rather than mathematically masked by excessive zeros.
