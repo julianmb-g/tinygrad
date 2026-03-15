@@ -42,11 +42,38 @@ class TestCoralNPURenderer(unittest.TestCase):
 
   def test_dtcm_tiling_limit(self):
     renderer = CoralNPURenderer()
-    # Create DEFINE_LOCAL UOp exceeding 28KB (28672 bytes)
-    # 7169 floats * 4 bytes/float = 12292 bytes
-    local_buf = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 7169))
+    # Test organic VMM lifecycle management with overlapping and disjoint tensors
+    
+    # 1. Disjoint lifespans: buf1 (16KB), buf2 (10KB), buf3 (16KB)
+    buf1 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf1", 4096)) # 16KB
+    idx1 = UOp(Ops.CONST, dtypes.int, (), 0)
+    ld1 = UOp(Ops.LOAD, dtypes.float, (buf1, idx1), None)
+    
+    buf2 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf2", 2560)) # 10KB
+    idx2 = UOp(Ops.CONST, dtypes.int, (), 0)
+    ld2 = UOp(Ops.LOAD, dtypes.float, (buf2, idx2), None)
+    
+    buf3 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf3", 4096)) # 16KB
+    idx3 = UOp(Ops.CONST, dtypes.int, (), 0)
+    ld3 = UOp(Ops.LOAD, dtypes.float, (buf3, idx3), None)
+    
+    # Topological order keeps lifespans disjoint: buf1 dies before buf2 starts
+    uops_pass = [buf1, idx1, ld1, buf2, idx2, ld2, buf3, idx3, ld3]
+    try:
+      renderer.render_kernel("test_kernel_pass", [], [("out", (dtypes.float, True))], uops_pass)
+    except RuntimeError as e:
+      self.fail(f"DTCM limit falsely triggered on disjoint lifespans (VMM leak): {e}")
+      
+    # 2. Overlapping lifespans: bufA (16KB) and bufB (16KB)
+    bufA = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufA", 4096)) # 16KB
+    bufB = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufB", 4096)) # 16KB
+    ldA = UOp(Ops.LOAD, dtypes.float, (bufA, UOp(Ops.CONST, dtypes.int, (), 0)), None)
+    ldB = UOp(Ops.LOAD, dtypes.float, (bufB, UOp(Ops.CONST, dtypes.int, (), 0)), None)
+    
+    # Interleaved usage forces overlap
+    uops_fail = [bufA, bufB, ldA, ldB]
     with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB limit"):
-      renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], [local_buf])
+      renderer.render_kernel("test_kernel_fail", [], [("out", (dtypes.float, True))], uops_fail)
 
   def test_dma_macro_injection(self):
     renderer = CoralNPURenderer()
@@ -228,11 +255,11 @@ class TestCoralNPURenderer(unittest.TestCase):
           device = getattr(si.bufs[0], "device", "CORALNPU")
           runner = get_runner(device, si.ast)
           src = runner.p.src
-          if "VDOT" in src and "int32_t" in src:
+          if "VDOT" in src and "int32_t" in src and "int64_t" in src and ">>8ll" in src:
             vdot_found = True
             break
             
-      self.assertTrue(vdot_found, "VDOT and int32_t accumulator deferral not found in organic compilation.")
+      self.assertTrue(vdot_found, "VDOT, int64_t widening, and >>8ll scale factor deferral not found in organic compilation.")
     finally:
       Device.DEFAULT = old_default
       if old_elf:
