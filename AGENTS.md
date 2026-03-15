@@ -26,3 +26,9 @@
 - **Scheduler/AST Assertion Bug (LAMB Offload):** The graph scheduler must properly handle constants (`Ops.CONST`) during LAMB CPU offloading instead of expecting an `AFTER` op.
 - **Optimizer Tolerance Drift:** Multiple Muon optimizer tests fail due to numeric drift. Tolerances (`rtol`, `atol`) must be evaluated or numerical implementation corrected.
 - **Real World Memory Boundaries:** Memory tracking assertions must reflect the new, more efficient memory usage baseline instead of arbitrarily asserting fixed bounds limits (e.g., `test_train_mnist` and `test_bert` failing because actual memory consumed is far lower than the hardcoded threshold).
+
+### QA Directives & Testing Rules
+- **Testing Fraud Escalation (Silent Test Passing):** Never remove `@unittest.skipIf` or wrapper exceptions only to replace them with silent `return` or `except: return` blocks. This destroys visibility into unsupported execution environments and falsely inflates the pass count (Tier 1 Blocker). Always use explicit `raise unittest.SkipTest(...)` for legitimately unsupported hardware paths or environments.
+- **Multi-GPU Masking:** The `needs_second_gpu` wrapper must use `raise unittest.SkipTest("missing second GPU")` on exception, not a silent return, to correctly log skips on single-GPU CI runners.
+- **Infrastructure Exhaustion via Unmasking Slow Tests:** The `@slow` decorator must strictly gate on `os.getenv("RUN_SLOW")`. Replacing it with a naive passthrough (`def slow(fn): return fn`) indiscriminately runs massive architectural benchmarks on standard CI, causing 120s timeout truncations and PID exhaustion.
+- **Deceptive Test Unmasking:** Organically catch and handle unsupported exceptions (like `UnsupportedDevice`) structurally. Do not merely swap complex skip macros for simpler ones. Do not delete skip macros and leave empty lines; instead, address the underlying code limitations.
