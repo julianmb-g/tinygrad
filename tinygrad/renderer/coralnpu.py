@@ -675,17 +675,57 @@ class CoralNPURenderer(CStyleLanguage):
         staggered_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
     uops = staggered_uops
 
-    # Enforce DTCM Tiling limit (28KB)
-    dtcm_size = 0
+    # Task: Replace unbounded bump allocation with strict VMM memory lifecycles
+    # by computing lifetimes of DEFINE_LOCAL tensors and reusing memory.
+    local_lifetimes = {}
+    uop_deps = {} # maps uop -> set of DEFINE_LOCAL uops it depends on
     from tinygrad.uop.ops import Ops
-    for u in uops:
+    for i, u in enumerate(uops):
+      deps = set()
       if u.op is Ops.DEFINE_LOCAL:
-        size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
-        dtcm_size += size * getattr(u.dtype.base, 'itemsize', 1)
-    if dtcm_size > 28672:
-      raise RuntimeError(f"DTCM Tiling exceeded 28KB limit: {dtcm_size} bytes")
+        deps.add(u)
+        local_lifetimes[u] = [i, i]
+      for s in u.src:
+        if s in uop_deps:
+          deps.update(uop_deps[s])
+      uop_deps[u] = deps
+      for dl in deps:
+        local_lifetimes[dl][1] = max(local_lifetimes[dl][1], i)
+
+    # Assign offsets using a simple linear scan allocator
+    active_allocs = [] # list of (end_idx, offset, size)
+    self.local_offsets = {}
+    dtcm_peak = 4096
+    
+    for dl, (start, end) in local_lifetimes.items():
+      size = dl.arg[1] if isinstance(dl.arg, tuple) else dl.arg
+      size_bytes = size * getattr(dl.dtype.base, 'itemsize', 1)
       
-    self.dtcm_bump = 4096 # 4KB base address offset reserved for C-Stack
+      # Remove expired allocations
+      active_allocs = [a for a in active_allocs if a[0] >= start]
+      
+      # Find a free slot using first-fit
+      active_allocs.sort(key=lambda x: x[1])
+      current_offset = 4096
+      allocated = False
+      for a_end, a_offset, a_size in active_allocs:
+        if current_offset + size_bytes <= a_offset:
+          self.local_offsets[dl] = current_offset
+          active_allocs.append((end, current_offset, size_bytes))
+          allocated = True
+          break
+        current_offset = max(current_offset, a_offset + a_size)
+      
+      if not allocated:
+        self.local_offsets[dl] = current_offset
+        active_allocs.append((end, current_offset, size_bytes))
+        
+      dtcm_peak = max(dtcm_peak, current_offset + size_bytes)
+
+    if dtcm_peak > 28672 + 4096:
+      raise RuntimeError(f"DTCM Tiling exceeded 28KB limit: {dtcm_peak - 4096} bytes")
+      
+    self.dtcm_bump = 4096 # fallback
 
     prefix.append("#ifndef CORAL_DMA_ASYNC")
     prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) memcpy(dest, src, size)")
@@ -784,8 +824,9 @@ class CoralNPURenderer(CStyleLanguage):
   }
 
   def _define_local_rewrite(ctx, x):
-    offset = ctx.dtcm_bump
-    ctx.dtcm_bump += (x.arg[1] if isinstance(x.arg, tuple) else x.arg) * getattr(x.dtype.base, "itemsize", 1)
+    offset = getattr(ctx, 'local_offsets', {}).get(x, ctx.dtcm_bump)
+    if x not in getattr(ctx, 'local_offsets', {}):
+      ctx.dtcm_bump += (x.arg[1] if isinstance(x.arg, tuple) else x.arg) * getattr(x.dtype.base, "itemsize", 1)
     return f"{ctx.render_dtype(x.dtype.base)}* {ctx[x]} = ({ctx.render_dtype(x.dtype.base)}*)({offset});"
 
   string_rewrite = PatternMatcher([
