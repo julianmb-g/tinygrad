@@ -42,10 +42,10 @@ class TestCoralNPURenderer(unittest.TestCase):
 
   def test_dtcm_tiling_limit(self):
     renderer = CoralNPURenderer()
-    # Create DEFINE_LOCAL UOp exceeding 12KB (12288 bytes)
-    # 3073 floats * 4 bytes/float = 12292 bytes
-    local_buf = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 3073))
-    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 12KB limit"):
+    # Create DEFINE_LOCAL UOp exceeding 28KB (28672 bytes)
+    # 7169 floats * 4 bytes/float = 12292 bytes
+    local_buf = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 7169))
+    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB limit"):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], [local_buf])
 
   def test_dma_macro_injection(self):
@@ -53,15 +53,28 @@ class TestCoralNPURenderer(unittest.TestCase):
     buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 128))
     buf_src = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
     
-    # We define a chunk size via the COPY operation.
-    # In this custom lowering, COPY takes (dest, src) and returning void to emit as statement.
-    copy_uop = UOp(Ops.COPY, dtypes.void, (buf_dest, buf_src), arg=128 * 4) # arg is the byte size!
+    copy_uop = UOp(Ops.COPY, dtypes.void, (buf_dest, buf_src), arg=128 * 4)
     
     uops = [buf_dest, buf_src, copy_uop]
+    idx = UOp(Ops.CONST, dtypes.int, (), 0)
+    ld = UOp(Ops.LOAD, dtypes.float, (buf_dest, idx), None)
+    uops.append(idx)
+    uops.append(ld)
+    
     src = renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
     self.assertIn("CORAL_DMA_ASYNC", src)
     self.assertIn("CORAL_DMA_WAIT()", src)
     
+    import subprocess, tempfile
+    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
+      dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define CORAL_DMA_WAIT()\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      f.write((dummy_includes + src).encode())
+      f.flush()
+      try:
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+      except subprocess.CalledProcessError:
+        self.fail("Generated C++ code failed to compile natively via GCC.")
+
   def test_estimate_cost_analytical(self):
     cost = estimate_cost_analytical(self.uops)
     # Authentically test the mathematical analytical model evaluation
