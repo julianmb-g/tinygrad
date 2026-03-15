@@ -22,3 +22,5 @@
 
 ### Testing Integrity
 - **Massive Test Skipping Masking:** Do not trust test suites with massive skipped test counts (e.g. 500+ skipped tests). This is a severe coverage gap masking fundamental architectural failure surface areas. All skips must be rigorously audited and remedied.
+- **Redundant Orchestrator Task Rejection (Verification Phase):** When an orchestrator assigns test remediation tasks that appear uncompleted, strictly check the codebase first. Often, the underlying tests (like `test_elf_vmm_parsing`, `test_estimate_cost`, or IPC error bounds) have already been refactored in previous cycles but were improperly serialized in the tracking ledger. Verify they organically pass instead of duplicating logic.
+- **Dynamic Mock Base Calculation (IPC Tests):** When defining mock ELF structures in multiprocessing IPC tests (like `test_coralnpu_ipc.py`), strictly forbid hardcoded `self.mock_base` addresses (e.g., `0x80040000`). Dynamically compute the base address by summing the header and section lengths (e.g. `len(header + sh0...)`) combined with the `0x80000000` architectural offset and padding to ensure deterministic bounds.

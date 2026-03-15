@@ -20,13 +20,15 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
         
         # Dynamically generate a structurally compliant mock ELF with a deterministic _end symbol baseline
-        self.mock_base = 0x80040000
         e_ident = b'\x7fELF\x01' + b'\x00' * 11
         header = e_ident + struct.pack("<2H5I6H", 2, 243, 1, 0, 0, 52, 0, 40, 0, 0, 40, 3, 2)
         sh0 = struct.pack("<10I", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
         sh1 = struct.pack("<10I", 0, 2, 0, 0, 172, 32, 2, 0, 4, 16)
         sh2 = struct.pack("<10I", 0, 3, 0, 0, 204, 10, 0, 0, 1, 0)
         sym0 = struct.pack("<IIIBBH", 0, 0, 0, 0, 0, 0)
+        
+        current_elf_len = len(header + sh0 + sh1 + sh2 + sym0)
+        self.mock_base = 0x80000000 + current_elf_len + 0x2000
         sym1 = struct.pack("<IIIBBH", 1, self.mock_base, 0, 0, 0, 0)
         strs = b'\x00_end\x00\x00\x00\x00\x00'
         
