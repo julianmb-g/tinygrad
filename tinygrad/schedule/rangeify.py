@@ -38,6 +38,9 @@ pm_store_ranges = PatternMatcher([
 ])
 
 pm_syntactic_sugar = PatternMatcher([
+  # simplify MSTACK/MSELECT of CONSTs
+  (UPat(Ops.MSTACK, src=(UPat(Ops.CONST),), allow_any_len=True, name="ms"), lambda ms: UOp.const(ms.dtype, ms.src[0].arg, device=tuple(x.device for x in ms.src)) if all(x.op is Ops.CONST and x.arg == ms.src[0].arg for x in ms.src) else None),
+  (UPat(Ops.MSELECT, src=(UPat(Ops.CONST, name="c"),), name="ms"), lambda ms,c: UOp.const(ms.dtype, c.arg, device=c.device[ms.arg]) if isinstance(c.device, tuple) else None),
   # INDEX on ptr INDEX concats them
   (UPat(Ops.INDEX, name="i1").f(Ops.INDEX, name="i2", allow_any_len=True),
    lambda i1,i2: i2.replace(src=i1.src+i2.src[1:]) if isinstance(i1.dtype, PtrDType) and not isinstance(i2.dtype, PtrDType) else None),
