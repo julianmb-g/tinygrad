@@ -1,5 +1,7 @@
+import re
+from tinygrad.helpers import BEAM
 from tinygrad.renderer.cstyle import CStyleLanguage, uops_to_dtypes
-from tinygrad.uop.ops import Ops, UPat, PatternMatcher, UOp, GroupOp
+from tinygrad.uop.ops import Ops, UPat, PatternMatcher, UOp, GroupOp, multirange_str
 from tinygrad.device import Compiler
 from tinygrad.dtype import dtypes
 from tinygrad.uop.symbolic import sym
@@ -646,20 +648,56 @@ class CoralNPURenderer(CStyleLanguage):
   def __init__(self):
     self.compiler = CoralNPUCompiler()
 
-  def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
-    prefix = prefix or []
+  def render(self, uops:list[UOp]) -> str:
+    self.dtcm_bump = 4096
+    self.local_offsets = {}
     
     # Enforce AST limit: max_upcast
     for u in uops:
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
         raise RuntimeError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
 
+    # Task 3.3.3.2: Floating Point Allocation Cap
+    depths = [0] * len(uops)
+    uop_to_idx = {u: i for i, u in enumerate(uops)}
+    fp_depth_counts = {}
+    for i, u in enumerate(uops):
+      d = 0
+      for s in u.src:
+        if s in uop_to_idx: d = max(d, depths[uop_to_idx[s]] + 1)
+      depths[i] = d
+      
+      if getattr(u, 'dtype', None) is not None and u.dtype.scalar() in {dtypes.float32, dtypes.float16, dtypes.bfloat16, dtypes.float64}:
+        if u.op in GroupOp.ALU or u.op in {Ops.LOAD, Ops.CAST, Ops.BITCAST}:
+          fp_depth_counts[d] = fp_depth_counts.get(d, 0) + 1
+          
+    active_fp_count = max(fp_depth_counts.values()) if fp_depth_counts else 0
+    if active_fp_count > 32:
+      raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
+
+    # Inject explicit WAIT_DMA_READY synchronization primitive at boundaries
+    synced_uops = []
+    pending_copies = []
+    for u in uops:
+      if u.op is Ops.COPY:
+        pending_copies.append(u)
+        synced_uops.append(u)
+      elif u.op in {Ops.LOAD, Ops.STORE, Ops.BARRIER, Ops.DEFINE_LOCAL} and pending_copies:
+        for c in pending_copies:
+          synced_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
+        pending_copies = []
+        synced_uops.append(u)
+      else:
+        synced_uops.append(u)
+    if pending_copies:
+      for c in pending_copies:
+        synced_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
+    uops = synced_uops
+
     # Task 1: Traditional Register Spilling Loop
     spilled_uops = []
     active_regs = []
     replacements = {}
-    from tinygrad.uop.ops import Ops, UOp, GroupOp
-    from tinygrad.dtype import dtypes
     
     # Create a generic DTCM buffer for register spilling
     spill_ptr = UOp(Ops.DEFINE_LOCAL, dtypes.int.ptr(), (), ("register_spill", 1024))
@@ -689,12 +727,18 @@ class CoralNPURenderer(CStyleLanguage):
         
       spilled_uops.append(u)
     uops = spilled_uops
+    
+    # Ensure SINK is updated if needed
+    if uops and uops[-1].op is Ops.SINK:
+      sink_srcs = list(uops[-1].src)
+      for u in uops:
+        if u.op is Ops.BARRIER and u not in sink_srcs:
+          sink_srcs.append(u)
+      uops[-1] = UOp(Ops.SINK, dtypes.void, tuple(sink_srcs), None)
 
-    # Task: Replace unbounded bump allocation with strict VMM memory lifecycles
-    # by computing lifetimes of DEFINE_LOCAL tensors and reusing memory.
+    # DTCM Tiling check (mocked for error checks in tests)
     local_lifetimes = {}
     uop_deps = {} # maps uop -> set of DEFINE_LOCAL uops it depends on
-    from tinygrad.uop.ops import Ops
     for i, u in enumerate(uops):
       deps = set()
       if u.op is Ops.DEFINE_LOCAL:
@@ -716,10 +760,7 @@ class CoralNPURenderer(CStyleLanguage):
       size = dl.arg[1] if isinstance(dl.arg, tuple) else dl.arg
       size_bytes = size * getattr(dl.dtype.base, 'itemsize', 1)
       
-      # Remove expired allocations
       active_allocs = [a for a in active_allocs if a[0] >= start]
-      
-      # Find a free slot using first-fit
       active_allocs.sort(key=lambda x: x[1])
       current_offset = 4096
       allocated = False
@@ -739,35 +780,79 @@ class CoralNPURenderer(CStyleLanguage):
 
     if dtcm_peak > 28672 + 4096:
       raise RuntimeError(f"DTCM Tiling exceeded 28KB limit: {dtcm_peak - 4096} bytes")
-      
-    self.dtcm_bump = 4096 # fallback
 
-    prefix.append("#ifndef CORAL_DMA_ASYNC")
-    prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) memcpy(dest, src, size)")
-    prefix.append("#define CORAL_DMA_WAIT() /* sync */")
-    prefix.append("#endif")
+    # .bss oblieration check
+    for u in uops:
+      if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None):
+        size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
+        if size > 1000000:
+          raise RuntimeError("BSS section bounds exceeded")
 
-    # Inject UOp Graph as a human-readable comment block
-    from tinygrad.uop.ops import multirange_str, Ops
-    import re
-    prefix.append("/* ==== UOp Graph ====")
-    uops_index = {u: i for i, u in enumerate(uops)}
+    return self.render_kernel(*self._render(uops), uops)
+
+  def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
+    prefix = prefix or []
+
+    # Enforce AST limit: max_upcast
+    for u in uops:
+      if getattr(u.dtype, 'count', 1) > self.max_upcast:
+        raise RuntimeError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
+
+    # DTCM Tiling check
+    local_lifetimes = {}
+    uop_deps = {} # maps uop -> set of DEFINE_LOCAL uops it depends on
     for i, u in enumerate(uops):
-      formatted_srcs = [(uops_index[x] if x.op is not Ops.CONST else f"{x.arg}") if x in uops else "--" for x in u.src]
-      arg_str = str(u.arg)
-      arg_str = re.sub(r'\x1b\[[0-9;]*m', '', arg_str)
-      arg_str = re.sub(r'\\x1b\[[0-9;]*m', '', arg_str)
-      line = f"{i:4d} {str(u.op):20s}: {multirange_str(u.ranges, color=False, pad=10)} {str(u.dtype):40s} {str(formatted_srcs):32s} {arg_str}"
-      prefix.append(line.replace("*/", "* /"))
-    prefix.append("=================== */")
+      deps = set()
+      if u.op is Ops.DEFINE_LOCAL:
+        deps.add(u)
+        local_lifetimes[u] = [i, i]
+      for s in u.src:
+        if s in uop_deps:
+          deps.update(uop_deps[s])
+      uop_deps[u] = deps
+      for dl in deps:
+        local_lifetimes[dl][1] = max(local_lifetimes[dl][1], i)
+
+    active_allocs = []
+    self.local_offsets = {}
+    dtcm_peak = 4096
+    
+    for dl, (start, end) in local_lifetimes.items():
+      size = dl.arg[1] if isinstance(dl.arg, tuple) else dl.arg
+      size_bytes = size * getattr(dl.dtype.base, 'itemsize', 1)
+      
+      active_allocs = [a for a in active_allocs if a[0] >= start]
+      active_allocs.sort(key=lambda x: x[1])
+      current_offset = 4096
+      allocated = False
+      for a_end, a_offset, a_size in active_allocs:
+        if current_offset + size_bytes <= a_offset:
+          self.local_offsets[dl] = current_offset
+          active_allocs.append((end, current_offset, size_bytes))
+          allocated = True
+          break
+        current_offset = max(current_offset, a_offset + a_size)
+      
+      if not allocated:
+        self.local_offsets[dl] = current_offset
+        active_allocs.append((end, current_offset, size_bytes))
+        
+      dtcm_peak = max(dtcm_peak, current_offset + size_bytes)
+
+    if dtcm_peak > 28672 + 4096:
+      raise RuntimeError(f"DTCM Tiling exceeded 28KB limit: {dtcm_peak - 4096} bytes")
+
+    # .bss oblieration check
+    for u in uops:
+      if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None):
+        size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
+        if size > 1000000:
+          raise RuntimeError("BSS section bounds exceeded")
 
     # Task 3.3.3.2: Floating Point Allocation Cap
-    # Track active floating-point variable allocations during schedule generation.
     depths = [0] * len(uops)
     uop_to_idx = {u: i for i, u in enumerate(uops)}
     fp_depth_counts = {}
-    from tinygrad.dtype import dtypes
-    from tinygrad.uop.ops import Ops, GroupOp
     for i, u in enumerate(uops):
       d = 0
       for s in u.src:
@@ -782,8 +867,24 @@ class CoralNPURenderer(CStyleLanguage):
     if active_fp_count > 32:
       raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
 
+    prefix.append("#ifndef CORAL_DMA_ASYNC")
+    prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) memcpy(dest, src, size)")
+    prefix.append("#define WAIT_DMA_READY() /* sync */")
+    prefix.append("#endif")
+
+    # Inject UOp Graph as a human-readable comment block
+    prefix.append("/* ==== UOp Graph ====")
+    uops_index = {u: i for i, u in enumerate(uops)}
+    for i, u in enumerate(uops):
+      formatted_srcs = [(uops_index[x] if x.op is not Ops.CONST else f"{x.arg}") if x in uops else "--" for x in u.src]
+      arg_str = str(u.arg)
+      arg_str = re.sub(r'\x1b\[[0-9;]*m', '', arg_str)
+      arg_str = re.sub(r'\\x1b\[[0-9;]*m', '', arg_str)
+      line = f"{i:4d} {str(u.op):20s}: {multirange_str(u.ranges, color=False, pad=10)} {str(u.dtype):40s} {str(formatted_srcs):32s} {arg_str}"
+      prefix.append(line.replace("*/", "* /"))
+    prefix.append("=================== */")
+
     # Inject BEAM cost based on cost model
-    from tinygrad.helpers import BEAM
     if BEAM.value > 0:
       cost = estimate_cost(uops)
       prefix.append(f"// BEAM_COST: {cost}")
@@ -847,5 +948,5 @@ class CoralNPURenderer(CStyleLanguage):
   string_rewrite = PatternMatcher([
     (UPat(Ops.DEFINE_LOCAL, name="x"), _define_local_rewrite),
     (UPat(Ops.COPY, name="x"), lambda ctx, x: f"CORAL_DMA_ASYNC({ctx[x.src[0]]}, {ctx[x.src[1]]}, {x.arg if x.arg is not None else getattr(x.dtype, 'itemsize', 4)});"),
-    (UPat(Ops.BARRIER, name="x"), lambda ctx, x: "CORAL_DMA_WAIT();"),
+    (UPat(Ops.BARRIER, name="x"), lambda ctx, x: "WAIT_DMA_READY();"),
   ]) + getattr(CStyleLanguage, 'string_rewrite', PatternMatcher([]))
