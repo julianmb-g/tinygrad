@@ -646,15 +646,38 @@ class CoralNPURenderer(CStyleLanguage):
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
         raise RuntimeError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
 
-    # Enforce DTCM Tiling limit (12KB)
+    # Task 1: UOp Staggering (delay BARRIER until next memory op or compute)
+    staggered_uops = []
+    pending_copies = []
+    from tinygrad.uop.ops import Ops, UOp
+    from tinygrad.dtype import dtypes
+    for u in uops:
+      if u.op is Ops.COPY:
+        pending_copies.append(u)
+        staggered_uops.append(u)
+      elif u.op in {Ops.LOAD, Ops.STORE, Ops.BARRIER, Ops.DEFINE_LOCAL} and pending_copies:
+        for c in pending_copies:
+          staggered_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
+        pending_copies = []
+        staggered_uops.append(u)
+      else:
+        staggered_uops.append(u)
+    if pending_copies:
+      for c in pending_copies:
+        staggered_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
+    uops = staggered_uops
+
+    # Enforce DTCM Tiling limit (28KB)
     dtcm_size = 0
     from tinygrad.uop.ops import Ops
     for u in uops:
       if u.op is Ops.DEFINE_LOCAL:
         size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
         dtcm_size += size * getattr(u.dtype.base, 'itemsize', 1)
-    if dtcm_size > 12288:
-      raise RuntimeError(f"DTCM Tiling exceeded 12KB limit: {dtcm_size} bytes")
+    if dtcm_size > 28672:
+      raise RuntimeError(f"DTCM Tiling exceeded 28KB limit: {dtcm_size} bytes")
+      
+    self.dtcm_bump = 4096 # 4KB base address offset reserved for C-Stack
 
     prefix.append("#ifndef CORAL_DMA_ASYNC")
     prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) memcpy(dest, src, size)")
@@ -752,6 +775,13 @@ class CoralNPURenderer(CStyleLanguage):
     Ops.MAX: lambda a,b,dtype: f"(({a}>{b})?{a}:{b})",
   }
 
+  def _define_local_rewrite(ctx, x):
+    offset = ctx.dtcm_bump
+    ctx.dtcm_bump += (x.arg[1] if isinstance(x.arg, tuple) else x.arg) * getattr(x.dtype.base, "itemsize", 1)
+    return f"{ctx.render_dtype(x.dtype.base)}* {ctx[x]} = ({ctx.render_dtype(x.dtype.base)}*)({offset});"
+
   string_rewrite = PatternMatcher([
-    (UPat(Ops.COPY, name="x"), lambda ctx, x: f"CORAL_DMA_ASYNC({ctx[x.src[0]]}, {ctx[x.src[1]]}, {x.arg if x.arg is not None else getattr(x.dtype, 'itemsize', 4)}); CORAL_DMA_WAIT()"),
+    (UPat(Ops.DEFINE_LOCAL, name="x"), _define_local_rewrite),
+    (UPat(Ops.COPY, name="x"), lambda ctx, x: f"CORAL_DMA_ASYNC({ctx[x.src[0]]}, {ctx[x.src[1]]}, {x.arg if x.arg is not None else getattr(x.dtype, 'itemsize', 4)});"),
+    (UPat(Ops.BARRIER, name="x"), lambda ctx, x: "CORAL_DMA_WAIT();"),
   ]) + getattr(CStyleLanguage, 'string_rewrite', PatternMatcher([]))
