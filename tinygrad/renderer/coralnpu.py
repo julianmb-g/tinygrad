@@ -654,26 +654,41 @@ class CoralNPURenderer(CStyleLanguage):
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
         raise RuntimeError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
 
-    # Task 1: UOp Staggering (delay BARRIER until next memory op or compute)
-    staggered_uops = []
-    pending_copies = []
-    from tinygrad.uop.ops import Ops, UOp
+    # Task 1: Traditional Register Spilling Loop
+    spilled_uops = []
+    active_regs = []
+    replacements = {}
+    from tinygrad.uop.ops import Ops, UOp, GroupOp
     from tinygrad.dtype import dtypes
+    
+    # Create a generic DTCM buffer for register spilling
+    spill_ptr = UOp(Ops.DEFINE_LOCAL, dtypes.int.ptr(), (), ("register_spill", 1024))
+    spilled_uops.append(spill_ptr)
+    
     for u in uops:
-      if u.op is Ops.COPY:
-        pending_copies.append(u)
-        staggered_uops.append(u)
-      elif u.op in {Ops.LOAD, Ops.STORE, Ops.BARRIER, Ops.DEFINE_LOCAL} and pending_copies:
-        for c in pending_copies:
-          staggered_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
-        pending_copies = []
-        staggered_uops.append(u)
-      else:
-        staggered_uops.append(u)
-    if pending_copies:
-      for c in pending_copies:
-        staggered_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
-    uops = staggered_uops
+      new_src = tuple(replacements.get(x, x) for x in u.src)
+      if new_src != u.src:
+        u = UOp(u.op, u.dtype, new_src, u.arg)
+        
+      if u.op in GroupOp.ALU or u.op is Ops.LOAD:
+        if getattr(u.dtype, 'count', 1) > 1:
+          active_regs.append(u)
+      
+      if len(active_regs) > self.MAX_VR_COUNT:
+        spill_target = active_regs.pop(0)
+        
+        # Inject STORE to spill the register
+        spill_store = UOp(Ops.STORE, dtypes.void, (spill_ptr, spill_target), None)
+        spilled_uops.append(spill_store)
+        
+        # Inject LOAD to restore it
+        spill_load = UOp(Ops.LOAD, spill_target.dtype, (spill_ptr,), None)
+        spilled_uops.append(spill_load)
+        
+        replacements[spill_target] = spill_load
+        
+      spilled_uops.append(u)
+    uops = spilled_uops
 
     # Task: Replace unbounded bump allocation with strict VMM memory lifecycles
     # by computing lifetimes of DEFINE_LOCAL tensors and reusing memory.
