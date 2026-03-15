@@ -283,7 +283,7 @@ class TestRandomness(unittest.TestCase):
     try:
       Tensor.randn(10, 10, dtype=default_float).realize()
     except (RuntimeError, NotImplementedError):
-      return
+      raise unittest.SkipTest("Unsupported hardware path or environment")
     old_default_float = dtypes.default_float
     # low precision can result in inf from randn
     dtypes.default_float = default_float

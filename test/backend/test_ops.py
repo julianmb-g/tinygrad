@@ -740,7 +740,7 @@ class TestOps(unittest.TestCase):
       helper_test_op([], lambda: torch.tensor([2], dtype=torch.int) ** torch.tensor(-2, dtype=torch.int),
                          lambda: Tensor([2]) ** Tensor(-2), forward_only=True)
     except (RuntimeError, NotImplementedError):
-      return
+      raise unittest.SkipTest("Unsupported hardware path or environment")
 
   def test_sqrt(self):
     helper_test_op([(45,65)], lambda x: x.sqrt())
@@ -1386,7 +1386,7 @@ class TestOps(unittest.TestCase):
     try:
       helper_test_op([(64,64), (64,64)], lambda x,y: x.half().matmul(y.half()), atol=5e-3, rtol=5e-3, grad_atol=5e-3, grad_rtol=5e-3)
     except (RuntimeError, NotImplementedError):
-      return
+      raise unittest.SkipTest("Unsupported hardware path or environment")
   def test_gemm(self):
     helper_test_op([(64,64), (64,64)], lambda x,y: x.matmul(y))
   @slow_test
@@ -2364,7 +2364,7 @@ class TestOps(unittest.TestCase):
       lambda x,w: Tensor.conv2d(x,w,stride=2))
 
   def test_strided_conv2d_simple_vec(self):
-    if not (Device.DEFAULT == "CPU" and CPU_LLVM): return
+    if not (Device.DEFAULT == "CPU" and CPU_LLVM): raise unittest.SkipTest("Requires CPU LLVM backend")
     with Context(DEVECTORIZE=0): self.test_strided_conv2d_simple()
 
   @slow_test
@@ -3267,36 +3267,36 @@ class TestOps(unittest.TestCase):
 
 class TestOpsUint8(unittest.TestCase):
   def test_cast(self):
-    if not is_dtype_supported(dtypes.uchar): return
+    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     helper_test_op([(2,3,64,64)], lambda x: x.type(torch.uint8), lambda x: x.cast('uint8'), forward_only=True, low=0, high=255)
 
   def test_cast_relu(self):
-    if not is_dtype_supported(dtypes.uchar): return
+    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     helper_test_op([(2,3,64,64)], lambda x: x.relu().type(torch.uint8), lambda x: x.relu().cast('uint8'), forward_only=True)
 
   def test_interpolate_bilinear(self):
-    if not is_dtype_supported(dtypes.uchar): return
+    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     out_sz = (10, 10)
     helper_test_op([(2,3,64,64)],
       lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="bilinear"),
       lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="linear"), forward_only=True)
 
   def test_interpolate_nearest(self):
-    if not is_dtype_supported(dtypes.uchar): return
+    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     out_sz = (10, 10)
     helper_test_op([(2,3,64,64)],
       lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="nearest"),
       lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="nearest"), forward_only=True)
 
   def test_interpolate_nearest_exact(self):
-    if not is_dtype_supported(dtypes.uchar): return
+    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     out_sz = (10, 10)
     helper_test_op([(2,3,64,64)],
       lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="nearest-exact"),
       lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="nearest-exact"), forward_only=True)
 
   def test_min(self):
-    if not is_dtype_supported(dtypes.uchar): return
+    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     helper_test_op(None,
       lambda x: x.type(torch.uint8).min(),
       lambda x: x.cast(dtypes.uint8).min(), forward_only=True, vals=[[[0, 1, 2], [3, 4, 5]]])
