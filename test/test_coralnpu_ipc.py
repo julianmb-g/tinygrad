@@ -67,6 +67,22 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         finally:
             self.allocator._free(handle, dummy_options)
 
+    def test_missing_compiler_raises_file_not_found(self):
+        """Test that missing cross-compiler cleanly raises FileNotFoundError."""
+        import tempfile, os, unittest.mock
+        with tempfile.TemporaryDirectory() as tmp_bin:
+            with unittest.mock.patch.dict(os.environ, {"PATH": tmp_bin}):
+                program = CoralNPUProgram(self.device, "missing_compiler", b"void missing_compiler() {}")
+                with self.assertRaises(FileNotFoundError):
+                    program()
+
+    def test_compiler_failure_raises_called_process_error(self):
+        """Test that a failing compiler authentically raises CalledProcessError (wrapped in RuntimeError) via real compiler execution."""
+        program = CoralNPUProgram(self.device, "fail_compile", b"void fail_compile() { syntax_error_here; }")
+        with self.assertRaises(RuntimeError) as context:
+            program()
+        self.assertIn("Cross-compilation failed", str(context.exception))
+
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
         import tempfile, os
