@@ -20,5 +20,7 @@
 - **VMM Dynamic Bounds Testing::** VMM ELF parsing tests must dynamically compute boundaries (e.g., `0x80000000 + len(elf_hdr) + 0x2000`) instead of relying on hardcoded static payloads like `0x80004000` or explicit scalar baselines (`golden_bases = [0x80010000, ...]`). This mathematically proves the allocator dynamically extracts varying bounds. Ensure the underlying mocked ELF (e.g., `create_dummy_elf`) generates dynamic bounds accordingly.
 - **Zero-Trust Verification Paths::** When executing upstream baseline zero-trust verification via pytest inside a pristine worktree (like upstream/master), do NOT pass custom file paths (e.g. `test_coralnpu_renderer.py`) that only exist in the downstream local branch. This will cause pytest to fatally abort with error code 5 (No tests collected) during the collection phase. Only pass paths that structurally exist in the pristine upstream branch.
 
-- **Redundant Orchestrator Task Avoidance Rule Eradicated:** The task avoidance loophole has been permanently removed to ensure strict execution coverage.
+[FLAG: invalid] - **Redundant Orchestrator Task Avoidance Rule Eradicated:** The task avoidance loophole has been permanently removed to ensure strict execution coverage.
 - **Test environment Masking via Trivial Skipping:** Never bypass massive amounts of tests using trivial `@unittest.skipIf` bounds (like `test_tensor_cores.py`, `test_randomness.py`, `test_ops.py`). This masks fundamental architectural failure surface areas.
+
+- **Strict Execution Bounds::** Eradicate test skipping via trivial `@unittest.skipIf`. Tests must provide organic execution bounds (e.g., emitting dummy failing shell scripts) to verify cross-compilation errors.
