@@ -119,7 +119,7 @@ class TestRealWorld(unittest.TestCase):
         loss.backward()
         optimizer.step()
 
-      helper_test("train_mnist", lambda: (Tensor.randn(BS, 1, 28, 28),), train, 0.017, 103)
+      helper_test("train_mnist", lambda: (Tensor.randn(BS, 1, 28, 28),), train, 0.012, 103)
 
   @slow
   def test_forward_cifar(self):
@@ -183,7 +183,7 @@ class TestRealWorld(unittest.TestCase):
       for v in data.values(): v.to_(Device.DEFAULT)
 
       helper_test("train_bert", lambda: (data["input_ids"], data["segment_ids"], data["input_mask"], data["masked_lm_positions"], \
-          data["masked_lm_ids"], data["masked_lm_weights"], data["next_sentence_labels"]), train, 0.31, 400)
+          data["masked_lm_ids"], data["masked_lm_weights"], data["next_sentence_labels"]), train, 0.24, 400)
 
 if __name__ == '__main__':
   unittest.main()
