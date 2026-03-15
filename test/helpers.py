@@ -88,6 +88,6 @@ def needs_second_gpu(fn):
   def wrapper(self, *args, **kwargs):
     # check if there's a second GPU, if not, skip multi tests
     try: Tensor.zeros(10, device=f"{Device.DEFAULT}:1").contiguous().realize()
-    except (RuntimeError, IndexError) as e: return
+    except (RuntimeError, IndexError) as e: raise unittest.SkipTest("requires second gpu")
     return fn(self, *args, **kwargs)
   return wrapper
