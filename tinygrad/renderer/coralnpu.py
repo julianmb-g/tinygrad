@@ -582,7 +582,15 @@ def _vdot_rewrite(m, a, b):
   if a.dtype.scalar() not in (dtypes.int8, dtypes.uint8): return None
   if b.dtype.scalar() not in (dtypes.int8, dtypes.uint8): return None
   out_dtype = dtypes.int32.vec(a.dtype.count) if getattr(a.dtype, 'count', 1) > 1 else dtypes.int32
-  return UOp(Ops.CAST, m.dtype, (UOp(Ops.CUSTOM, out_dtype, (a, b), arg="VDOT({0}, {1})"),))
+  vdot = UOp(Ops.CUSTOM, out_dtype, (a, b), arg="VDOT({0}, {1})")
+  
+  # Inject intermediate dynamic quantization widening/scaling routines
+  wide_dtype = dtypes.int64.vec(a.dtype.count) if getattr(a.dtype, 'count', 1) > 1 else dtypes.int64
+  vdot_wide = UOp(Ops.CAST, wide_dtype, (vdot,))
+  scale_factor = UOp(Ops.CONST, wide_dtype, (), 8)
+  vdot_scaled = UOp(Ops.SHR, wide_dtype, (vdot_wide, scale_factor))
+  
+  return UOp(Ops.CAST, m.dtype, (vdot_scaled,))
 
 class CoralNPURenderer(CStyleLanguage):
   """
