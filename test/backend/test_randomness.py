@@ -83,7 +83,7 @@ class TestRandomness(unittest.TestCase):
     self.assertTrue(r1.uop.is_realized, "tensor should be realized after .realize()")
     self.assertTrue(r2.uop.is_realized, "tensor should be realized after .realize()")
 
-  @unittest.skipUnless(is_dtype_supported(dtypes.float16), "need float16 support")
+
   def test_rand_float16(self):
     N = 128
     x = Tensor.rand((2, N, N), dtype=dtypes.float16)
@@ -94,7 +94,7 @@ class TestRandomness(unittest.TestCase):
     assert nx[nx == 0].size > 0
     equal_distribution(lambda *x: Tensor.rand(*x, dtype=dtypes.float16), torch.rand, lambda x: np.random.rand(*x), shape=(2, N, N))
 
-  @unittest.skipIf(CI and Device.DEFAULT in {"NV", "CUDA"}, "gpuocelot doesn't support certain ops needed for threefry")
+
   def test_threefry_against_reference(self):
     Tensor.manual_seed(1337)
 
@@ -115,7 +115,7 @@ class TestRandomness(unittest.TestCase):
 
     np.testing.assert_allclose(jr, r)
 
-  @unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, (NIRRenderer, PTXRenderer)), "PTX and NIR use pointer arithmetic")
+
   def test_threefry_doesnt_use_long(self):
     sched = Tensor.rand(20).schedule()
     for si in sched:
@@ -158,7 +158,7 @@ class TestRandomness(unittest.TestCase):
     np.testing.assert_allclose(r, jr, atol=1e-5, rtol=1e-5)
 
   @needs_second_gpu
-  @unittest.skipIf(not_support_multi_device(), "no multi")
+
   def test_threefry_tensors_cnt(self):
     Tensor.manual_seed(1337)
 
@@ -178,7 +178,7 @@ class TestRandomness(unittest.TestCase):
     assert len(Tensor._device_seeds) == 0
 
   @needs_second_gpu
-  @unittest.skipIf(not_support_multi_device(), "no multi")
+
   def test_threefry_same_kernels(self):
     Tensor.manual_seed(0)
 
@@ -203,7 +203,7 @@ class TestRandomness(unittest.TestCase):
       if not (x.ast == y.ast):
         print(f"{x.ast} != {y.ast}")
 
-  @unittest.skipUnless(is_dtype_supported(dtypes.bfloat16), "need bfloat16 support")
+
   def test_rand_bfloat16(self):
     N = 128
     x = Tensor.rand((2, N, N), dtype=dtypes.bfloat16)
@@ -385,7 +385,7 @@ class TestRandomness(unittest.TestCase):
     Tensor.rand(1).realize()
 
 # TODO: still fails with MAX_KERNEL_BUFFERS
-@unittest.skipIf(Device.DEFAULT == "WEBGPU" and not OSX, "WEBGPU Vulkan can only run kernels with up to 10 buffers")
+
 class TestSample(unittest.TestCase):
   def test_sample(self):
     X = Tensor.rand(1000, 50).realize()
