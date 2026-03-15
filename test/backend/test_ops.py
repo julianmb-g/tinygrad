@@ -721,27 +721,24 @@ class TestOps(unittest.TestCase):
     self.helper_test_exception(None, lambda x: x**-2, vals=[[-2,0,2]], forward_only=True, expected=RuntimeError)
 
   def test_pow_int(self):
-    try:
-      def _test(base, exponent): helper_test_op(None, lambda x,y: x**y, vals=[base, exponent], forward_only=True)
+    raise unittest.SkipTest("not supported")
+    def _test(base, exponent): helper_test_op(None, lambda x,y: x**y, vals=[base, exponent], forward_only=True)
 
-      for base in ([1, 2, 3], [-1, -2, -3]):
-        for exponent in ([2, 3, 4], [-2, -3, -4]):
-          _test(base, exponent)
-      # NOTE: torch 0 ** -1 is 0
-      _test([0, 0, 0], [0, 1, 2])
+    for base in ([1, 2, 3], [-1, -2, -3]):
+      for exponent in ([2, 3, 4], [-2, -3, -4]):
+        _test(base, exponent)
+    # NOTE: torch 0 ** -1 is 0
+    _test([0, 0, 0], [0, 1, 2])
 
-      np.testing.assert_equal((Tensor(11) ** Tensor(7)).item(), 11 ** 7)
-      np.testing.assert_equal((Tensor([11]) ** Tensor(7)).item(), 11 ** 7)
-      # TODO: fix non-precise int pow
-      with self.assertRaises(AssertionError): np.testing.assert_equal((Tensor(11) ** Tensor([7])).item(), 11 ** 7)
-      with self.assertRaises(AssertionError): np.testing.assert_equal((Tensor([11]) ** Tensor([7])).item(), 11 ** 7)
+    np.testing.assert_equal((Tensor(11) ** Tensor(7)).item(), 11 ** 7)
+    np.testing.assert_equal((Tensor([11]) ** Tensor(7)).item(), 11 ** 7)
+    # TODO: fix non-precise int pow
+    with self.assertRaises(AssertionError): np.testing.assert_equal((Tensor(11) ** Tensor([7])).item(), 11 ** 7)
+    with self.assertRaises(AssertionError): np.testing.assert_equal((Tensor([11]) ** Tensor([7])).item(), 11 ** 7)
 
-      # pow to a const int
-      helper_test_op([], lambda: torch.tensor([2], dtype=torch.int) ** torch.tensor(-2, dtype=torch.int),
-                         lambda: Tensor([2]) ** Tensor(-2), forward_only=True)
-
-    except (RuntimeError, NotImplementedError, AssertionError):
-      pass
+    # pow to a const int
+    helper_test_op([], lambda: torch.tensor([2], dtype=torch.int) ** torch.tensor(-2, dtype=torch.int),
+                       lambda: Tensor([2]) ** Tensor(-2), forward_only=True)
 
   def test_sqrt(self):
     helper_test_op([(45,65)], lambda x: x.sqrt())
@@ -1384,10 +1381,8 @@ class TestOps(unittest.TestCase):
   def test_small_gemm_eye(self):
     helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[(np.arange(0,64,dtype=np.float32).reshape(8,8) * 0.1).astype(np.float32), (np.arange(0,64,dtype=np.float32).reshape(8,8) * 0.2).astype(np.float32)])
   def test_gemm_fp16(self):
-    try:
-      helper_test_op([(64,64), (64,64)], lambda x,y: x.half().matmul(y.half()), atol=5e-3, rtol=5e-3, grad_atol=5e-3, grad_rtol=5e-3)
-    except (RuntimeError, NotImplementedError) as e:
-      pass
+    if Device.DEFAULT == "CUDA" or (Device.DEFAULT == "WEBGPU" and platform.system() == "Windows"): raise unittest.SkipTest("not supported on these in CI/IMAGE")
+    helper_test_op([(64,64), (64,64)], lambda x,y: x.half().matmul(y.half()), atol=5e-3, rtol=5e-3, grad_atol=5e-3, grad_rtol=5e-3)
   def test_gemm(self):
     helper_test_op([(64,64), (64,64)], lambda x,y: x.matmul(y))
   @slow_test

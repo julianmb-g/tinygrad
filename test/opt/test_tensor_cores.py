@@ -59,7 +59,7 @@ class TestTensorCores(unittest.TestCase):
   # TODO: don't skip bf16 for real device (METAL, AMD)
   @Context(ALLOW_TF32=1)
   def test_tensor_cores(self):
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       # for AMX, tc.dims[2] == 1 so reduceop is None thus tensor_cores are not triggered
@@ -67,7 +67,7 @@ class TestTensorCores(unittest.TestCase):
 
   @Context(ALLOW_TF32=1)
   def test_tensor_cores_codegen(self):
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       n, m, k = tc.dims[0], tc.dims[1], 2 if AMX else tc.dims[2]
@@ -85,7 +85,7 @@ class TestTensorCores(unittest.TestCase):
 
   @Context(ALLOW_TF32=1)
   def test_tensor_cores_padded(self):
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       helper_tc_allclose(tc.dims[0]+(pad:=1), tc.dims[1]+pad, tc.dims[2]+pad, tc.dtype_in, tc.dtype_out, tc_opt=2)
@@ -93,15 +93,15 @@ class TestTensorCores(unittest.TestCase):
   # AMD compiler bug: AMD miscompiles non-zero padded tc kernels with -O3, producing wrong results, nans or hang (see #9606)
   # Internal bug: zero-stride dimensions combined with a mask may produce wrong index/valid for pad == 1 on AMD
   def test_tensor_cores_padded_amd(self):
-    if not ((Device.DEFAULT == 'AMD') or (Device.DEFAULT == 'PYTHON' and getattr(Device[Device.DEFAULT].renderer, 'device', '') == 'AMD')): return
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not ((Device.DEFAULT == 'AMD') or (Device.DEFAULT == 'PYTHON' and getattr(Device[Device.DEFAULT].renderer, 'device', '') == 'AMD')): raise unittest.SkipTest("test for AMD's tc")
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       helper_tc_allclose(tc.dims[0]+(pad:=1), tc.dims[1]+pad, tc.dims[2]+pad, tc.dtype_in, tc.dtype_out, tc_opt=2)
 
   @Context(ALLOW_TF32=1)
   def test_tensor_cores_padded_uops(self):
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       pad = 1
 
@@ -125,7 +125,7 @@ class TestTensorCores(unittest.TestCase):
 
   @slow
   def test_tensor_cores_multi_reduce(self):
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       if tc.dtype_in is dtypes.bfloat16: continue # <-- broken with numpy
@@ -154,7 +154,7 @@ class TestTensorCores(unittest.TestCase):
 
   @Context(ALLOW_TF32=1)
   def test_tensor_cores_unroll_phi(self):
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     tc = Device[Device.DEFAULT].renderer.tensor_cores[0]
     x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
     r = x.matmul(y, dtype=tc.dtype_out)
@@ -166,7 +166,7 @@ class TestTensorCores(unittest.TestCase):
 
   @Context(ALLOW_TF32=1)
   def test_tensor_cores_unroll_casted_phi(self):
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     tc = [tc for tc in Device[Device.DEFAULT].renderer.tensor_cores if tc.dtype_in != tc.dtype_out][0]
     x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
     r = x.matmul(y, dtype=tc.dtype_out)
@@ -179,7 +179,7 @@ class TestTensorCores(unittest.TestCase):
 
   @Context(ALLOW_TF32=1)
   def test_tensor_cores_unroll_casted_phi_with_children(self):
-    if not Device[Device.DEFAULT].renderer.tensor_cores: return
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("test requires tensor cores")
     # all STORE children are outside the loop
     tc = [tc for tc in Device[Device.DEFAULT].renderer.tensor_cores if tc.dtype_in != tc.dtype_out][0]
     x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
