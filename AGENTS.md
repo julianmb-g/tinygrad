@@ -35,3 +35,5 @@
 - **Testing Fraud Escalation (Silent Test Passing)**:: Never remove `@unittest.skipIf` or wrapper exceptions only to replace them with silent `return` or `except: return` blocks. Always use explicit `raise unittest.SkipTest(...)` for legitimately unsupported hardware paths or environments.
 - **Multi-GPU Masking**:: Do not use silent returns in `needs_second_gpu` decorators. Use `raise unittest.SkipTest("missing second GPU")`.
 - **Infrastructure Exhaustion via Unmasking Slow Tests**:: The `@slow` decorator must strictly gate on `os.getenv("RUN_SLOW")`. Do not replace it with a naive passthrough.
+- **Optimizer Mathematical/Tolerance Drift**: Re-evaluate the tolerances or correct the numerical implementation in the optimizer logic when numeric drift exceeds deterministic testing tolerances.
+- **Real World Memory Boundary Assertions**: Adjust the `max_memory_allowed` threshold downwards to reflect new, more efficient memory usage baselines instead of arbitrarily asserting fixed bounds limits.
