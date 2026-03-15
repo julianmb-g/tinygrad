@@ -19,3 +19,6 @@
 - **Organic IPC Boundary Testing:** When testing subprocess execution errors (e.g. `FileNotFoundError` or `CalledProcessError`), you must organically execute dummy shell scripts rather than using `unittest.mock.patch` on `subprocess` to artificially bypass the execution boundary.
 - **VMM Memory Lifecycles (DTCM Tiling):** When defining local buffers (e.g. `DEFINE_LOCAL`) in custom renderers, do not use unbounded bump allocators that simply accumulate sizes. Instead, enforce strict VMM memory lifecycles by topologically analyzing the AST (transitively mapping UOp dependencies) to compute the true lifespan (start/end boundaries) of each local buffer, and use a first-fit linear scan allocator to recycle memory offsets and correctly cap the DTCM limit (e.g., 28KB peak).
 - **EXTMEM Boundary & NaN Preservation:** When testing memory limits, bounds, and allocator logic, ensure `NaN` values are explicitly encoded and preserved (using `struct.pack`) instead of simplistic byte matching to verify that memory limits are not bypassed with silent padding.
+
+### Testing Integrity
+- **Massive Test Skipping Masking:** Do not trust test suites with massive skipped test counts (e.g. 500+ skipped tests). This is a severe coverage gap masking fundamental architectural failure surface areas. All skips must be rigorously audited and remedied.
