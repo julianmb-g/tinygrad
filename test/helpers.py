@@ -14,7 +14,7 @@ from tinygrad.codegen.late.linearizer import linearize
 
 # decorator to skip slow tests by default, run with RUN_SLOW=1 to include them
 def slow(fn):
-  return fn
+  return unittest.skipUnless(os.getenv("RUN_SLOW", "0") == "1", "slow test requires RUN_SLOW=1")(fn)
 from tinygrad.runtime.ops_python import PythonProgram, PythonRenderer, PythonCompiler
 
 def get_uops(sink:UOp, ren:Renderer|None=None) -> list[UOp]:
