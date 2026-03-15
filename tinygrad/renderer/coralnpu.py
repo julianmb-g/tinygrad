@@ -801,7 +801,7 @@ class CoralNPURenderer(CStyleLanguage):
         if scalar == dtypes.bool: itemsize = dt.count # force 1 byte per bool
         prefix.append(f"typedef {self.render_dtype(scalar)} {self.render_dtype(dt)} __attribute__((vector_size({itemsize})));")
     for name, (dtype, _) in bufs:
-      c_type = self.render_dtype(dtype.scalar() if hasattr(dtype, "scalar") else dtype)
+      c_type = self.render_dtype(dtype.base if hasattr(dtype, "base") else (dtype.scalar() if hasattr(dtype, "scalar") else dtype))
       # Allocate maximum VMM limit (32KB) per buffer to prevent OOM
       prefix.append(f"__attribute__((section(\".noinit\"))) {c_type} {name}[32768 / sizeof({c_type})];")
 
