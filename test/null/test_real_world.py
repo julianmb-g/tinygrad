@@ -33,7 +33,7 @@ def helper_test(nm, gen, model, max_memory_allowed, max_kernels_allowed, all_jit
 
     # TODO: jit should expose this correctly with graph
     kernels_used = len(model.jit_cache) if hasattr(model, "jit_cache") else None
-    print(f"{nm}: used {mem_used/1e9:.2f} GB and {kernels_used} kernels in {min(tms)/1e6:.2f} ms")
+    print(f"{nm}: used {mem_used:.5f} GB and {kernels_used} kernels in {min(tms)/1e6:.2f} ms")
     assert mem_used < max_memory_allowed, f"{nm} used more than {max_memory_allowed:.3f} GB - {mem_used:.3} GB used"
     assert (max_memory_allowed - mem_used) / max_memory_allowed < 0.2, f"{max_memory_allowed:.3f} GB is too far from {mem_used:.3} GB used"
     if kernels_used:
@@ -65,7 +65,7 @@ class TestRealWorld(unittest.TestCase):
     derandomize_model(model)
     @TinyJit
     def test(t, t2): return model(t, Tensor([801]), t2).realize()
-    helper_test("test_sd", lambda: (Tensor.randn(1, 4, 32, 32), Tensor.randn(1, 77, params["ctx_dim"])), test, 0.011, 515)
+    helper_test("test_sd", lambda: ((Tensor.arange(1*4*32*32)*0.1).reshape(1, 4, 32, 32).cast(dtypes.float32), (Tensor.arange(1*77*params["ctx_dim"])*0.1).reshape(1, 77, params["ctx_dim"]).cast(dtypes.float32)), test, 0.0105, 515)
 
   def test_unet_resblock(self):
     model = [ResBlock(16, 24, 16) for _ in range(4)]
@@ -119,7 +119,7 @@ class TestRealWorld(unittest.TestCase):
         loss.backward()
         optimizer.step()
 
-      helper_test("train_mnist", lambda: (Tensor.randn(BS, 1, 28, 28),), train, 0.012, 103)
+      helper_test("train_mnist", lambda: ((Tensor.arange(BS*1*28*28)*0.1).reshape(BS, 1, 28, 28).cast(dtypes.float32),), train, 0.0105, 103)
 
   @slow
   def test_forward_cifar(self):
@@ -129,7 +129,7 @@ class TestRealWorld(unittest.TestCase):
       model = SpeedyResNet(Tensor.ones((12,3,2,2)))
       @TinyJit
       def run(X): return model(X)
-      helper_test("forward_cifar", lambda: (Tensor.randn(BS, 3, 32, 32),), run, 0.033, 27)
+      helper_test("forward_cifar", lambda: ((Tensor.arange(BS*3*32*32)*0.1).reshape(BS, 3, 32, 32).cast(dtypes.float32),), run, 0.0325, 27)
 
   @slow
   def test_train_cifar(self):
@@ -146,7 +146,7 @@ class TestRealWorld(unittest.TestCase):
         loss.backward()
         optimizer.step()
 
-      helper_test("train_cifar", lambda: (Tensor.randn(BS, 3, 32, 32),), train, 0.12, 126)
+      helper_test("train_cifar", lambda: ((Tensor.arange(BS*3*32*32)*0.1).reshape(BS, 3, 32, 32).cast(dtypes.float32),), train, 0.110, 126)
 
   @unittest.skipUnless(is_dtype_supported(dtypes.float16), "need dtypes.float16")
   def test_train_cifar_hyp(self):
