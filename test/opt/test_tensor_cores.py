@@ -66,7 +66,7 @@ class TestTensorCores(unittest.TestCase):
       helper_tc_allclose(tc.dims[0], tc.dims[1], 2 if AMX else tc.dims[2], tc.dtype_in, tc.dtype_out, axis=0, tc_opt=0)
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "not generated on EMULATED device")
+
   @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_codegen(self):
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
@@ -85,7 +85,7 @@ class TestTensorCores(unittest.TestCase):
         assert "__WMMA_" in prg.src
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf((Device.DEFAULT == "AMD") or (Device.DEFAULT == "PYTHON" and Device.default.renderer.device == "AMD"), "broken for AMD")
+
   @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_padded(self):
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
@@ -96,7 +96,7 @@ class TestTensorCores(unittest.TestCase):
   # Internal bug: zero-stride dimensions combined with a mask may produce wrong index/valid for pad == 1 on AMD
   @unittest.skipUnless((Device.DEFAULT == "AMD") or (Device.DEFAULT == "PYTHON" and Device.default.renderer.device == "AMD"), "test for AMD's tc")
   @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
-  @unittest.skip("warp elements not duplicated properly across lanes")
+
   def test_tensor_cores_padded_amd(self):
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
@@ -125,7 +125,7 @@ class TestTensorCores(unittest.TestCase):
         helper_tc_ensure_uops_and_opts_count(tc.dims[0], tc.dims[1], tc.dims[2]//8, tc.dtype_in, tc.dtype_out, tc_opt=2, ensure_triggered=False)
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "not generated on EMULATED device")
+
   @slow
   @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_multi_reduce(self):
@@ -156,7 +156,7 @@ class TestTensorCores(unittest.TestCase):
         np.testing.assert_allclose(result, golden_result, atol=0.1, rtol=0.2)
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "slow on EMULATED device")
+
   @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_unroll_phi(self):
     tc = Device[Device.DEFAULT].renderer.tensor_cores[0]
@@ -169,9 +169,9 @@ class TestTensorCores(unittest.TestCase):
         assert u.src[-1].src[0].op != Ops.STORE
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "slow on EMULATED device")
+
   @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
-  @unittest.skipIf(Device.DEFAULT in {"CPU"}, "CPU does not support using a different type for accumulation")
+
   def test_tensor_cores_unroll_casted_phi(self):
     tc = [tc for tc in Device[Device.DEFAULT].renderer.tensor_cores if tc.dtype_in != tc.dtype_out][0]
     x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
@@ -184,9 +184,9 @@ class TestTensorCores(unittest.TestCase):
         assert u.src[-1].src[0].op != Ops.STORE
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "slow on EMULATED device")
+
   @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
-  @unittest.skipIf(Device.DEFAULT in {"CPU"}, "CPU does not support using a different type for accumulation")
+
   def test_tensor_cores_unroll_casted_phi_with_children(self):
     # all STORE children are outside the loop
     tc = [tc for tc in Device[Device.DEFAULT].renderer.tensor_cores if tc.dtype_in != tc.dtype_out][0]
