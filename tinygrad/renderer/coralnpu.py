@@ -675,7 +675,17 @@ class CoralNPURenderer(CStyleLanguage):
     if active_fp_count > 32:
       raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
 
-    # Inject explicit WAIT_DMA_READY synchronization primitive at boundaries
+    # Target-Aware Asynchronous Tracker using buffer_mask intersections
+    buffer_masks = {}
+    for u in uops:
+      mask = set()
+      if u.op in {Ops.DEFINE_LOCAL, Ops.DEFINE_REG, Ops.PARAM}:
+        mask.add(u)
+      for s in getattr(u, 'src', []):
+        if s in buffer_masks:
+          mask.update(buffer_masks[s])
+      buffer_masks[u] = mask
+
     synced_uops = []
     pending_copies = []
     for u in uops:
@@ -683,15 +693,23 @@ class CoralNPURenderer(CStyleLanguage):
         pending_copies.append(u)
         synced_uops.append(u)
       elif u.op in {Ops.LOAD, Ops.STORE, Ops.BARRIER, Ops.DEFINE_LOCAL} and pending_copies:
-        for c in pending_copies:
-          synced_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
-        pending_copies = []
+        needs_sync = False
+        if u.op is Ops.BARRIER:
+          needs_sync = True
+        else:
+          for c in pending_copies:
+            if bool(buffer_masks[u].intersection(buffer_masks[c])):
+              needs_sync = True
+              break
+        
+        if needs_sync:
+          synced_uops.append(UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None))
+          pending_copies = []
         synced_uops.append(u)
       else:
         synced_uops.append(u)
     if pending_copies:
-      for c in pending_copies:
-        synced_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
+      synced_uops.append(UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None))
     uops = synced_uops
 
     # Task 1: Deferred Register Spilling Loop
