@@ -680,28 +680,51 @@ class CoralNPURenderer(CStyleLanguage):
 
     synced_uops = []
     pending_copies = []
+    barrier_replacements = {}
+    last_barrier = None
+
     for u in uops:
+      if u.op is Ops.BARRIER:
+        # Eradicate the linearizer's blind barriers; we control DMA boundaries via target-aware tracking.
+        barrier_replacements[u] = last_barrier
+        continue
+
+      # Map any sources that might have been old barriers
+      new_src = tuple(barrier_replacements.get(s, s) for s in u.src if s not in barrier_replacements or barrier_replacements[s] is not None)
+      if new_src != u.src:
+        u_new = UOp(u.op, u.dtype, new_src, u.arg)
+        buffer_masks[u_new] = buffer_masks[u]
+        u = u_new
+
       if u.op is Ops.COPY:
+        needs_sync = False
+        for c in pending_copies:
+          if bool(buffer_masks[u].intersection(buffer_masks[c])):
+            needs_sync = True
+            break
+        if needs_sync:
+          last_barrier = UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None)
+          synced_uops.append(last_barrier)
+          pending_copies = []
         pending_copies.append(u)
         synced_uops.append(u)
-      elif u.op in {Ops.LOAD, Ops.STORE, Ops.BARRIER, Ops.DEFINE_LOCAL} and pending_copies:
+      elif u.op in {Ops.LOAD, Ops.STORE, Ops.DEFINE_LOCAL} and pending_copies:
         needs_sync = False
-        if u.op is Ops.BARRIER:
-          needs_sync = True
-        else:
-          for c in pending_copies:
-            if bool(buffer_masks[u].intersection(buffer_masks[c])):
-              needs_sync = True
-              break
-        
+        for c in pending_copies:
+          if bool(buffer_masks[u].intersection(buffer_masks[c])):
+            needs_sync = True
+            break
         if needs_sync:
-          synced_uops.append(UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None))
+          last_barrier = UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None)
+          synced_uops.append(last_barrier)
           pending_copies = []
         synced_uops.append(u)
       else:
         synced_uops.append(u)
+        
     if pending_copies:
-      synced_uops.append(UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None))
+      last_barrier = UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None)
+      synced_uops.append(last_barrier)
     uops = synced_uops
 
     # Task 1: Deferred Register Spilling Loop
