@@ -64,7 +64,7 @@ def helper_test(nm, gen, model, max_memory_allowed, max_kernels_allowed, expecte
       assert kernels_used <= max_kernels_allowed, f"{nm} used more than {max_kernels_allowed} kernels, it used {kernels_used}"
       assert (max_kernels_allowed - kernels_used) / max_kernels_allowed < 0.2, f"{max_kernels_allowed=} is too far from {kernels_used=} used"
     if all_jitted:
-      assert kernels_used > 0 and kernels_used == GlobalCounters.kernel_count or (kernels_used <= GlobalCounters.kernel_count and getattr(Device[Device.DEFAULT], "graph", None)), f"only {kernels_used} out of {GlobalCounters.kernel_count} were jitted"  # noqa: E501
+      assert kernels_used is not None and (kernels_used > 0 and kernels_used == GlobalCounters.kernel_count or (kernels_used <= GlobalCounters.kernel_count and getattr(Device[Device.DEFAULT], "graph", None))), f"only {kernels_used} out of {GlobalCounters.kernel_count} were jitted"  # noqa: E501
 
 class TestRealWorld(unittest.TestCase):
   def setUp(self):
@@ -98,7 +98,7 @@ class TestRealWorld(unittest.TestCase):
     def test(t, t2):
       for l in model: t = l(t, t2)
       return t.realize()
-    helper_test("test_unet_resblock", lambda: (Tensor.full((4, 16, 8, 8), 0.1).contiguous(), Tensor.full((1, 24), 0.1).contiguous()), test, 0.0002, 37, expected_out=[0.7639978, 1.7460895, 0.101699])
+    helper_test("test_unet_resblock", lambda: (((Tensor.arange(4*16*8*8)%10)*0.1).reshape(4, 16, 8, 8).cast(dtypes.float32), ((Tensor.arange(1*24)%10)*0.1).reshape(1, 24).cast(dtypes.float32)), test, 0.0002, 37, expected_out=[1.1154178, 2.4336586, -0.01451139])
 
   @unittest.skipUnless(is_dtype_supported(dtypes.float16), "need dtypes.float16")
   def test_llama(self):
