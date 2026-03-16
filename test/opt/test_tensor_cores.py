@@ -121,7 +121,6 @@ class TestTensorCores(unittest.TestCase):
         helper_tc_ensure_uops_and_opts_count(tc.dims[0], tc.dims[1], tc.dims[2]//8, tc.dtype_in, tc.dtype_out, tc_opt=2, ensure_triggered=False)
 
   @Context(ALLOW_TF32=1)
-
   @slow
   def test_tensor_cores_multi_reduce(self):
     if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")

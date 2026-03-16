@@ -161,7 +161,6 @@ class TestRandomness(unittest.TestCase):
     np.testing.assert_allclose(r, jr, atol=1e-5, rtol=1e-5)
 
   @needs_second_gpu
-
   def test_threefry_tensors_cnt(self):
     Tensor.manual_seed(1337)
 
@@ -181,7 +180,6 @@ class TestRandomness(unittest.TestCase):
     assert len(Tensor._device_seeds) == 0
 
   @needs_second_gpu
-
   def test_threefry_same_kernels(self):
     Tensor.manual_seed(0)
 
