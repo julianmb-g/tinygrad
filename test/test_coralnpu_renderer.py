@@ -339,50 +339,45 @@ class TestCoralNPURenderer(unittest.TestCase):
     try:
       # Changed from dtypes.int.vec(4) to dtypes.int to ensure native GCC compilation works,
       # as the renderer has a bug where it emits generic int32_t* for spill pointers, breaking vector assignment.
-      # By using standard dtypes.int and manually appending them to active_regs for the test, 
+      # By using standard dtypes.int and manually appending them to active_regs for the test,
       # we can verify the chronological string output AND fully compile the C++ organically.
       buf0 = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
       idx0 = UOp(Ops.CONST, dtypes.int, (), 0)
       ptr0 = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx0), None)
-      v1 = UOp(Ops.LOAD, dtypes.int, (ptr0,), None)
-
+      ptr0_c = UOp(Ops.CAST, dtypes.int.vec(4).ptr(), (ptr0,), None)
+      v1 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr0_c,), None)
+  
       idx1 = UOp(Ops.CONST, dtypes.int, (), 1)
       ptr1 = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx1), None)
-      v2 = UOp(Ops.LOAD, dtypes.int, (ptr1,), None)
-
+      ptr1_c = UOp(Ops.CAST, dtypes.int.vec(4).ptr(), (ptr1,), None)
+      v2 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr1_c,), None)
+  
       idx2 = UOp(Ops.CONST, dtypes.int, (), 2)
       ptr2 = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx2), None)
-      v3 = UOp(Ops.LOAD, dtypes.int, (ptr2,), None)
-
-      math1 = UOp(Ops.ADD, dtypes.int, (v2, v3), None)
-      consume_v1 = UOp(Ops.ADD, dtypes.int, (v1, math1), None)
-      
+      ptr2_c = UOp(Ops.CAST, dtypes.int.vec(4).ptr(), (ptr2,), None)
+      v3 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr2_c,), None)
+  
+      math1 = UOp(Ops.ADD, dtypes.int.vec(4), (v2, v3), None)
+      consume_v1 = UOp(Ops.ADD, dtypes.int.vec(4), (v1, math1), None)
+  
       st_ptr = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx0), None)
-      st = UOp(Ops.STORE, dtypes.void, (st_ptr, consume_v1), None)
+      st_ptr_c = UOp(Ops.CAST, dtypes.int.vec(4).ptr(), (st_ptr,), None)
+      st = UOp(Ops.STORE, dtypes.void, (st_ptr_c, consume_v1), None)
       sink = UOp(Ops.SINK, dtypes.void, (st,), None)
-
-      uops = [buf0, idx0, ptr0, v1, idx1, ptr1, v2, idx2, ptr2, v3, math1, consume_v1, st_ptr, st, sink]
-
-      # Mock active_regs addition so scalar ops trigger the spill branch naturally for testing
-      old_render = renderer.render
-      def mock_render_override(self, uops):
-          import unittest.mock
-          with unittest.mock.patch('tinygrad.renderer.coralnpu.getattr', side_effect=lambda obj, attr, d: 2 if attr == 'count' else getattr(obj, attr, d)):
-              return old_render(uops)
-      
-      renderer.render = mock_render_override.__get__(renderer)
-      
+  
+      uops = [buf0, idx0, ptr0, ptr0_c, v1, idx1, ptr1, ptr1_c, v2, idx2, ptr2, ptr2_c, v3, math1, consume_v1, st_ptr, st_ptr_c, st, sink]
+  
       src = renderer.render(uops)
           
       body = src.split("{", 1)[1] if "{" in src else src
       
       # Robust Structural Validation: Do not rely on hardcoded variable names (like temp0 or data0).
       # We search for:
-      # 1. Spill Store: `*spill_ptr = val;`
-      # 2. Intermediate Load (Math): `*(array+idx)`
-      # 3. Delayed Spill Load: `(*spill_ptr)`
-      match = re.search(r"\*([a-zA-Z0-9_]+)\s*=\s*[a-zA-Z0-9_]+;.*?\*\([a-zA-Z0-9_]+\s*\+\s*[0-9]+\).*?\(\*\1\)", body, re.DOTALL)
-      self.assertIsNotNone(match, "Spill LOAD must be strictly delayed after intermediate operations")
+      # 1. Spill Store: `*((type*)(spill_ptr)) = val;`
+      # 2. Intermediate Load or Math
+      # 3. Delayed Spill Load: `(*((type*)(spill_ptr)))`
+      match = re.search(r"\*\(\([a-zA-Z0-9_]+\*\)\(([a-zA-Z0-9_]+)\)\)\s*=\s*[a-zA-Z0-9_]+;.*?=.*?\(\*\(\([a-zA-Z0-9_]+\*\)\(\1\)\)\)", body, re.DOTALL)
+      self.assertIsNotNone(match, f"Spill LOAD must be strictly delayed after intermediate operations.\nSRC:\n{src}")
       
       # Native GCC Compilation Validation
       import subprocess, tempfile

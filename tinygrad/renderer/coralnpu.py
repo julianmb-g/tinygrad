@@ -751,7 +751,9 @@ class CoralNPURenderer(CStyleLanguage):
       for s in original_u.src:
         if s in spilled_vars:
           spilled_u = spilled_vars[s]
-          spill_load = UOp(Ops.LOAD, spilled_u.dtype, (spill_ptr,), None)
+          spill_ptr_cast = UOp(Ops.CAST, spilled_u.dtype.ptr(), (spill_ptr,), None)
+          spill_load = UOp(Ops.LOAD, spilled_u.dtype, (spill_ptr_cast,), None)
+          spilled_uops.append(spill_ptr_cast)
           spilled_uops.append(spill_load)
           replacements[s] = spill_load
           del spilled_vars[s]
@@ -796,7 +798,9 @@ class CoralNPURenderer(CStyleLanguage):
         active_regs.remove(spill_orig)
         
         spill_target = replacements.get(spill_orig, spill_orig)
-        spill_store = UOp(Ops.STORE, dtypes.void, (spill_ptr, spill_target), None)
+        spill_ptr_cast = UOp(Ops.CAST, spill_target.dtype.ptr(), (spill_ptr,), None)
+        spill_store = UOp(Ops.STORE, dtypes.void, (spill_ptr_cast, spill_target), None)
+        spilled_uops.append(spill_ptr_cast)
         spilled_uops.append(spill_store)
         spilled_vars[spill_orig] = spill_target
         
