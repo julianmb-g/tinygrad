@@ -285,5 +285,88 @@ class TestCoralNPURenderer(unittest.TestCase):
       else:
         del os.environ["CORALNPU_ELF"]
       os.unlink(dummy_elf_path)
+
+
+  def test_delayed_register_spilling(self):
+    renderer = CoralNPURenderer()
+    old_max = renderer.MAX_VR_COUNT
+    renderer.MAX_VR_COUNT = 2
+    
+    try:
+      buf0 = UOp(Ops.PARAM, dtypes.int.vec(4).ptr(), (), 0)
+      idx0 = UOp(Ops.CONST, dtypes.int, (), 0)
+      ptr0 = UOp(Ops.INDEX, dtypes.int.vec(4).ptr(), (buf0, idx0), None)
+      v1 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr0,), None)
+
+      idx1 = UOp(Ops.CONST, dtypes.int, (), 1)
+      ptr1 = UOp(Ops.INDEX, dtypes.int.vec(4).ptr(), (buf0, idx1), None)
+      v2 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr1,), None)
+
+      idx2 = UOp(Ops.CONST, dtypes.int, (), 2)
+      ptr2 = UOp(Ops.INDEX, dtypes.int.vec(4).ptr(), (buf0, idx2), None)
+      v3 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr2,), None)
+
+      math1 = UOp(Ops.ADD, dtypes.int.vec(4), (v2, v3), None)
+      consume_v1 = UOp(Ops.ADD, dtypes.int.vec(4), (v1, math1), None)
+      
+      st_ptr = UOp(Ops.INDEX, dtypes.int.vec(4).ptr(), (buf0, idx0), None)
+      st = UOp(Ops.STORE, dtypes.void, (st_ptr, consume_v1), None)
+      sink = UOp(Ops.SINK, dtypes.void, (st,), None)
+
+      uops = [buf0, idx0, ptr0, v1, idx1, ptr1, v2, idx2, ptr2, v3, math1, consume_v1, st_ptr, st, sink]
+
+      src = renderer.render(uops)
+      
+      graph_lines = []
+      in_graph = False
+      for line in src.split('\n'):
+        if '==== UOp Graph ====' in line:
+          in_graph = True
+          continue
+        if '===================' in line:
+          break
+        if in_graph: graph_lines.append(line.strip())
+        
+      spill_ptr_idx = None
+      spill_store_idx = -1
+      spill_load_idx = -1
+      math_idx = -1
+      consume_idx = -1
+      
+      for line in graph_lines:
+        parts = line.split(maxsplit=2)
+        if len(parts) < 3: continue
+        try:
+          idx = int(parts[0])
+        except ValueError:
+          continue
+          
+        if 'register_spill' in line and 'DEFINE_LOCAL' in line:
+          spill_ptr_idx = str(idx)
+          
+        if spill_ptr_idx is not None:
+          # Check for STORE referencing spill_ptr
+          if 'Ops.STORE' in line and (f"[{spill_ptr_idx}, " in line or f"['{spill_ptr_idx}', " in line):
+            spill_store_idx = idx
+            
+          # Check for LOAD referencing spill_ptr
+          if 'Ops.LOAD' in line and (f"[{spill_ptr_idx}]" in line or f"['{spill_ptr_idx}']" in line):
+            spill_load_idx = idx
+            
+        if 'Ops.ADD' in line:
+          if math_idx == -1: math_idx = idx
+          else: consume_idx = idx
+          
+      self.assertIsNotNone(spill_ptr_idx, "Could not locate register_spill DEFINE_LOCAL")
+      self.assertTrue(spill_store_idx != -1, "Spill STORE missing")
+      self.assertTrue(spill_load_idx != -1, "Spill LOAD missing")
+      
+      self.assertTrue(spill_store_idx < math_idx, "Spill STORE should happen before intermediate math")
+      self.assertTrue(spill_load_idx > math_idx, "Spill LOAD should be delayed AFTER intermediate math")
+      self.assertTrue(spill_load_idx < consume_idx, "Spill LOAD must happen before consumption")
+      
+    finally:
+      renderer.MAX_VR_COUNT = old_max
+
 if __name__ == '__main__':
   unittest.main()

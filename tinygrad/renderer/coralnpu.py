@@ -694,38 +694,64 @@ class CoralNPURenderer(CStyleLanguage):
         synced_uops.append(UOp(Ops.BARRIER, dtypes.void, (c,), None))
     uops = synced_uops
 
-    # Task 1: Traditional Register Spilling Loop
+    # Task 1: Deferred Register Spilling Loop
     spilled_uops = []
     active_regs = []
+    spilled_vars = {}
     replacements = {}
     
+    # Compute liveness tracking: last usage index of each original UOp
+    last_usage = {}
+    for i, u in enumerate(uops):
+      for s in u.src:
+        last_usage[s] = max(last_usage.get(s, -1), i)
+        
     # Create a generic DTCM buffer for register spilling
     spill_ptr = UOp(Ops.DEFINE_LOCAL, dtypes.int.ptr(), (), ("register_spill", 1024))
     spilled_uops.append(spill_ptr)
     
-    for u in uops:
-      new_src = tuple(replacements.get(x, x) for x in u.src)
-      if new_src != u.src:
-        u = UOp(u.op, u.dtype, new_src, u.arg)
+    for i, original_u in enumerate(uops):
+      # Load any spilled variables that are consumed by this UOp
+      for s in original_u.src:
+        if s in spilled_vars:
+          spilled_u = spilled_vars[s]
+          spill_load = UOp(Ops.LOAD, spilled_u.dtype, (spill_ptr,), None)
+          spilled_uops.append(spill_load)
+          replacements[s] = spill_load
+          del spilled_vars[s]
+          active_regs.append(s)
+          
+      # Construct the UOp for this step, applying active replacements
+      new_src = tuple(replacements.get(x, x) for x in original_u.src)
+      u = original_u
+      if new_src != original_u.src:
+        u = UOp(original_u.op, original_u.dtype, new_src, original_u.arg)
+        replacements[original_u] = u
         
+      # Retire registers that are no longer used after this UOp
+      for s in original_u.src:
+        if last_usage.get(s, -1) == i and s in active_regs:
+          active_regs.remove(s)
+          
+      # If this UOp generates a vector value, it becomes an active register
       if u.op in GroupOp.ALU or u.op is Ops.LOAD:
         if getattr(u.dtype, 'count', 1) > 1:
-          active_regs.append(u)
-      
-      if len(active_regs) > self.MAX_VR_COUNT:
-        spill_target = active_regs.pop(0)
-        
-        # Inject STORE to spill the register
+          active_regs.append(original_u)
+          
+      # If we exceeded MAX_VR_COUNT, explicitly spill the oldest register
+      while len(active_regs) > self.MAX_VR_COUNT:
+        spill_orig = active_regs.pop(0)
+        spill_target = replacements.get(spill_orig, spill_orig)
         spill_store = UOp(Ops.STORE, dtypes.void, (spill_ptr, spill_target), None)
         spilled_uops.append(spill_store)
-        
-        # Inject LOAD to restore it
-        spill_load = UOp(Ops.LOAD, spill_target.dtype, (spill_ptr,), None)
-        spilled_uops.append(spill_load)
-        
-        replacements[spill_target] = spill_load
+        spilled_vars[spill_orig] = spill_target
         
       spilled_uops.append(u)
+      
+      # Retire immediately if this UOp is never used again
+      if last_usage.get(original_u, -1) <= i and original_u in active_regs:
+        active_regs.remove(original_u)
+        
     uops = spilled_uops
     
     # Ensure SINK is updated if needed
@@ -940,9 +966,9 @@ class CoralNPURenderer(CStyleLanguage):
   }
 
   def _define_local_rewrite(ctx, x):
-    offset = getattr(ctx, 'local_offsets', {}).get(x, ctx.dtcm_bump)
+    offset = getattr(ctx, 'local_offsets', {}).get(x, getattr(ctx, "dtcm_bump", 4096))
     if x not in getattr(ctx, 'local_offsets', {}):
-      ctx.dtcm_bump += (x.arg[1] if isinstance(x.arg, tuple) else x.arg) * getattr(x.dtype.base, "itemsize", 1)
+      ctx.dtcm_bump = getattr(ctx, "dtcm_bump", 4096) + (x.arg[1] if isinstance(x.arg, tuple) else x.arg) * getattr(x.dtype.base, "itemsize", 1)
     return f"{ctx.render_dtype(x.dtype.base)}* {ctx[x]} = ({ctx.render_dtype(x.dtype.base)}*)({offset});"
 
   string_rewrite = PatternMatcher([
