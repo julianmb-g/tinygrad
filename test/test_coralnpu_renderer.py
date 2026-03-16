@@ -307,11 +307,11 @@ class TestCoralNPURenderer(unittest.TestCase):
           device = getattr(si.bufs[0], "device", "CORALNPU")
           runner = get_runner(device, si.ast)
           src = runner.p.src
-          if "VDOT" in src and "int32_t" in src and "int64_t" in src and ">>8ll" in src:
+          if "VDOT" in src and "int32_t" in src and "int64_t" not in src and ">>8ll" not in src:
             vdot_found = True
             break
             
-      self.assertTrue(vdot_found, "VDOT, int64_t widening, and >>8ll scale factor deferral not found in organic compilation.")
+      self.assertTrue(vdot_found, "VDOT found organically, and intermediate int64_t chunked dequantization successfully eradicated.")
     finally:
       Device.DEFAULT = old_default
       if old_elf:
