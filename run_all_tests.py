@@ -10,8 +10,9 @@ def should_ignore(path):
             if "import torch" in content or "from torch" in content: return True
             if "import hypothesis" in content or "from hypothesis" in content: return True
             if "import PIL" in content or "from PIL" in content: return True
-    except:
-        pass
+    except Exception as e:
+        print(f"Warning: Failed to read {path} - {e}")
+        raise
     return False
 
 if __name__ == "__main__":
