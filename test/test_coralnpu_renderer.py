@@ -75,6 +75,40 @@ class TestCoralNPURenderer(unittest.TestCase):
     with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB limit"):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops_fail)
 
+  def test_dma_macro_injection_disjoint(self):
+    renderer = CoralNPURenderer()
+    # COPY from PARAM 0 to temp_buf1
+    buf_dest1 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf1", 128))
+    buf_src1 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
+    copy_uop1 = UOp(Ops.COPY, dtypes.void, (buf_dest1, buf_src1), arg=128 * 4)
+    
+    # LOAD/STORE that accesses PARAM 1 and temp_buf2 (disjoint from copy_uop1)
+    buf_dest2 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf2", 128))
+    buf_src2 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
+    
+    idx_val = UOp(Ops.CONST, dtypes.int, (), 0)
+    idx2 = UOp(Ops.INDEX, dtypes.float.ptr(), (buf_dest2, idx_val), None)
+    ld2 = UOp(Ops.LOAD, dtypes.float, (idx2,), None)
+    st_idx2 = UOp(Ops.INDEX, dtypes.float.ptr(), (buf_src2, idx_val), None)
+    st2 = UOp(Ops.STORE, dtypes.void, (st_idx2, ld2), None)
+    
+    # Sink must include both the copy and the store to retain them
+    sink = UOp(Ops.SINK, dtypes.void, (copy_uop1, st2), None)
+    
+    uops = [buf_dest1, buf_src1, copy_uop1, buf_dest2, buf_src2, idx_val, idx2, ld2, st_idx2, st2, sink]
+    
+    src = renderer.render(uops)
+    self.assertIn("CORAL_DMA_ASYNC", src)
+    
+    body = src.split("{", 1)[1] if "{" in src else src
+    # WAIT_DMA_READY should be generated at the end due to pending_copies logic,
+    # BUT it should NOT be generated before the disjoint LOAD/STORE!
+    
+    # Check that WAIT_DMA_READY only appears ONCE at the end of the block,
+    # meaning it did not block the independent disjoint memory ops
+    wait_count = body.count("WAIT_DMA_READY();")
+    self.assertEqual(wait_count, 1, "Should only have one barrier at the end for disjoint ops")
+
   def test_dma_macro_injection(self):
     renderer = CoralNPURenderer()
     buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 128))
