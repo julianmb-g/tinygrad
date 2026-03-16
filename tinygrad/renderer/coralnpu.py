@@ -712,9 +712,12 @@ class CoralNPURenderer(CStyleLanguage):
     
     # Compute liveness tracking: last usage index of each original UOp
     last_usage = {}
+    all_usages = {}
     for i, u in enumerate(uops):
       for s in u.src:
         last_usage[s] = max(last_usage.get(s, -1), i)
+        if s not in all_usages: all_usages[s] = []
+        all_usages[s].append(i)
         
     # Create a generic DTCM buffer for register spilling
     spill_ptr = UOp(Ops.DEFINE_LOCAL, dtypes.int.ptr(), (), ("register_spill", 1024))
@@ -748,19 +751,33 @@ class CoralNPURenderer(CStyleLanguage):
         if getattr(u.dtype, 'count', 1) > 1:
           active_regs.append(original_u)
           
-      # If we exceeded MAX_VR_COUNT, explicitly spill the oldest register
+      # Retire immediately if this UOp is never used again
+      if last_usage.get(original_u, -1) <= i and original_u in active_regs:
+        active_regs.remove(original_u)
+        
+      # If we exceeded MAX_VR_COUNT, explicitly spill the register whose next usage is furthest in the future
       while len(active_regs) > self.MAX_VR_COUNT:
-        spill_orig = active_regs.pop(0)
+        furthest_reg = None
+        furthest_dist = -1
+        for r in active_regs:
+          next_use = float('inf')
+          for use in all_usages.get(r, []):
+            if use > i:
+              next_use = use
+              break
+          if next_use > furthest_dist:
+            furthest_dist = next_use
+            furthest_reg = r
+            
+        spill_orig = furthest_reg
+        active_regs.remove(spill_orig)
+        
         spill_target = replacements.get(spill_orig, spill_orig)
         spill_store = UOp(Ops.STORE, dtypes.void, (spill_ptr, spill_target), None)
         spilled_uops.append(spill_store)
         spilled_vars[spill_orig] = spill_target
         
       spilled_uops.append(u)
-      
-      # Retire immediately if this UOp is never used again
-      if last_usage.get(original_u, -1) <= i and original_u in active_regs:
-        active_regs.remove(original_u)
         
     uops = spilled_uops
     
