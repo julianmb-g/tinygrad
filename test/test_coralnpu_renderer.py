@@ -97,17 +97,29 @@ class TestCoralNPURenderer(unittest.TestCase):
     
     uops = [buf_dest1, buf_src1, copy_uop1, buf_dest2, buf_src2, idx_val, idx2, ld2, st_idx2, st2, sink]
     
-    src = renderer.render(uops)
+    with unittest.mock.patch.object(renderer, '_render', wraps=renderer._render) as mock_render:
+        src = renderer.render(uops)
+        
+    captured_uops = []
+    for call in mock_render.call_args_list:
+        captured_uops.extend(call[0][0])
     self.assertIn("CORAL_DMA_ASYNC", src)
     
-    body = src.split("{", 1)[1] if "{" in src else src
-    # WAIT_DMA_READY should be generated at the end due to pending_copies logic,
-    # BUT it should NOT be generated before the disjoint LOAD/STORE!
+    store_idx = -1
+    barrier_idx = -1
+    barrier_count = 0
     
-    # Check that WAIT_DMA_READY only appears ONCE at the end of the block,
-    # meaning it did not block the independent disjoint memory ops
-    wait_count = body.count("WAIT_DMA_READY();")
-    self.assertEqual(wait_count, 1, "Should only have one barrier at the end for disjoint ops")
+    for i, u in enumerate(captured_uops):
+        if u.op is Ops.STORE:
+            store_idx = i
+        elif u.op is Ops.BARRIER:
+            barrier_idx = i
+            barrier_count += 1
+            
+    self.assertEqual(barrier_count, 1, "Should only have one barrier at the end for disjoint ops")
+    self.assertNotEqual(store_idx, -1, "Store op missing")
+    self.assertNotEqual(barrier_idx, -1, "Barrier op missing")
+    self.assertGreater(barrier_idx, store_idx, "WAIT_DMA_READY should not block independent disjoint memory ops. Barrier must come strictly after the STORE.")
 
   def test_dma_macro_injection(self):
     renderer = CoralNPURenderer()
@@ -349,55 +361,38 @@ class TestCoralNPURenderer(unittest.TestCase):
 
       uops = [buf0, idx0, ptr0, v1, idx1, ptr1, v2, idx2, ptr2, v3, math1, consume_v1, st_ptr, st, sink]
 
-      src = renderer.render(uops)
+      with unittest.mock.patch.object(renderer, '_render', wraps=renderer._render) as mock_render:
+          renderer.render(uops)
+          
+      captured_uops = []
+      for call in mock_render.call_args_list:
+          captured_uops.extend(call[0][0])
       
-      graph_lines = []
-      in_graph = False
-      for line in src.split('\n'):
-        if '==== UOp Graph ====' in line:
-          in_graph = True
-          continue
-        if '===================' in line:
-          break
-        if in_graph: graph_lines.append(line.strip())
-        
-      spill_ptr_idx = None
+      spill_ptr = None
       spill_store_idx = -1
       spill_load_idx = -1
       math_idx = -1
       consume_idx = -1
       
-      for line in graph_lines:
-        parts = line.split(maxsplit=2)
-        if len(parts) < 3: continue
-        try:
-          idx = int(parts[0])
-        except ValueError:
-          continue
-          
-        if 'register_spill' in line and 'DEFINE_LOCAL' in line:
-          spill_ptr_idx = str(idx)
-          
-        if spill_ptr_idx is not None:
-          # Check for STORE referencing spill_ptr
-          if 'Ops.STORE' in line and (f"[{spill_ptr_idx}, " in line or f"['{spill_ptr_idx}', " in line):
-            spill_store_idx = idx
-            
-          # Check for LOAD referencing spill_ptr
-          if 'Ops.LOAD' in line and (f"[{spill_ptr_idx}]" in line or f"['{spill_ptr_idx}']" in line):
-            spill_load_idx = idx
-            
-        if 'Ops.ADD' in line:
-          if math_idx == -1: math_idx = idx
-          else: consume_idx = idx
-          
-      self.assertIsNotNone(spill_ptr_idx, "Could not locate register_spill DEFINE_LOCAL")
-      self.assertTrue(spill_store_idx != -1, "Spill STORE missing")
-      self.assertTrue(spill_load_idx != -1, "Spill LOAD missing")
+      for i, u in enumerate(captured_uops):
+          if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None) and u.arg[0] == "register_spill":
+              spill_ptr = u
+          elif u.op is Ops.STORE and spill_ptr is not None and spill_ptr in u.src:
+              spill_store_idx = i
+          elif u.op is Ops.LOAD and spill_ptr is not None and spill_ptr in u.src:
+              spill_load_idx = i
+          elif u.op is Ops.ADD and math_idx == -1:
+              math_idx = i
+          elif u.op is Ops.ADD and math_idx != -1:
+              consume_idx = i
+              
+      self.assertIsNotNone(spill_ptr, "Could not locate register_spill DEFINE_LOCAL")
+      self.assertNotEqual(spill_store_idx, -1, "Spill STORE missing")
+      self.assertNotEqual(spill_load_idx, -1, "Spill LOAD missing")
       
-      self.assertTrue(spill_store_idx < math_idx, "Spill STORE should happen before intermediate math")
-      self.assertTrue(spill_load_idx > math_idx, "Spill LOAD should be delayed AFTER intermediate math")
-      self.assertTrue(spill_load_idx < consume_idx, "Spill LOAD must happen before consumption")
+      self.assertLess(spill_store_idx, math_idx, "Spill STORE should happen before intermediate math")
+      self.assertGreater(spill_load_idx, math_idx, "Spill LOAD should be delayed AFTER intermediate math")
+      self.assertLess(spill_load_idx, consume_idx, "Spill LOAD must happen before consumption")
       
     finally:
       renderer.MAX_VR_COUNT = old_max
