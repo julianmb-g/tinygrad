@@ -2,6 +2,16 @@ import unittest
 import unittest.mock
 import os
 import re
+import subprocess
+import tempfile
+import struct
+import random
+import numpy as np
+import tinygrad.renderer.coralnpu as coralnpu
+from tinygrad.nn.state import safe_save
+from tinygrad.tensor import Tensor
+from tinygrad.device import Device
+from tinygrad.engine.realize import get_runner
 from tinygrad.uop.ops import UOp, Ops
 from tinygrad.dtype import dtypes
 from tinygrad.renderer.coralnpu import (
@@ -109,7 +119,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIsNotNone(match, "WAIT_DMA_READY must come strictly after the disjoint STORE")
     
     # Native GCC Compilation Validation
-    import subprocess, tempfile
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define WAIT_DMA_READY()\ntypedef float float4 __attribute__((vector_size(16)));\n"
       f.write((dummy_includes + src).encode())
@@ -138,7 +147,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn("CORAL_DMA_ASYNC", src)
     body = src.split("{", 1)[1] if "{" in src else src
     self.assertIn("WAIT_DMA_READY();", body)
-    import subprocess, tempfile
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define WAIT_DMA_READY()\ntypedef float float4 __attribute__((vector_size(16)));\n"
       f.write((dummy_includes + src).encode())
@@ -154,13 +162,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertEqual(cost, 11.0)
 
   def test_estimate_cost(self):
-    import tinygrad.renderer.coralnpu as coralnpu
-    import numpy as np
-    import random
-    import tempfile
-    import os
-    from tinygrad.nn.state import safe_save
-    from tinygrad.tensor import Tensor
     
     # Authentically evaluate the cost model using non-ideal deterministic arrays
     # spanning true stochastic limits (e.g., negative weights and fractional biases)
@@ -244,7 +245,6 @@ class TestCoralNPURenderer(unittest.TestCase):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_compiler_save_beam_dir(self):
-    import tempfile
     with tempfile.TemporaryDirectory() as tmpdir:
       with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": tmpdir}):
         compiler = CoralNPUCompiler()
@@ -253,7 +253,6 @@ class TestCoralNPURenderer(unittest.TestCase):
 
 
   def test_noinit_section_generation(self):
-    from tinygrad.renderer.coralnpu import CoralNPURenderer
     renderer = CoralNPURenderer()
     buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0) if not hasattr(Ops, 'DEFINE_LOCAL') else UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), 0)
     uops = [buf0]
@@ -262,7 +261,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn('extern "C" void test_kernel() {', src)
     
   def test_compiler_emits_linker_script(self):
-    import tempfile
     with tempfile.TemporaryDirectory() as tmpdir:
       with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": tmpdir}):
         compiler = CoralNPUCompiler()
@@ -274,11 +272,6 @@ class TestCoralNPURenderer(unittest.TestCase):
 
 
   def test_vdot_mapping(self):
-    from tinygrad.tensor import Tensor
-    from tinygrad.device import Device
-    import struct
-    import os
-    import tempfile
     
     with tempfile.NamedTemporaryFile(suffix=".elf", delete=False) as tf:
       # SHT_SYMTAB = 2, SHT_STRTAB = 3
@@ -313,7 +306,6 @@ class TestCoralNPURenderer(unittest.TestCase):
       
       for si in schedule:
         if si.ast.op.name == "SINK":
-          from tinygrad.engine.realize import get_runner
           device = getattr(si.bufs[0], "device", "CORALNPU")
           runner = get_runner(device, si.ast)
           src = runner.p.src
@@ -380,7 +372,6 @@ class TestCoralNPURenderer(unittest.TestCase):
       self.assertIsNotNone(match, f"Spill LOAD must be strictly delayed after intermediate operations.\nSRC:\n{src}")
       
       # Native GCC Compilation Validation
-      import subprocess, tempfile
       with tempfile.NamedTemporaryFile(suffix=".cc") as f:
         dummy_includes = "#include <stdint.h>\n"
         f.write((dummy_includes + src).encode())
