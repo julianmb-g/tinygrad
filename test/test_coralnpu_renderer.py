@@ -175,6 +175,60 @@ class TestCoralNPURenderer(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
 
+  def test_dma_macro_injection_segmented(self):
+    renderer = CoralNPURenderer()
+    # 5000 bytes > 4096 bytes to trigger AXI burst segmentation
+    buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 1250))
+    buf_src = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
+    
+    copy_uop = UOp(Ops.COPY, dtypes.void, (buf_dest, buf_src), arg=5000)
+    
+    idx_val = UOp(Ops.CONST, dtypes.int, (), 0)
+    idx = UOp(Ops.INDEX, dtypes.float.ptr(), (buf_dest, idx_val), None)
+    ld = UOp(Ops.LOAD, dtypes.float, (idx,), None)
+    st_idx = UOp(Ops.INDEX, dtypes.float.ptr(), (buf_src, idx_val), None)
+    st = UOp(Ops.STORE, dtypes.void, (st_idx, ld), None)
+    sink = UOp(Ops.SINK, dtypes.void, (st, copy_uop), None)
+    uops = [buf_dest, buf_src, copy_uop, idx_val, idx, ld, st_idx, st, sink]
+    
+    src = renderer.render(uops)
+    src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
+    
+    # We expect multiple CORAL_DMA_ASYNC calls for segmented AXI fetches
+    self.assertIn("CORAL_DMA_ASYNC", src)
+    self.assertIn("4096", src)
+    self.assertIn("904", src) # 5000 - 4096 = 904
+    dma_calls = src.count("CORAL_DMA_ASYNC")
+    self.assertGreaterEqual(dma_calls, 2, "DMA must be segmented into multiple AXI compliant bursts")
+
+    # Native GCC Compilation Validation
+    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
+      f.write((dummy_includes + src).encode())
+      f.flush()
+      try:
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+      except FileNotFoundError:
+        raise unittest.SkipTest("Toolchain missing")
+      except subprocess.CalledProcessError:
+        self.fail("Generated C++ code failed to compile natively via GCC.")
+        
+      # Authentic Failure Pipeline Verification
+      with tempfile.TemporaryDirectory() as temp_dir:
+        dummy_gpp = os.path.join(temp_dir, "g++")
+        with open(dummy_gpp, "w") as fake:
+          fake.write("#!/bin/sh\nexit 1\n")
+        os.chmod(dummy_gpp, 0o755)
+        
+        with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
+          with self.assertRaises(subprocess.CalledProcessError):
+            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+            
+        with tempfile.TemporaryDirectory() as empty_dir:
+          with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
+            with self.assertRaises(FileNotFoundError):
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+
   def test_dma_macro_injection(self):
     renderer = CoralNPURenderer()
     buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 128))

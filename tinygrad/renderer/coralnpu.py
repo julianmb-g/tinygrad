@@ -1025,8 +1025,25 @@ class CoralNPURenderer(CStyleLanguage):
       ctx.dtcm_bump = getattr(ctx, "dtcm_bump", 4096) + (x.arg[1] if isinstance(x.arg, tuple) else x.arg) * getattr(x.dtype.base, "itemsize", 1)
     return f"{ctx.render_dtype(x.dtype.base)}* {ctx[x]} = ({ctx.render_dtype(x.dtype.base)}*)({offset});"
 
+  def _dma_copy_rewrite(ctx, x):
+    size = x.arg if x.arg is not None else getattr(x.dtype, 'itemsize', 4)
+    dest, src = ctx[x.src[0]], ctx[x.src[1]]
+    if isinstance(size, int):
+      if size <= 4096:
+        return f"CORAL_DMA_ASYNC({dest}, {src}, {size});"
+      chunks = []
+      offset = 0
+      while size > 0:
+        chunk = min(size, 4096)
+        chunks.append(f"CORAL_DMA_ASYNC(((uint8_t*)({dest})) + {offset}, ((uint8_t*)({src})) + {offset}, {chunk});")
+        offset += chunk
+        size -= chunk
+      return " ".join(chunks)
+    size_str = ctx[size] if hasattr(size, "op") else str(size)
+    return f"for (int _dma_off = 0; _dma_off < ({size_str}); _dma_off += 4096) {{ int _dma_chunk = (({size_str}) - _dma_off > 4096) ? 4096 : (({size_str}) - _dma_off); CORAL_DMA_ASYNC(((uint8_t*)({dest})) + _dma_off, ((uint8_t*)({src})) + _dma_off, _dma_chunk); }}"
+
   string_rewrite = PatternMatcher([
     (UPat(Ops.DEFINE_LOCAL, name="x"), _define_local_rewrite),
-    (UPat(Ops.COPY, name="x"), lambda ctx, x: f"CORAL_DMA_ASYNC({ctx[x.src[0]]}, {ctx[x.src[1]]}, {x.arg if x.arg is not None else getattr(x.dtype, 'itemsize', 4)});"),
+    (UPat(Ops.COPY, name="x"), _dma_copy_rewrite),
     (UPat(Ops.BARRIER, name="x"), lambda ctx, x: "WAIT_DMA_READY();"),
   ]) + getattr(CStyleLanguage, 'string_rewrite', PatternMatcher([]))
