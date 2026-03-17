@@ -107,7 +107,7 @@ class TestProfiler(unittest.TestCase):
     try: d1 = Device[f"{Device.DEFAULT}:1"]
     except Exception as e: self.skipTest(f"second device not available {e}")
 
-    buf1 = Tensor.randn(10, 10, device=f"{Device.DEFAULT}:0").realize()
+    buf1 = ((Tensor.arange(100) % 10) * 0.1).reshape(10, 10, device=f"{Device.DEFAULT}:0").realize()
     with helper_collect_profile(TestProfiler.d0, d1) as profile:
       buf1.to(f"{Device.DEFAULT}:1").realize()
 

@@ -80,9 +80,10 @@ class TestDevice(unittest.TestCase):
 
   @unittest.skipIf(WIN and CI, "skipping windows test")
   def test_env_online(self):
-    from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, ClangJITCompiler
-    try: _, _ = CPULLVMCompiler(), ClangJITCompiler()
-    except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
+    try:
+      from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, ClangJITCompiler
+      try: _, _ = CPULLVMCompiler(), ClangJITCompiler()
+      except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
 
     with Context(DEV="CPU:LLVM"):
       inst = Device["CPU"].compiler

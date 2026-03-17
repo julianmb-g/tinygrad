@@ -6,23 +6,23 @@ from tinygrad import Tensor
 
 class TestIndexing(unittest.TestCase):
   def test_single_int(self):
-    v = Tensor.randn(5, 7, 3)
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
     self.assertEqual(v[4].shape, (7, 3))
 
   def test_multiple_int(self):
-    v = Tensor.randn(5, 7, 3)
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
     self.assertEqual(v[4].shape, (7, 3))
     self.assertEqual(v[4, :, 1].shape, (7,))
 
   def test_none(self):
-    v = Tensor.randn(5, 7, 3)
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
     self.assertEqual(v[None].shape, (1, 5, 7, 3))
     self.assertEqual(v[:, None].shape, (5, 1, 7, 3))
     self.assertEqual(v[:, None, None].shape, (5, 1, 1, 7, 3))
     self.assertEqual(v[..., None].shape, (5, 7, 3, 1))
 
   def test_int_indices(self):
-    v = Tensor.randn(5, 7, 3)
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
     self.assertEqual(v[[0, 4, 2]].shape, (3, 7, 3))
     self.assertEqual(v[:, [0, 4, 2]].shape, (5, 3, 3))
     self.assertEqual(v[:, [[0, 1], [4, 3]]].shape, (5, 2, 2, 3))
@@ -34,7 +34,7 @@ class TestIndexing(unittest.TestCase):
     self.assertEqual(res.shape, src.shape)
 
   def test_empty_slice(self):
-    x = Tensor.randn(2, 3, 4, 5)
+    x = ((Tensor.arange(2*3*4*5) % 10) * 0.1).reshape(2, 3, 4, 5)
     y = x[:, :, :, 1]
     z = y[:, 1:1, :]
     self.assertEqual((2, 0, 4), z.shape)

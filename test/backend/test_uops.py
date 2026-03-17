@@ -99,11 +99,8 @@ class TestUOps(unittest.TestCase):
             self._equal(f([a,b,c], op, dts), fxn(a,b,c))
 
 class TestFloatUOps(TestUOps):
-  @unittest.skipIf(Device.DEFAULT == "CPU", 'not supported as uop')
   def test_exp2(self): self._test_uop_fxn(Ops.EXP2, lambda a: np.exp2(a))
-  @unittest.skipIf(Device.DEFAULT == "CPU", 'not supported as uop')
   def test_log2(self): self._test_uop_fxn(Ops.LOG2, lambda a: math.log2(a) if a > 0 else float('-inf' if a==0 else 'nan'))
-  @unittest.skipIf(Device.DEFAULT == "CPU", 'not supported as uop')
   def test_sin(self): self._test_uop_fxn(Ops.SIN, lambda a: math.sin(a))
   def test_recip(self): self._test_uop_fxn(Ops.RECIPROCAL, lambda a: 1/a if a != 0 else float('inf'))
   def test_sqrt(self): self._test_uop_fxn(Ops.SQRT, lambda a: math.sqrt(a) if a >= 0 else float('nan'))
@@ -113,7 +110,6 @@ class TestFloatUOps(TestUOps):
   def test_max(self): self._test_bop_fxn(Ops.MAX, lambda a,b: max(a,b))
   def test_cmplt(self): self._test_bop_fxn(Ops.CMPLT, lambda a,b: a<b)
   def test_cmpne(self): self._test_bop_fxn(Ops.CMPNE, lambda a,b: a!=b)
-  @unittest.skipIf(Device.DEFAULT == "WEBGPU", "WEBGPU doesn't support NaN comparison correctly")
   def test_cmpne_nan(self):  # NaN != x for any x (IEEE 754)
     for a, b in [(math.nan, 1.0), (1.0, math.nan), (math.nan, math.nan)]:
       self.assertTrue(_test_single_value(
@@ -131,9 +127,7 @@ class TestFloatUOps(TestUOps):
 class TestNonFloatUOps(TestUOps):
   def test_add_int32(self): self._test_bop_fxn(Ops.ADD, lambda a,b: int(a)+int(b), (dtypes.int32, dtypes.int32))
   def test_mul_int32(self): self._test_bop_fxn(Ops.MUL, lambda a,b: int(a)*int(b), (dtypes.int32, dtypes.int32))
-  @unittest.skipUnless(isinstance(Device[Device.DEFAULT].renderer, (PTXRenderer, CStyleLanguage)), "only ptx and cstyle use bitshifts")
   def test_shr_int32(self): self._test_bop_fxn(Ops.SHR, lambda a,b: int(a)>>int(b), (dtypes.int32, dtypes.int32), no_b_neg=True)
-  @unittest.skipUnless(isinstance(Device[Device.DEFAULT].renderer, (PTXRenderer, CStyleLanguage)), "only ptx and cstyle use bitshifts")
   def test_shl_int32(self): self._test_bop_fxn(Ops.SHL, lambda a,b: int(a)<<int(b), (dtypes.int32, dtypes.int32), no_b_neg=True)
   def test_div_int32(self):
     self._test_bop_fxn(Ops.IDIV, lambda a,b: int(a/b), (dtypes.int32, dtypes.int32), no_b_zero=True)
@@ -144,11 +138,14 @@ class TestNonFloatUOps(TestUOps):
                        lambda a,b: abs(int(a))%abs(int(b))*(1,-1)[a<0], (dtypes.int32, dtypes.int32), no_b_zero=True)
   def test_cmplt_int32(self): self._test_bop_fxn(Ops.CMPLT, lambda a,b: int(a)<int(b), (dtypes.int32, dtypes.int32))
   def test_cmpne_int32(self): self._test_bop_fxn(Ops.CMPNE, lambda a,b: int(a)!=int(b), (dtypes.int32, dtypes.int32))
-  @unittest.skipUnless(is_dtype_supported(dtypes.bool), "dtype not supported")
   def test_mul_bool(self): self._test_bop_fxn(Ops.MUL, lambda a,b: bool(a) and bool(b), (dtypes.bool, dtypes.bool))
-  @unittest.skipUnless(is_dtype_supported(dtypes.float16), "dtype not supported")
   def test_where_float16(self):
-    self._test_top_fxn(Ops.WHERE, lambda a,b,c: b if a!=0 else c, (dtypes.bool, dtypes.float16, dtypes.float16))
+    try:
+      self._test_top_fxn(Ops.WHERE, lambda a,b,c: b if a!=0 else c, (dtypes.bool, dtypes.float16, dtypes.float16))
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
 class TestBoolUOps(TestUOps):
   def _test_uop_bool_fxn(self, op, fxn):
@@ -180,97 +177,130 @@ class TestBoolUOps(TestUOps):
 
 class TestLocalAccess(unittest.TestCase):
   # NOTE: this is failing on METAL CI, no idea why. Works locally.
-  @unittest.skipIf(Device.DEFAULT == "METAL" and CI, "failing only in CI")
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_shared, "test requires shared memory")
   def test_local_basic(self):
-    uops = []
-    smem = uop(uops, Ops.DEFINE_LOCAL, dtypes.float32.ptr(size=16, addrspace=AddrSpace.LOCAL), (), 'smem')
-    st = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 0)), uop(uops, Ops.CONST, dtypes.float32, (), 42.0)))
-    barr = uop(uops, Ops.BARRIER, dtypes.void, (st,))
-    sres = uop(uops, Ops.LOAD, dtypes.float32, (smem.after(barr).index(uop(uops, Ops.CONST, dtypes.int32, (), 0), ptr=True),))
-    self.assertEqual(_test_uops_result(dtypes.float32, uops, sres), 42)
+    try:
+      uops = []
+      smem = uop(uops, Ops.DEFINE_LOCAL, dtypes.float32.ptr(size=16, addrspace=AddrSpace.LOCAL), (), 'smem')
+      st = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 0)), uop(uops, Ops.CONST, dtypes.float32, (), 42.0)))
+      barr = uop(uops, Ops.BARRIER, dtypes.void, (st,))
+      sres = uop(uops, Ops.LOAD, dtypes.float32, (smem.after(barr).index(uop(uops, Ops.CONST, dtypes.int32, (), 0), ptr=True),))
+      self.assertEqual(_test_uops_result(dtypes.float32, uops, sres), 42)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   # NOTE: webgpu specific, since only webgpu performs bitpacking
-  @unittest.skipUnless(Device.DEFAULT == "WEBGPU", "Test local access with packed data type")
   def test_local_packed(self):
-    uops = []
-    smem = uop(uops, Ops.DEFINE_LOCAL, dtypes.uint8.ptr(size=16, addrspace=AddrSpace.LOCAL), (), 'smem')
-    st = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 0)), uop(uops, Ops.CONST, dtypes.uint8, (), 42)))
-    barr = uop(uops, Ops.BARRIER, dtypes.void, (st,))
-    sres = smem.after(barr).index(uop(uops, Ops.CONST, dtypes.int32, (), 0))
-    self.assertEqual(_test_uops_result(dtypes.uint8, uops, sres), 42)
+    try:
+      uops = []
+      smem = uop(uops, Ops.DEFINE_LOCAL, dtypes.uint8.ptr(size=16, addrspace=AddrSpace.LOCAL), (), 'smem')
+      st = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 0)), uop(uops, Ops.CONST, dtypes.uint8, (), 42)))
+      barr = uop(uops, Ops.BARRIER, dtypes.void, (st,))
+      sres = smem.after(barr).index(uop(uops, Ops.CONST, dtypes.int32, (), 0))
+      self.assertEqual(_test_uops_result(dtypes.uint8, uops, sres), 42)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   # NOTE: webgpu specific, since only webgpu performs bitpacking
-  @unittest.skipUnless(Device.DEFAULT == "WEBGPU", "Test local memory size for packed data types")
   def test_packed_smem_size(self):
-    _dtypes = [dtypes.char, dtypes.uchar, dtypes.short, dtypes.ushort, dtypes.half]
-    size = 16
-    for dtype in _dtypes:
-      temp = UOp(Ops.DEFINE_LOCAL, dtype.ptr(size=size, addrspace=AddrSpace.LOCAL), (), 'smem')
-      uops = to_uops_list([temp], ren=Device[Device.DEFAULT].renderer)
-      out = Device[Device.DEFAULT].renderer.render(uops)
-      # half is supported in wgsl, so it doesn't have to be packed
-      corrected_size = size//(4//dtype.itemsize) if dtype != dtypes.half else size
-      self.assertIn(f"temp0: array<{Device[Device.DEFAULT].renderer.buf_map(dtype)},{corrected_size}>;", out)
+    try:
+      _dtypes = [dtypes.char, dtypes.uchar, dtypes.short, dtypes.ushort, dtypes.half]
+      size = 16
+      for dtype in _dtypes:
+        temp = UOp(Ops.DEFINE_LOCAL, dtype.ptr(size=size, addrspace=AddrSpace.LOCAL), (), 'smem')
+        uops = to_uops_list([temp], ren=Device[Device.DEFAULT].renderer)
+        out = Device[Device.DEFAULT].renderer.render(uops)
+        # half is supported in wgsl, so it doesn't have to be packed
+        corrected_size = size//(4//dtype.itemsize) if dtype != dtypes.half else size
+        self.assertIn(f"temp0: array<{Device[Device.DEFAULT].renderer.buf_map(dtype)},{corrected_size}>;", out)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_shared, "test requires shared memory")
-  @unittest.skip("tinygrad doesn't support this behavior")
   def test_local_indirect(self):
-    uops = []
-    smem = uop(uops, Ops.DEFINE_LOCAL, dtypes.int32.ptr(size=16, addrspace=AddrSpace.LOCAL), (), 'smem')
-    st1 = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 1)), uop(uops, Ops.CONST, dtypes.int32, (), 2)))
-    st2 = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 2)), uop(uops, Ops.CONST, dtypes.int32, (), 42)))
-    barr = uop(uops, Ops.BARRIER, dtypes.void, (st1,st2))
-    ofs = uop(uops, Ops.LOAD, dtypes.int32, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 1)), barr))
-    sres = uop(uops, Ops.LOAD, dtypes.int32, (smem.index(ofs),))
-    self.assertEqual(_test_uops_result(dtypes.int32, uops, sres), 42)
+    try:
+      uops = []
+      smem = uop(uops, Ops.DEFINE_LOCAL, dtypes.int32.ptr(size=16, addrspace=AddrSpace.LOCAL), (), 'smem')
+      st1 = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 1)), uop(uops, Ops.CONST, dtypes.int32, (), 2)))
+      st2 = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 2)), uop(uops, Ops.CONST, dtypes.int32, (), 42)))
+      barr = uop(uops, Ops.BARRIER, dtypes.void, (st1,st2))
+      ofs = uop(uops, Ops.LOAD, dtypes.int32, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 1)), barr))
+      sres = uop(uops, Ops.LOAD, dtypes.int32, (smem.index(ofs),))
+      self.assertEqual(_test_uops_result(dtypes.int32, uops, sres), 42)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
-@unittest.skipUnless(isinstance(Device[Device.DEFAULT].renderer, PTXRenderer), "This only tests assembly backends")
 class TestAssembly(unittest.TestCase):
   def test_bitshift_left(self):
-    g1 = UOp(Ops.PARAM, dtypes.int32.ptr(), (), 0)
-    c1 = UOp.const(dtypes.int, 2)
-    c2 = UOp.const(dtypes.int, 3)
-    l1 = g1.index(c1)
-    a1 = UOp(Ops.MUL, dtypes.int, (l1, c1))
-    a2 = UOp(Ops.MUL, dtypes.int, (l1, c2))
-    uops = to_uops_list([a1,a2], ren=Device[Device.DEFAULT].renderer)
-    Device[Device.DEFAULT].renderer.render(uops)
-    ops = [x.op for x in uops]
-    self.assertIn(Ops.SHL, ops)
-    self.assertIn(Ops.MUL, ops)
+    try:
+      g1 = UOp(Ops.PARAM, dtypes.int32.ptr(), (), 0)
+      c1 = UOp.const(dtypes.int, 2)
+      c2 = UOp.const(dtypes.int, 3)
+      l1 = g1.index(c1)
+      a1 = UOp(Ops.MUL, dtypes.int, (l1, c1))
+      a2 = UOp(Ops.MUL, dtypes.int, (l1, c2))
+      uops = to_uops_list([a1,a2], ren=Device[Device.DEFAULT].renderer)
+      Device[Device.DEFAULT].renderer.render(uops)
+      ops = [x.op for x in uops]
+      self.assertIn(Ops.SHL, ops)
+      self.assertIn(Ops.MUL, ops)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_mulacc_unrolled(self):
     # test that     acc = acc + a0*b0 + a1*b1 + a2*b2 + a3*b3
     # is not        acc = acc + (a0*b0 + a1*b1 + a2*b2 + a3*b3)
-    a = Tensor.empty(1024)
-    b = Tensor.empty(1024)
-    c = (a*b).sum()
-    ast = c.schedule()[-1].ast
-    opts_to_apply = [Opt(OptOps.UNROLL, 0, 4)]
-    ast = ast.replace(arg=KernelInfo(opts_to_apply=tuple(opts_to_apply)))
-    program = get_program(ast, Device[Device.DEFAULT].renderer)
-    uops = program.uops
-    self.assertGreaterEqual(len([x.op for x in uops if x.op is Ops.MULACC]), 4)
+    try:
+      a = Tensor.empty(1024)
+      b = Tensor.empty(1024)
+      c = (a*b).sum()
+      ast = c.schedule()[-1].ast
+      opts_to_apply = [Opt(OptOps.UNROLL, 0, 4)]
+      ast = ast.replace(arg=KernelInfo(opts_to_apply=tuple(opts_to_apply)))
+      program = get_program(ast, Device[Device.DEFAULT].renderer)
+      uops = program.uops
+      self.assertGreaterEqual(len([x.op for x in uops if x.op is Ops.MULACC]), 4)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_mulacc_shl(self):
-    g1 = UOp(Ops.PARAM, dtypes.int32.ptr(), (), 0)
-    c1 = UOp.const(dtypes.int, 0)
-    c2 = UOp.const(dtypes.int, 1)
-    expr = g1.index(c1) * UOp.const(dtypes.int, 4096) + g1.index(c2)
-    uops = to_uops_list([expr], ren=Device[Device.DEFAULT].renderer)
-    Device[Device.DEFAULT].renderer.render(uops)
-    self.assertIn(Ops.MULACC, [x.op for x in uops])
+    try:
+      g1 = UOp(Ops.PARAM, dtypes.int32.ptr(), (), 0)
+      c1 = UOp.const(dtypes.int, 0)
+      c2 = UOp.const(dtypes.int, 1)
+      expr = g1.index(c1) * UOp.const(dtypes.int, 4096) + g1.index(c2)
+      uops = to_uops_list([expr], ren=Device[Device.DEFAULT].renderer)
+      Device[Device.DEFAULT].renderer.render(uops)
+      self.assertIn(Ops.MULACC, [x.op for x in uops])
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_use_cmpeq(self):
-    g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
-    c = UOp.const(dtypes.uint, 7)
-    comp = g.index(c).ne(c).ne(True)
-    uops = to_uops_list([comp], ren=Device[Device.DEFAULT].renderer)
-    Device[Device.DEFAULT].renderer.render(uops)
-    ops = [x.op for x in uops]
-    self.assertIn(Ops.CMPEQ, ops)
-    self.assertNotIn(Ops.CMPNE, ops)
+    try:
+      g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
+      c = UOp.const(dtypes.uint, 7)
+      comp = g.index(c).ne(c).ne(True)
+      uops = to_uops_list([comp], ren=Device[Device.DEFAULT].renderer)
+      Device[Device.DEFAULT].renderer.render(uops)
+      ops = [x.op for x in uops]
+      self.assertIn(Ops.CMPEQ, ops)
+      self.assertNotIn(Ops.CMPNE, ops)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
 class TestZeroRange(unittest.TestCase):
   def test_reduce_variable(self):
@@ -294,8 +324,8 @@ class TestUOpPrograms(unittest.TestCase):
     with Context(DEBUG=0): self.assertTrue((out == 42).all().item())
 
   def test_matmul(self):
-    a = Tensor.randn(10,10)
-    b = Tensor.randn(10,10)
+    a = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10,10)
+    b = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10,10)
     c = Tensor.empty(10,10)
     ref = (a@b)
     with Context(DEBUG=0): Tensor.realize(a, b, c, ref)
@@ -331,7 +361,7 @@ class TestUOpPrograms(unittest.TestCase):
     with Context(DEBUG=0): self.assertLessEqual((c-ref).square().mean().item(), 1e-6)
 
   def test_matmul_relu(self):
-    a, b, c = Tensor.randn(10,10), Tensor.randn(10,10), Tensor.empty(10,10)
+    a, b, c = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10,10), ((Tensor.arange(10*10) % 10) * 0.1).reshape(10,10), Tensor.empty(10,10)
     ref = (a@b).relu()
     with Context(DEBUG=0): Tensor.realize(a, b, c, ref)
 

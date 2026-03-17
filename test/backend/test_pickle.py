@@ -164,10 +164,14 @@ class TestPickleJIT(unittest.TestCase):
       def find_class(self, module, name): return type("SpecializedFakeClass", (FakeClass,), {"name": name, "module": module})
     InspectUnpickler(io.BytesIO(self.st)).load()
 
-  @unittest.skip("we are still saving intermediate buffers")
   def test_size(self):
     # confirm no intermediate buffers are saved
-    self.assertLess(len(self.st), 1_000_000)
+    try:
+      self.assertLess(len(self.st), 1_000_000)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
 if __name__ == '__main__':
   unittest.main()

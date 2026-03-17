@@ -373,7 +373,7 @@ class TestSchedule(unittest.TestCase):
 
   def test_reduce_expand_child(self):
     Tensor.manual_seed(0)
-    a = Tensor.randn((32, 32, 32)).realize()
+    a = ((Tensor.arange(math.prod((32, 32, 32))) % 10) * 0.1).reshape((32, 32, 32)).realize()
     b = Tensor.randn((1, 16)).realize()
     out0 = a.sum() + 2
     out1 = a.sum() + b

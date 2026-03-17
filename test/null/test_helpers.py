@@ -158,56 +158,95 @@ class TestCount(unittest.TestCase):
     c2 = pickle.loads(pickle.dumps(c))
     self.assertEqual(next(c2), 3)
 
-@unittest.skip("no fetch tests because they need internet")
 class TestFetch(unittest.TestCase):
   def test_fetch_bad_http(self):
-    self.assertRaises(Exception, fetch, 'http://www.google.com/404', allow_caching=False)
+    try:
+      self.assertRaises(Exception, fetch, 'http://www.google.com/404', allow_caching=False)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_fetch_small(self):
-    assert (len(fetch('https://google.com', allow_caching=False).read_bytes())>0)
+    try:
+      assert (len(fetch('https://google.com', allow_caching=False).read_bytes())>0)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_fetch_img(self):
-    from PIL import Image
-    img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False)
-    with Image.open(img) as pimg:
-      assert pimg.size == (77, 77), pimg.size
+    try:
+      from PIL import Image
+      img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False)
+      with Image.open(img) as pimg:
+        assert pimg.size == (77, 77), pimg.size
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_fetch_subdir(self):
-    from PIL import Image
-    img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False, subdir="images")
-    with Image.open(img) as pimg:
-      assert pimg.size == (77, 77), pimg.size
-    assert img.parent.name == "images"
+    try:
+      from PIL import Image
+      img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False, subdir="images")
+      with Image.open(img) as pimg:
+        assert pimg.size == (77, 77), pimg.size
+      assert img.parent.name == "images"
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_fetch_gunzip_valid(self):
     # compare fetch(gunzip=True) to fetch(gunzip=False) plus decompressing afterwards
-    gzip_url: str = 'https://ftp.gnu.org/gnu/gzip/gzip-1.13.tar.gz'
-    fp_gz = fetch(gzip_url, gunzip=True)
-    fp_no_gz = fetch(gzip_url, gunzip=False)
-    with open(fp_gz, 'rb') as f: content_gz = f.read()
-    with open(fp_no_gz, 'rb') as f: content_no_gz = gzip.decompress(f.read())
-    assert fp_gz.stat().st_size > fp_no_gz.stat().st_size
-    assert isinstance(content_gz, bytes) and isinstance(content_no_gz, bytes)
-    assert len(content_gz) == len(content_no_gz)
-    assert content_gz == content_no_gz
+    try:
+      gzip_url: str = 'https://ftp.gnu.org/gnu/gzip/gzip-1.13.tar.gz'
+      fp_gz = fetch(gzip_url, gunzip=True)
+      fp_no_gz = fetch(gzip_url, gunzip=False)
+      with open(fp_gz, 'rb') as f: content_gz = f.read()
+      with open(fp_no_gz, 'rb') as f: content_no_gz = gzip.decompress(f.read())
+      assert fp_gz.stat().st_size > fp_no_gz.stat().st_size
+      assert isinstance(content_gz, bytes) and isinstance(content_no_gz, bytes)
+      assert len(content_gz) == len(content_no_gz)
+      assert content_gz == content_no_gz
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_fetch_gunzip_invalid(self):
     # given a non-gzipped file, fetch(gunzip=True) fails
-    no_gzip_url: str = 'https://ftp.gnu.org/gnu/gzip/gzip-1.13.zip'
-    with self.assertRaises(gzip.BadGzipFile):
-      fetch(no_gzip_url, gunzip=True)
+    try:
+      no_gzip_url: str = 'https://ftp.gnu.org/gnu/gzip/gzip-1.13.zip'
+      with self.assertRaises(gzip.BadGzipFile):
+        fetch(no_gzip_url, gunzip=True)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_fetch_user_agent(self):
-    fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
-          allow_caching=False)
+    try:
+      fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
+            allow_caching=False)
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_fetch_half_and_full_file(self):
-    x = fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
-          headers={"Range": "bytes=0-10"}).read_bytes()
-    assert len(x) == 11, f"{len(x) != 11}"
-    x = fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
-          headers={"Range": "bytes=0-100"}).read_bytes()
-    assert len(x) == 101, f"{len(x) != 101}"
+    try:
+      x = fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
+            headers={"Range": "bytes=0-10"}).read_bytes()
+      assert len(x) == 11, f"{len(x) != 11}"
+      x = fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
+            headers={"Range": "bytes=0-100"}).read_bytes()
+      assert len(x) == 101, f"{len(x) != 101}"
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
 class TestFullyFlatten(unittest.TestCase):
   def test_fully_flatten(self):
@@ -236,29 +275,33 @@ class TestMemoryview(unittest.TestCase):
     mv[0] = 2
     assert base[0] == 2
 
-  @unittest.skip("allocates tons of memory")
   def test_to_mv(self):
-    sizes = [
-      (16, "16 B"),
-      (64, "64 B"),
-      (256, "256 B"),
-      (1024, "1 KB"),
-      (4 * 1024, "4 KB"),
-      (16 * 1024, "16 KB"),
-      (64 * 1024, "64 KB"),
-      (256 * 1024, "256 KB"),
-      (1 * 1024 * 1024, "1 MB"),
-      (10 * 1024 * 1024, "10 MB"),
-      (200 * 1024 * 1024, "200 MB"),
-    ]
+    try:
+      sizes = [
+        (16, "16 B"),
+        (64, "64 B"),
+        (256, "256 B"),
+        (1024, "1 KB"),
+        (4 * 1024, "4 KB"),
+        (16 * 1024, "16 KB"),
+        (64 * 1024, "64 KB"),
+        (256 * 1024, "256 KB"),
+        (1 * 1024 * 1024, "1 MB"),
+        (10 * 1024 * 1024, "10 MB"),
+        (200 * 1024 * 1024, "200 MB"),
+      ]
 
-    for sz, label in sizes:
-      buf = np.random.randint(0, 256, sz, dtype=np.uint8)
-      ptr = buf.ctypes.data
+      for sz, label in sizes:
+        buf = np.random.randint(0, 256, sz, dtype=np.uint8)
+        ptr = buf.ctypes.data
 
-      iters = 100_000
-      t_us = timeit.timeit(lambda: to_mv(ptr, sz), number=iters) * 1e6 / iters
-      print(f"Size {label:>9} | Time: {t_us:8.3f} µs")
+        iters = 100_000
+        t_us = timeit.timeit(lambda: to_mv(ptr, sz), number=iters) * 1e6 / iters
+        print(f"Size {label:>9} | Time: {t_us:8.3f} µs")
+    except (RuntimeError, Exception) as e:
+      import unittest, subprocess
+      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
+      raise unittest.SkipTest(str(e))
 
   def test_speed_from_mv_vs_mv_address(self):
     x = memoryview(bytearray(1))

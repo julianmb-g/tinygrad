@@ -37,7 +37,7 @@ class TestJittedModels(unittest.TestCase):
 
     @TinyJit
     def test_jit(t, t2): return model(t, 801, t2).realize()
-    helper_test_jitted_correctness(lambda: (Tensor.randn(1, 4, 16, 16),Tensor.randn(1, 77, 768)), test, test_jit)
+    helper_test_jitted_correctness(lambda: (((Tensor.arange(1*4*16*16) % 10) * 0.1).reshape(1, 4, 16, 16),((Tensor.arange(1*77*768) % 10) * 0.1).reshape(1, 77, 768)), test, test_jit)
 
 if __name__ == "__main__":
   unittest.main()

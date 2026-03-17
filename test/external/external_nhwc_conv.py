@@ -2,7 +2,7 @@ from tinygrad import Tensor, nn, Context, GlobalCounters
 
 if __name__ == "__main__":
   conv = nn.Conv2d(64, 128, 3)
-  img = Tensor.randn((1,64,128,128))
+  img = ((Tensor.arange(math.prod((1,64,128,128)) % 10) * 0.1).reshape((1,64,128,128))
   with Context(DEBUG=0, BEAM=0):
     Tensor.realize(img, conv.weight, conv.bias)
 

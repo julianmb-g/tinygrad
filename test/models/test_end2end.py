@@ -107,8 +107,8 @@ class TestEnd2End(unittest.TestCase):
 
   def test_bn_alone(self):
     np.random.seed(1337)
-    X = Tensor(np.random.randn(32, 10, 1, 1).astype(np.float32))
-    Y = Tensor(np.random.randn(32, 10, 1, 1).astype(np.float32))
+    X = Tensor((np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(32, 10, 1, 1).astype(np.float32))
+    Y = Tensor((np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(32, 10, 1, 1).astype(np.float32))
     compare_tiny_torch(BatchNorm2d(10), nn.BatchNorm2d(10), X, Y)
 
   def test_bn_linear(self):

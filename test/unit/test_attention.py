@@ -11,12 +11,12 @@ def apply_rope(x:Tensor, start_pos:int):
 
 class TestAttention(unittest.TestCase):
   def test_apply_rope(self):
-    x = Tensor.randn(1, 2, 4, 8, dtype=dtypes.float32)
+    x = ((Tensor.arange(1*2*4*8) % 10) * 0.1).reshape(1, 2, 4, 8).cast(dtypes.float32)
     result = apply_rope(x, 0)
     self.assertEqual(result.shape, x.shape)
     self.assertEqual(result.dtype, x.dtype)
     self.assertGreater((result - apply_rope(x, 5)).abs().max().item(), 1e-6)
-    with self.assertRaises(AssertionError): apply_rope(Tensor.randn(1, 1, 4, 7, dtype=dtypes.float32), 0)
+    with self.assertRaises(AssertionError): apply_rope(((Tensor.arange(1*1*4*7) % 10) * 0.1).reshape(1, 1, 4, 7).cast(dtypes.float32), 0)
 
 class TestPairwiseTopk(unittest.TestCase):
   def test_basic_topk(self):

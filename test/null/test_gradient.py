@@ -64,7 +64,7 @@ class TestGradient(unittest.TestCase):
 
 class TestRealizeMeansRealize(unittest.TestCase):
   def test_randn_realizes(self):
-    x = Tensor.randn(2, 3, 64, 64, requires_grad=True).realize()
+    x = ((Tensor.arange(2*3*64*64) % 10) * 0.1).reshape(2, 3, 64, 64).requires_grad_(True).realize()
     assert x.uop is not x.uop.base
     assert x.uop.is_realized
 

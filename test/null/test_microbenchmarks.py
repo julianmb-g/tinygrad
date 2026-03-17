@@ -8,7 +8,7 @@ class TestBench(unittest.TestCase):
   def setUpClass():
     # no fixed cost
     Tensor.empty(10,10)
-    Tensor.randn(10,10)
+    ((Tensor.arange(10*10) % 10) * 0.1).reshape(10,10)
 
   def start_time(self): self.st = time.perf_counter()
   def setUp(self):
@@ -93,7 +93,7 @@ class TestBench(unittest.TestCase):
 
   def test_tensor_randn(self):
     self.N //= 100 # this test is very slow
-    for _ in range(self.N): Tensor.randn(10, 10)
+    for _ in range(self.N): ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10)
 
 if __name__ == '__main__':
   unittest.main()

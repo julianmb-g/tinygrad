@@ -379,7 +379,7 @@ class TestOps(unittest.TestCase):
     tt2 = Tensor.ones(4, requires_grad=True)
     self.assertRaises(RuntimeError, (tt1 != tt2).sum().backward)
     """
-    tt = Tensor.randn(4, requires_grad=True)
+    tt = ((Tensor.arange(4) % 10) * 0.1).requires_grad_(True)
     (tt*(tt != 0)).sum().backward()
     t = torch.tensor(tt.numpy(), requires_grad=True)
     (t*(t != 0)).sum().backward()
@@ -395,7 +395,7 @@ class TestOps(unittest.TestCase):
     tt2 = Tensor.ones(4, requires_grad=True)
     self.assertRaises(RuntimeError, (tt1 < tt2).sum().backward)
     """
-    tt = Tensor.randn(4, requires_grad=True)
+    tt = ((Tensor.arange(4) % 10) * 0.1).requires_grad_(True)
     (tt*(tt < 0)).sum().backward()
     t = torch.tensor(tt.numpy(), requires_grad=True)
     (t*(t < 0)).sum().backward()
@@ -1806,7 +1806,7 @@ class TestOps(unittest.TestCase):
 
   def test_slice_negative_strides(self):
     # Torch doesn't support slicing with negative steps
-    a = np.random.randn(10, 10, 10).astype(np.float32)
+    a = ((np.arange(1000) % 10) * 0.1).reshape(10, 10, 10).astype(np.float32)
     t = Tensor(a)
     np.testing.assert_allclose(a[::-1], t[::-1].numpy())
     np.testing.assert_allclose(a[::-2], t[::-2].numpy())
@@ -1922,7 +1922,7 @@ class TestOps(unittest.TestCase):
                                 expected=(RuntimeError, ValueError))
     with self.assertRaises(NotImplementedError):
       # negative pads with circular pads is not supported
-      Tensor.randn(1,1,5,5).pad((3,-5,1,-5), mode="circular")
+      ((Tensor.arange(25) % 10) * 0.1).reshape(1,1,5,5).pad((3,-5,1,-5), mode="circular")
 
   def test_pad_reshape(self):
     helper_test_op([(1, 2)],
@@ -2626,7 +2626,7 @@ class TestOps(unittest.TestCase):
             lambda x: torch.nn.functional.avg_pool2d(x, kernel_size=ksz, padding=p),
             lambda x: Tensor.avg_pool2d(x, kernel_size=ksz, padding=p), rtol=1e-5)
     with self.assertRaises(ValueError):
-      Tensor.avg_pool2d(Tensor.randn((32,2,11,28)), kernel_size=(2,2), padding=(1,1,1))
+      Tensor.avg_pool2d(((Tensor.arange(32*2*11*28) % 10) * 0.1).reshape(32,2,11,28), kernel_size=(2,2), padding=(1,1,1))
 
   def test_avg_pool2d_asymmetric_padding(self):
     shape = (32,2,11,28)
@@ -2768,7 +2768,7 @@ class TestOps(unittest.TestCase):
       helper_test_op([(5,6,3), (5,6,3), (5,6,3)], lambda x, y, z: torch.stack((x, y, z), dim), lambda x, y, z: Tensor.stack((x, y, z), dim=dim))
 
     with self.assertRaises(IndexError):
-      Tensor.stack(Tensor.randn(45, 65, 3), dim=77)
+      Tensor.stack(((Tensor.arange(45*65*3) % 10) * 0.1).reshape(45, 65, 3), dim=77)
     with self.assertRaises(ValueError):
       Tensor.stack((Tensor([1, 2]), Tensor([3, 4])), Tensor([5, 6]))
 
@@ -2779,7 +2779,7 @@ class TestOps(unittest.TestCase):
     helper_test_op(None, lambda x, y: torch.stack((x, y)).max(axis=0)[0], lambda x, y: Tensor.stack(x, y).max(axis=0), vals=[[1.], [2.]])
 
   def test_repeat(self):
-    x = Tensor.randn(4, 6, 3)
+    x = ((Tensor.arange(4*6*3) % 10) * 0.1).reshape(4, 6, 3)
     base_repeats = [2, 4, 3]
 
     for reps in [[], [4], [2, 1], [3, 2, 2]]:

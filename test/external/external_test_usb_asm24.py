@@ -60,7 +60,7 @@ class TestDevCopySpeeds(unittest.TestCase):
         t.to('CPU').realize()
 
   def testValidateCopies(self):
-    t = Tensor.randn(self.sz, self.sz, device="CPU").contiguous().realize()
+    t = ((Tensor.arange(self.sz*self.sz*device="CPU") % 10) * 0.1).reshape(self.sz, self.sz, device="CPU").contiguous().realize()
     x = t.to(Device.DEFAULT).realize()
     Device[Device.DEFAULT].synchronize()
 

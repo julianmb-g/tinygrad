@@ -9,7 +9,6 @@ from tinygrad.codegen.opt.search import Opt, OptOps
 from tinygrad.engine.realize import get_program
 
 class TestLinearizerFailure(unittest.TestCase):
-  @unittest.skipUnless(Device.DEFAULT == "METAL", "only tested on METAL")
   def test_failure_beam_mnist(self):
     c0 = UOp(Ops.PARAM, dtypes.uchar.ptr(4014080), arg=0, src=())
     c1 = UOp.range(UOp.const(dtypes.weakint, 512), 0, AxisType.GLOBAL)

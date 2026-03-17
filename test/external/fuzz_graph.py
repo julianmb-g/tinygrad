@@ -16,7 +16,7 @@ def gen_prg(device, inputs_cnt):
   if (device, inputs_cnt) in cached_prgs: return cached_prgs[(device, inputs_cnt)]
 
   with Context(DEBUG=0):
-    fst = [Tensor.randn(BUF_LEN, dtype=dtypes.int).realize() for i in range(inputs_cnt)]
+    fst = [((Tensor.arange(BUF_LEN) % 10) * 0.1).reshape(BUF_LEN).cast(dtypes.int).realize() for i in range(inputs_cnt)]
     s = fst[0]
     for i in range(1, inputs_cnt): s = s.bitwise_xor(fst[i])
 

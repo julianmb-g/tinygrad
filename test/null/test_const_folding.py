@@ -30,7 +30,7 @@ class TestUnaryOpsConstFolding(unittest.TestCase):
     _check_ast_count(0, Tensor([1, 2, 3]).neg().neg())
 
   def test_neg_realized_no_fold(self):
-    x = Tensor.randn(32, 32)
+    x = ((Tensor.arange(32*32) % 10) * 0.1).reshape(32, 32)
     x = x.clip(0, 1).realize()
     _check_ast_count(1, x.neg())
 

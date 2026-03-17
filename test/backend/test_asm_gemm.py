@@ -1,3 +1,4 @@
+import math
 import unittest
 from tinygrad import Tensor, Device, dtypes, Context
 from tinygrad.device import is_dtype_supported
@@ -12,8 +13,8 @@ def is_cdna4(): return getattr(Device[Device.DEFAULT].renderer, "arch", "").star
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
   Tensor.manual_seed(0)
-  a_rand = Tensor.randn(a_shape, dtype=dtypes.float).sub(0.5).cast(dtype)
-  b_rand = Tensor.randn(b_shape, dtype=dtypes.float).sub(0.5).cast(dtype)
+  a_rand = ((Tensor.arange(math.prod(a_shape)) % 10) * 0.1).reshape(a_shape).cast(dtypes.float).sub(0.5).cast(dtype)
+  b_rand = ((Tensor.arange(math.prod(b_shape)) % 10) * 0.1).reshape(b_shape).cast(dtypes.float).sub(0.5).cast(dtype)
   with Context(DEBUG=0):
     Tensor.realize(a_rand, b_rand)
 
@@ -61,7 +62,6 @@ def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.fl
 
 # 128x smaller than usual
 # uses the UOp GEMM, runs on non CDNA4 and CI
-@unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
 class TestGemm(unittest.TestCase):
   def setUp(self):
     if is_cdna4(): self.skipTest("shapes are too small for the assembly GEMM")

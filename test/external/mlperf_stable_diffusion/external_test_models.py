@@ -95,13 +95,13 @@ class TestInitStableDiffusion(unittest.TestCase):
       np.testing.assert_allclose(sqrt_omacp[[0,-1]].numpy(), expected, rtol=1e-7, atol=0, err_msg="sqrt_omacp is incorrect")
 
     with self.subTest("check mixed precision"):
-      out = unet.input_blocks[2][1].proj_in(Tensor.randn(320, dtype=dtypes.float32))
+      out = unet.input_blocks[2][1].proj_in(((Tensor.arange(320) % 10) * 0.1).reshape(320).cast(dtypes.float32))
       self.assertEqual(out.dtype, dtypes.bfloat16, "expected float32 to be downcast to bfloat16 by Linear")
-      out = unet.out[2](Tensor.randn(304,320,64,64, dtype=dtypes.float32))
+      out = unet.out[2](((Tensor.arange(304*320*64*64) % 10) * 0.1).reshape(304, 320, 64, 64).cast(dtypes.float32))
       self.assertEqual(out.dtype, dtypes.bfloat16, "expected float32 to be downcast to bfloat16 by Conv2d")
-      out = unet.input_blocks[1][1].transformer_blocks[0].norm1(Tensor.randn(320, dtype=dtypes.bfloat16))
+      out = unet.input_blocks[1][1].transformer_blocks[0].norm1(((Tensor.arange(320) % 10) * 0.1).reshape(320).cast(dtypes.bfloat16))
       self.assertEqual(out.dtype, dtypes.float32, "expected bfloat16 to be upcast to float32 by LayerNorm")
-      out = unet.input_blocks[5][0].in_layers[0](Tensor.randn(304, 640, dtype=dtypes.bfloat16))
+      out = unet.input_blocks[5][0].in_layers[0](((Tensor.arange(304*640) % 10) * 0.1).reshape(304, 640).cast(dtypes.bfloat16))
       self.assertEqual(out.dtype, dtypes.float32, "expected bfloat16 to be upcast to float32 by GroupNorm")
 
   def test_train_model(self):

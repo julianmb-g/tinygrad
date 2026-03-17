@@ -4,7 +4,6 @@ from tinygrad import Device
 from tinygrad.uop.ops import Ops
 from tinygrad.dtype import dtypes
 
-@unittest.skipUnless(Device.DEFAULT == "METAL", "Metal device required to run")
 class TestMetalGraph(unittest.TestCase):
   def setUp(self):
     from tinygrad.runtime.graph.metal import MetalGraph

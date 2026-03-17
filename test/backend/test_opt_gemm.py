@@ -10,8 +10,8 @@ class TestOptGemm(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
     N = 64
-    cls.a = Tensor.randn(N, N).contiguous().realize()
-    cls.b = Tensor.randn(N, N).contiguous().realize()
+    cls.a = ((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N).contiguous().realize()
+    cls.b = ((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N).contiguous().realize()
     cls.res = cls.a.T.numpy() @ cls.b.T.numpy()
 
   def _test_gemm_unrolled_permute_l(self, opts=[]):

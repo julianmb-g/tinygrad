@@ -38,7 +38,7 @@ if __name__ == "__main__":
   step_times = []
   for _ in range(10):
     # regenerate inputs
-    inputs = [Tensor.randn(1928,1208), Tensor.randn(3,3)]
+    inputs = [((Tensor.arange(1928*1208) % 10) * 0.1).reshape(1928,1208), ((Tensor.arange(3*3) % 10) * 0.1).reshape(3,3)]
     Tensor.realize(*inputs)
     Device.default.synchronize()
 

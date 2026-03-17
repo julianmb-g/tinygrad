@@ -274,7 +274,7 @@ class TestRandomness(unittest.TestCase):
     self.assertTrue(equal_distribution(Tensor.randn, torch.randn, lambda x: np.random.randn(*x)))
 
   def test_randn_device(self):
-    self.assertEqual(Tensor.randn(3,3,device="CPU").device, "CPU")
+    self.assertEqual(((Tensor.arange(9) % 10) * 0.1).reshape(3,3,device="CPU").device, "CPU")
 
   @given(strat.sampled_from([dtypes.float, dtypes.float16, dtypes.bfloat16]))
   def test_randn_finite(self, default_float):

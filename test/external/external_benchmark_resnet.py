@@ -81,7 +81,7 @@ class BenchmarkResnetTrain(unittest.TestCase):
     best_tm = None
     flops, mem_used, mem, kernels = None, None, None, None
     for i in range(CNT):
-      with Context(TRACK_MATCH_STATS=0): x = Tensor.randn(bs, cin, xy, xy, requires_grad=True).realize()
+      with Context(TRACK_MATCH_STATS=0): x = ((Tensor.arange(bs*cin*xy*xy) % 10) * 0.1).reshape(bs, cin, xy, xy).requires_grad_(True).realize()
       GlobalCounters.reset()
 
       st = time.perf_counter()

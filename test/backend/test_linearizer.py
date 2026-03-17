@@ -80,7 +80,7 @@ class TestLinearizer(unittest.TestCase):
         assert ranges[i-1] != u, f"multireduce nested the ranges! {ranges[i-1], {u}}"
 
   def test_two_nested_range(self):
-    a = Tensor.randn(2, ).realize()
+    a = ((Tensor.arange(2) % 10) * 0.1).reshape(2, ).realize()
     out = a.reshape(2, 1).expand(2, 3).sum()
     ast = helper_linearizer_opt(out, wanna_output=[np.broadcast_to(a.numpy().reshape(2, 1), (2, 3)).sum()])
     uops = get_program(ast, renderer=Device[Device.DEFAULT].renderer, opts=[]).uops
@@ -88,7 +88,7 @@ class TestLinearizer(unittest.TestCase):
     assert len(ranges) == 1 # NOTE: it collapses now
 
   def test_three_nested_range(self):
-    a = Tensor.randn(2, ).realize()
+    a = ((Tensor.arange(2) % 10) * 0.1).reshape(2, ).realize()
     out = a.reshape(2, 1).expand(2, 3).expand(2, 2, 3).sum()
     ast = helper_linearizer_opt(out, wanna_output=[np.broadcast_to(np.broadcast_to(a.numpy().reshape(2, 1), (2, 3)), (2, 2, 3)).sum()])
     uops = get_program(ast, renderer=Device[Device.DEFAULT].renderer, opts=[]).uops
@@ -118,7 +118,7 @@ class TestLinearizer(unittest.TestCase):
     assert len([x for x in uops[:ranges[0]] if x.op is Ops.LOAD]) == 1
 
   def test_range_outer_op_before_phi_nested_range(self):
-    a = Tensor.randn(2, ).realize()
+    a = ((Tensor.arange(2) % 10) * 0.1).reshape(2, ).realize()
     b = Tensor.randn(1, 1).realize()
     out = (a.reshape(2, 1).expand(2, 3) + b[0]).sum() + b[0]
     ast = helper_linearizer_opt(out, wanna_output=[(np.broadcast_to(a.numpy().reshape(2, 1), (2, 3)) + b.numpy()[0]).sum() + b.numpy()])
