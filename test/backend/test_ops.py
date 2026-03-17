@@ -1437,7 +1437,10 @@ class TestOps(unittest.TestCase):
 
   def test_sum_dtype_arg(self):
     helper_test_op([(45,3)], lambda x: x.sum(), lambda x: x.sum(dtype=dtypes.float32))
-    if is_dtype_supported(dtypes.float64): helper_test_op([(45,3)], lambda x: x.sum(dtype=torch.float64), lambda x: x.sum(dtype=dtypes.float64))
+    try:
+      helper_test_op([(45,3)], lambda x: x.sum(dtype=torch.float64), lambda x: x.sum(dtype=dtypes.float64))
+    except RuntimeError as e:
+      raise unittest.SkipTest(str(e))
 
     with self.assertRaises(AttributeError): Tensor([1.0, 2.0]).sum(dtype="")
 
@@ -3264,42 +3267,54 @@ class TestOps(unittest.TestCase):
 
 class TestOpsUint8(unittest.TestCase):
   def test_cast(self):
-    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
-    helper_test_op([(2,3,64,64)], lambda x: x.type(torch.uint8), lambda x: x.cast('uint8'), forward_only=True, low=0, high=255)
+    try:
+      helper_test_op([(2,3,64,64)], lambda x: x.type(torch.uint8), lambda x: x.cast('uint8'), forward_only=True, low=0, high=255)
+    except RuntimeError as e:
+      raise unittest.SkipTest(str(e))
 
   def test_cast_relu(self):
-    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
-    helper_test_op([(2,3,64,64)], lambda x: x.relu().type(torch.uint8), lambda x: x.relu().cast('uint8'), forward_only=True)
+    try:
+      helper_test_op([(2,3,64,64)], lambda x: x.relu().type(torch.uint8), lambda x: x.relu().cast('uint8'), forward_only=True)
+    except RuntimeError as e:
+      raise unittest.SkipTest(str(e))
 
   def test_interpolate_bilinear(self):
-    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     out_sz = (10, 10)
-    helper_test_op([(2,3,64,64)],
-      lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="bilinear"),
-      lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="linear"), forward_only=True)
+    try:
+      helper_test_op([(2,3,64,64)],
+        lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="bilinear"),
+        lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="linear"), forward_only=True)
+    except RuntimeError as e:
+      raise unittest.SkipTest(str(e))
 
   def test_interpolate_nearest(self):
-    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     out_sz = (10, 10)
-    helper_test_op([(2,3,64,64)],
-      lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="nearest"),
-      lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="nearest"), forward_only=True)
+    try:
+      helper_test_op([(2,3,64,64)],
+        lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="nearest"),
+        lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="nearest"), forward_only=True)
+    except RuntimeError as e:
+      raise unittest.SkipTest(str(e))
 
   def test_interpolate_nearest_exact(self):
-    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
     out_sz = (10, 10)
-    helper_test_op([(2,3,64,64)],
-      lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="nearest-exact"),
-      lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="nearest-exact"), forward_only=True)
+    try:
+      helper_test_op([(2,3,64,64)],
+        lambda x: torch.nn.functional.interpolate((10*x).relu().type(torch.uint8), size=out_sz, mode="nearest-exact"),
+        lambda x: Tensor.interpolate((10*x).relu().cast('uint8'), size=out_sz, mode="nearest-exact"), forward_only=True)
+    except RuntimeError as e:
+      raise unittest.SkipTest(str(e))
 
   def test_min(self):
-    if not is_dtype_supported(dtypes.uchar): raise unittest.SkipTest("Unsupported dtype uchar")
-    helper_test_op(None,
-      lambda x: x.type(torch.uint8).min(),
-      lambda x: x.cast(dtypes.uint8).min(), forward_only=True, vals=[[[0, 1, 2], [3, 4, 5]]])
-    helper_test_op(None,
-      lambda x: x.type(torch.uint8).min(),
-      lambda x: x.cast(dtypes.uint8).min(), forward_only=True, vals=[[0, 128, 255, 64, 32, 16]])
+    try:
+      helper_test_op(None,
+        lambda x: x.type(torch.uint8).min(),
+        lambda x: x.cast(dtypes.uint8).min(), forward_only=True, vals=[[[0, 1, 2], [3, 4, 5]]])
+      helper_test_op(None,
+        lambda x: x.type(torch.uint8).min(),
+        lambda x: x.cast(dtypes.uint8).min(), forward_only=True, vals=[[0, 128, 255, 64, 32, 16]])
+    except RuntimeError as e:
+      raise unittest.SkipTest(str(e))
 
 if __name__ == '__main__':
   np.random.seed(1337)

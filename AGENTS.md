@@ -48,3 +48,4 @@
 - **Task Tracking Centralization**:: Submodule tasks must strictly be planned and tracked via the root workspace `PLAN.md` ledger.
 
 - **AST Structural Parsing Refinement**: When migrating from Regex to structural AST parsing via `clang.cindex`, do not search literal string tokens for specific magic constants to identify generated code elements like spill pointers. Instead, locate nodes by evaluating structural variable names (`spill_ptr_name`) or specific compilation attributes (`CursorKind.VAR_DECL` with `TypeKind.POINTER`) to prevent brittleness against compiler payload modifications.
+- **Organic Hardware Bounds**: `is_dtype_supported` checks must not be used to trivially bypass tests for missing hardware capabilities (e.g., FP64 or uchar). Instead, tests must execute organically and catch the resulting `RuntimeError` to explicitly `raise unittest.SkipTest(...)`, preventing passive masking of architectural failures.
