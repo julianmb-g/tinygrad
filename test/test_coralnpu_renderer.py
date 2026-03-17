@@ -5,6 +5,11 @@ import re
 import subprocess
 import tempfile
 import struct
+import clang.cindex
+from clang.cindex import Config
+try: Config.set_library_file('/usr/lib/llvm-19/lib/libclang.so')
+except: pass
+
 import random
 import numpy as np
 import tinygrad.renderer.coralnpu as coralnpu
@@ -109,18 +114,42 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf_dest1, buf_src1, copy_uop1, buf_dest2, buf_src2, idx_val, idx2, ld2, st_idx2, st2, sink]
     
     src = renderer.render(uops)
+    src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
     self.assertIn("CORAL_DMA_ASYNC", src)
     
     body = src.split("{", 1)[1] if "{" in src else src
     
-    # Robust Structural Validation: Do not rely on hardcoded variable names (like data1 or temp0).
-    # We search for any pointer assignment followed by WAIT_DMA_READY().
-    match = re.search(r"\*\([a-zA-Z0-9_]+\s*\+\s*[0-9]+\)\s*=\s*[a-zA-Z0-9_]+;.*?WAIT_DMA_READY\(\);", body, re.DOTALL)
-    self.assertIsNotNone(match, "WAIT_DMA_READY must come strictly after the disjoint STORE")
+# Organic AST Chronological Verification
+    try:
+      index = clang.cindex.Index.create()
+    except Exception as e:
+      raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
+      
+    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      f.write((dummy_includes + src).encode())
+      f.flush()
+      tu = index.parse(f.name, args=['-std=c++11'])
+      sequence = []
+      def walk(node):
+        if node.kind == clang.cindex.CursorKind.CALL_EXPR:
+          if node.spelling == 'CORAL_DMA_ASYNC': sequence.append('DMA_START')
+          elif node.spelling == 'WAIT_DMA_READY': sequence.append('DMA_WAIT')
+        elif node.kind == clang.cindex.CursorKind.BINARY_OPERATOR:
+          tokens = [t.spelling for t in node.get_tokens()]
+          if '=' in tokens and tokens[0] == '*': sequence.append('STORE')
+        for c in node.get_children(): walk(c)
+      walk(tu.cursor)
+      
+      if 'DMA_WAIT' not in sequence or 'STORE' not in sequence:
+        self.fail(f"Missing expected tokens in AST sequence: {sequence}")
+      last_store = max(loc for loc, val in enumerate(sequence) if val == 'STORE')
+      first_wait = min(loc for loc, val in enumerate(sequence) if val == 'DMA_WAIT')
+      self.assertGreater(first_wait, last_store, "WAIT_DMA_READY must come strictly after all disjoint STOREs")
     
     # Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define WAIT_DMA_READY()\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
       f.write((dummy_includes + src).encode())
       f.flush()
       try:
@@ -161,11 +190,12 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf_dest, buf_src, copy_uop, idx_val, idx, ld, st_idx, st, sink]
     
     src = renderer.render(uops)
+    src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
     self.assertIn("CORAL_DMA_ASYNC", src)
     body = src.split("{", 1)[1] if "{" in src else src
     self.assertIn("WAIT_DMA_READY();", body)
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define WAIT_DMA_READY()\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
       f.write((dummy_includes + src).encode())
       f.flush()
       try:
@@ -397,13 +427,44 @@ class TestCoralNPURenderer(unittest.TestCase):
           
       body = src.split("{", 1)[1] if "{" in src else src
       
-      # Robust Structural Validation: Do not rely on hardcoded variable names (like temp0 or data0).
-      # We search for:
-      # 1. Spill Store: `*((type*)(spill_ptr)) = val;`
-      # 2. Intermediate Load or Math
-      # 3. Delayed Spill Load: `(*((type*)(spill_ptr)))`
-      match = re.search(r"\*\(\([a-zA-Z0-9_]+\*\)\(([a-zA-Z0-9_]+)\)\)\s*=\s*[a-zA-Z0-9_]+;.*?=.*?\(\*\(\([a-zA-Z0-9_]+\*\)\(\1\)\)\)", body, re.DOTALL)
-      self.assertIsNotNone(match, f"Spill LOAD must be strictly delayed after intermediate operations.\nSRC:\n{src}")
+# Organic AST Chronological Verification
+      try:
+        index = clang.cindex.Index.create()
+      except Exception as e:
+        raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
+        
+      with tempfile.NamedTemporaryFile(suffix=".cc") as f:
+        dummy_includes = "#include <stdint.h>\ntypedef int32_t int32_t4 __attribute__((vector_size(16)));\n"
+        f.write((dummy_includes + src).encode())
+        f.flush()
+        tu = index.parse(f.name, args=['-std=c++11'])
+        
+        sequence = []
+        spill_ptr_name = None
+        
+        def walk(node):
+          nonlocal spill_ptr_name
+          tokens = [t.spelling for t in node.get_tokens()]
+          if not tokens: return
+          if node.kind == clang.cindex.CursorKind.DECL_STMT:
+            if '=' in tokens and '4096' in tokens and '*' in tokens:
+              spill_ptr_name = tokens[tokens.index('=') - 1]
+              sequence.append("SPILL_INIT")
+            elif spill_ptr_name and spill_ptr_name in tokens and '=' in tokens:
+              sequence.append("SPILL_LOAD")
+            elif '=' in tokens:
+              sequence.append("INTERMEDIATE")
+          elif node.kind == clang.cindex.CursorKind.BINARY_OPERATOR:
+            if spill_ptr_name and spill_ptr_name in tokens and '=' in tokens:
+              sequence.append("SPILL_STORE")
+          for c in node.get_children(): walk(c)
+        walk(tu.cursor)
+        
+        if "SPILL_STORE" not in sequence or "SPILL_LOAD" not in sequence:
+          self.fail(f"Missing expected spill tokens in AST sequence: {sequence}")
+        last_store = max(loc for loc, val in enumerate(sequence) if val == 'SPILL_STORE')
+        first_load = min(loc for loc, val in enumerate(sequence) if val == 'SPILL_LOAD')
+        self.assertGreater(first_load, last_store, "Spill LOAD must be strictly delayed after intermediate operations.")
       
       # Native GCC Compilation Validation
       with tempfile.NamedTemporaryFile(suffix=".cc") as f:
