@@ -154,6 +154,8 @@ class TestCoralNPURenderer(unittest.TestCase):
       f.flush()
       try:
         subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+      except FileNotFoundError:
+        raise unittest.SkipTest("Toolchain missing")
       except subprocess.CalledProcessError:
         self.fail("Generated C++ code failed to compile natively via GCC.")
         
@@ -168,11 +170,10 @@ class TestCoralNPURenderer(unittest.TestCase):
           with self.assertRaises(subprocess.CalledProcessError):
             subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
             
-        empty_dir = temp_dir + "_empty"
-        os.makedirs(empty_dir, exist_ok=True)
-        with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
-          with self.assertRaises(FileNotFoundError):
-            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+        with tempfile.TemporaryDirectory() as empty_dir:
+          with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
+            with self.assertRaises(FileNotFoundError):
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
 
   def test_dma_macro_injection(self):
     renderer = CoralNPURenderer()
@@ -200,6 +201,8 @@ class TestCoralNPURenderer(unittest.TestCase):
       f.flush()
       try:
         subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+      except FileNotFoundError:
+        raise unittest.SkipTest("Toolchain missing")
       except subprocess.CalledProcessError:
         self.fail("Generated C++ code failed to compile natively via GCC.")
         
@@ -214,11 +217,10 @@ class TestCoralNPURenderer(unittest.TestCase):
           with self.assertRaises(subprocess.CalledProcessError):
             subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
             
-        empty_dir = temp_dir + "_empty"
-        os.makedirs(empty_dir, exist_ok=True)
-        with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
-          with self.assertRaises(FileNotFoundError):
-            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+        with tempfile.TemporaryDirectory() as empty_dir:
+          with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
+            with self.assertRaises(FileNotFoundError):
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
 
   def test_estimate_cost_analytical(self):
     cost = estimate_cost_analytical(self.uops)
@@ -473,6 +475,8 @@ class TestCoralNPURenderer(unittest.TestCase):
         f.flush()
         try:
           subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+        except FileNotFoundError:
+          raise unittest.SkipTest("Toolchain missing")
         except subprocess.CalledProcessError:
           self.fail("Generated C++ code failed to compile natively via GCC.")
           
@@ -487,11 +491,10 @@ class TestCoralNPURenderer(unittest.TestCase):
             with self.assertRaises(subprocess.CalledProcessError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
               
-          empty_dir = temp_dir + "_empty"
-          os.makedirs(empty_dir, exist_ok=True)
-          with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
-            with self.assertRaises(FileNotFoundError):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+          with tempfile.TemporaryDirectory() as empty_dir:
+            with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
+              with self.assertRaises(FileNotFoundError):
+                subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
       
     finally:
       renderer.MAX_VR_COUNT = old_max
