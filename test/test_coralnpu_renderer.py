@@ -395,10 +395,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     renderer.MAX_VR_COUNT = 2
     
     try:
-      # Changed from dtypes.int.vec(4) to dtypes.int to ensure native GCC compilation works,
-      # as the renderer has a bug where it emits generic int32_t* for spill pointers, breaking vector assignment.
-      # By using standard dtypes.int and manually appending them to active_regs for the test,
-      # we can verify the chronological string output AND fully compile the C++ organically.
       buf0 = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
       idx0 = UOp(Ops.CONST, dtypes.int, (), 0)
       ptr0 = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx0), None)
@@ -444,20 +440,34 @@ class TestCoralNPURenderer(unittest.TestCase):
         sequence = []
         spill_ptr_name = None
         
+        def has_integer_literal_cast(node):
+          if node.kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
+            return any(c.kind == clang.cindex.CursorKind.INTEGER_LITERAL for c in node.walk_preorder())
+          return any(has_integer_literal_cast(c) for c in node.get_children())
+          
+        def contains_decl_ref(node, name):
+          if node.kind == clang.cindex.CursorKind.DECL_REF_EXPR and node.spelling == name:
+            return True
+          return any(contains_decl_ref(c, name) for c in node.get_children())
+          
         def walk(node):
           nonlocal spill_ptr_name
-          tokens = [t.spelling for t in node.get_tokens()]
-          if not tokens: return
           if node.kind == clang.cindex.CursorKind.DECL_STMT:
-            if '=' in tokens and '4096' in tokens and '*' in tokens:
-              spill_ptr_name = tokens[tokens.index('=') - 1]
-              sequence.append("SPILL_INIT")
-            elif spill_ptr_name and spill_ptr_name in tokens and '=' in tokens:
-              sequence.append("SPILL_LOAD")
-            elif '=' in tokens:
-              sequence.append("INTERMEDIATE")
+            var_decls = [c for c in node.get_children() if c.kind == clang.cindex.CursorKind.VAR_DECL]
+            is_spill_init = False
+            for vd in var_decls:
+              if vd.type.kind == clang.cindex.TypeKind.POINTER and has_integer_literal_cast(vd):
+                spill_ptr_name = vd.spelling
+                sequence.append("SPILL_INIT")
+                is_spill_init = True
+                break
+            if not is_spill_init:
+              if spill_ptr_name and contains_decl_ref(node, spill_ptr_name):
+                sequence.append("SPILL_LOAD")
+              elif any(c.kind == clang.cindex.CursorKind.VAR_DECL for c in node.get_children()):
+                sequence.append("INTERMEDIATE")
           elif node.kind == clang.cindex.CursorKind.BINARY_OPERATOR:
-            if spill_ptr_name and spill_ptr_name in tokens and '=' in tokens:
+            if spill_ptr_name and contains_decl_ref(node, spill_ptr_name):
               sequence.append("SPILL_STORE")
           for c in node.get_children(): walk(c)
         walk(tu.cursor)
