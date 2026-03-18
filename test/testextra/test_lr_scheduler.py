@@ -1,4 +1,5 @@
 import unittest
+import math
 
 import numpy as np
 import torch
@@ -79,7 +80,7 @@ class TestLrScheduler(unittest.TestCase):
   def _test_multisteplr(self, epochs, opts, atol, rtol, adam=True):
     self._test_lr_scheduler(MultiStepLR, torch.optim.lr_scheduler.MultiStepLR, epochs, opts, atol, rtol, adam=adam)
   def _test_reducelronplateau(self, epochs, opts, atol, rtol):
-    opts['accs'] = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(epochs)
+    opts['accs'] = (np.arange(math.prod((epochs,))) % 10 * 0.1).reshape(epochs)
     self._test_lr_scheduler(ReduceLROnPlateau, torch.optim.lr_scheduler.ReduceLROnPlateau, epochs, opts, atol, rtol)
   def _test_cosineannealinglr(self, epochs, opts, atol, rtol):
     opts['T_max'] = epochs

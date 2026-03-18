@@ -1,5 +1,6 @@
 # ruff: noqa: E501
 import unittest
+import math
 from dataclasses import replace
 
 import numpy as np
@@ -20,11 +21,11 @@ def create_gemm_model(model_path:str, batch_size=N, in_size=N, out_size=N, bias=
   output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, out_size])
 
   # Create random weights and bias
-  W_data = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(in_size, out_size).astype(np.float32)
+  W_data = (np.arange(math.prod((in_size, out_size))) % 10 * 0.1).reshape(in_size, out_size).astype(np.float32)
   W_init = numpy_helper.from_array(W_data, name="W")
 
   if bias:
-    B_data = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(out_size).astype(np.float32)
+    B_data = (np.arange(math.prod((out_size,))) % 10 * 0.1).reshape(out_size).astype(np.float32)
     B_init = numpy_helper.from_array(B_data, name="B")
     gemm_node = helper.make_node("Gemm", inputs=["input", "W", "B"], outputs=["output"], alpha=1.0, beta=1.0, transB=0)
     graph_def = helper.make_graph([gemm_node], "SingleGemmGraph", [input_tensor], [output_tensor], initializer=[W_init, B_init])

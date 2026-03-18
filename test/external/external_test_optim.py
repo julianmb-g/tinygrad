@@ -15,9 +15,9 @@ from tinygrad.nn.optim import LAMB, LARS, SGD, AdamW, OptimizerGroup
 from tinygrad.tensor import Tensor
 
 np.random.seed(1337)
-x_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,4).astype(np.float32)
-W_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(4,4).astype(np.float32)
-m_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,4).astype(np.float32)
+x_init = (np.arange(math.prod((1, 4))) % 10 * 0.1).reshape(1,4).astype(np.float32)
+W_init = (np.arange(math.prod((4, 4))) % 10 * 0.1).reshape(4,4).astype(np.float32)
+m_init = (np.arange(math.prod((1, 4))) % 10 * 0.1).reshape(1,4).astype(np.float32)
 
 class TinyNet:
   def __init__(self):
