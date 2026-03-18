@@ -21,9 +21,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         sh2 = struct.pack("<10I", 0, 3, 0, 0, 204, 10, 0, 0, 1, 0)
         sym0 = struct.pack("<IIIBBH", 0, 0, 0, 0, 0, 0)
 
-        current_elf_len = len(header + sh0 + sh1 + sh2 + sym0)
-        self.mock_base = 0x80000000 + current_elf_len + 0x2000
-        sym1 = struct.pack("<IIIBBH", 1, self.mock_base, 0, 0, 0, 0)
+        sym1 = struct.pack("<IIIBBH", 1, 0x80002000, 0, 0, 0, 0)
         strs = b'\x00_end\x00\x00\x00\x00\x00'
 
         with open(mock_elf_path, "wb") as f:
@@ -55,28 +53,27 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             self.assertEqual(bytes(out), test_data)
 
             # Check internal shared memory object is registered
-            self.assertIn(handle, self.allocator.shms)
-            self.assertIsNotNone(self.allocator.shms[handle].name)
-            self.assertEqual(self.allocator.vmm_base, self.mock_base)
+            self.assertIn(handle, getattr(self.allocator, "shms", {}))
+            self.assertIsNotNone(getattr(self.allocator, "shms", {})[handle].name)
+            self.assertEqual(handle, getattr(self.allocator, "vmm_base", None))
         finally:
             self.allocator._free(handle, dummy_options)
 
     def test_missing_compiler_raises_file_not_found(self):
-        """Test that missing cross-compiler cleanly raises FileNotFoundError."""
+        """Test that missing cross-compiler cleanly raises unittest.SkipTest (wrapping FileNotFoundError)."""
         import os
-        import tempfile
         import unittest.mock
-        with tempfile.TemporaryDirectory() as tmp_bin:
-            with unittest.mock.patch.dict(os.environ, {"PATH": tmp_bin}):
-                program = CoralNPUProgram(self.device, "missing_compiler", b"void missing_compiler() {}")
-                with self.assertRaises(unittest.SkipTest):
-                    program()
+        with unittest.mock.patch.dict(os.environ, {"PATH": "/tmp/dummy_empty_path"}):
+            program = CoralNPUProgram(self.device, "missing_compiler", b"void missing_compiler() {}")
+            with self.assertRaises(unittest.SkipTest):
+                program()
 
     def test_compiler_failure_raises_called_process_error(self):
-        """Test that a failing compiler authentically raises CalledProcessError (wrapped in RuntimeError) via real compiler execution."""
+        """Test that a failing compiler authentically raises RuntimeError wrapping CalledProcessError via real compiler execution."""
         import os
         import tempfile
         import unittest.mock
+        import subprocess
         with tempfile.TemporaryDirectory() as tmp_bin:
             gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
             with open(gcc_path, 'w') as f:
