@@ -10,7 +10,7 @@ import clang.cindex
 from clang.cindex import Config
 
 try: Config.set_library_file('/usr/lib/llvm-19/lib/libclang.so')
-except: pass
+except Exception: pass
 
 import random
 

@@ -271,9 +271,10 @@ class TestTinygrad(unittest.TestCase):
   def test_randn_isnt_inf_on_zero(self):
     # simulate failure case of rand handing a zero to randn
     original_rand, Tensor.rand = Tensor.rand, Tensor.zeros
-    try: self.assertNotIn(np.inf, ((Tensor.arange(16) % 10) * 0.1).reshape(16).numpy())
-    except: raise
-    finally: Tensor.rand = original_rand
+    try:
+      self.assertNotIn(np.inf, ((Tensor.arange(16) % 10) * 0.1).reshape(16).numpy())
+    finally:
+      Tensor.rand = original_rand
 
   def test_zeros_like_has_same_dtype_and_shape(self):
     for datatype in [dtypes.float16, dtypes.float32, dtypes.int8, dtypes.int32, dtypes.int64, dtypes.uint8]:
