@@ -63,14 +63,18 @@ class TestCoralNPUMemory(unittest.TestCase):
         src = src.replace(f'extern "C" void {func_name}() {{', f'extern "C" void {func_name}(void* base_ptr) {{')
         src = src.replace(' = (float*)(', ' = (float*)((char*)base_ptr + ')
 
-        with tempfile.NamedTemporaryFile(suffix=".cc", delete=False) as f:
+        f = tempfile.NamedTemporaryFile(suffix=".cc", delete=False)
+        so_path = f.name + ".so"
+        try:
             dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define CORAL_DMA_WAIT()\n#include <string.h>\n"
             f.write((dummy_includes + src).encode())
             f.flush()
-            so_path = f.name + ".so"
-            subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path])
+            f.close()
+            try:
+                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path])
+            except FileNotFoundError:
+                raise unittest.SkipTest("g++ toolchain missing")
 
-        try:
             lib = ctypes.CDLL(so_path)
 
             # 3. Explicitly encode and preserve NaN values using struct.pack('f', float('nan'))
@@ -102,8 +106,8 @@ class TestCoralNPUMemory(unittest.TestCase):
             self.assertTrue(math.isnan(after_val), "EXTMEM boundary after allocation was clobbered")
 
         finally:
-            os.unlink(f.name)
-            os.unlink(so_path)
+            if os.path.exists(f.name): os.unlink(f.name)
+            if os.path.exists(so_path): os.unlink(so_path)
 
     def test_axi_burst_unaligned_boundary_nan_preservation(self):
         renderer = CoralNPURenderer()
@@ -129,7 +133,9 @@ class TestCoralNPUMemory(unittest.TestCase):
         src = src.replace(f'extern "C" void {func_name}() {{', f'extern "C" void {func_name}(float* data0, float* data1) {{')
 
         # Compile with a strict CORAL_DMA_ASYNC implementation that enforces AXI hardware bounds
-        with tempfile.NamedTemporaryFile(suffix=".cc", delete=False) as f:
+        f = tempfile.NamedTemporaryFile(suffix=".cc", delete=False)
+        so_path = f.name + ".so"
+        try:
             dummy_includes = """#include <string.h>
 #include <stdint.h>
 #include <stdlib.h>
@@ -153,10 +159,12 @@ extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
 """
             f.write((dummy_includes + src).encode())
             f.flush()
-            so_path = f.name + ".so"
-            subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path])
+            f.close()
+            try:
+                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path])
+            except FileNotFoundError:
+                raise unittest.SkipTest("g++ toolchain missing")
 
-        try:
             lib = ctypes.CDLL(so_path)
 
             # Allocate 8KB arrays (2 pages) and explicitly fill with NaN
@@ -193,8 +201,8 @@ extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
                 self.assertTrue(math.isnan(val), f"EXTMEM post-boundary NaN clobbered at byte {i}")
 
         finally:
-            os.unlink(f.name)
-            os.unlink(so_path)
+            if os.path.exists(f.name): os.unlink(f.name)
+            if os.path.exists(so_path): os.unlink(so_path)
 
 if __name__ == '__main__':
     unittest.main()
