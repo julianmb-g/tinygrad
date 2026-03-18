@@ -1,9 +1,11 @@
+import atexit
 import ctypes
 import functools
 import multiprocessing
 import multiprocessing.shared_memory
 import os
 import re
+import signal
 import struct
 import subprocess
 import tempfile
@@ -12,6 +14,15 @@ import unittest
 from tinygrad.device import Allocator, BufferSpec, Compiled, CompilerSet
 from tinygrad.helpers import init_c_process_group
 from tinygrad.renderer.coralnpu import CoralNPURenderer
+
+active_pids = set()
+def _kill_orphans():
+  for pid in list(active_pids):
+    try:
+      os.killpg(pid, signal.SIGKILL)
+    except Exception:
+      pass
+atexit.register(_kill_orphans)
 
 
 class CoralNPUAllocator(Allocator):
@@ -164,15 +175,27 @@ class CoralNPUProgram:
     for v in vals:
       cmd.extend(["--val", str(v)])
 
-    if timeout is not None:
-      try:
-        subprocess.run(cmd, timeout=timeout, check=True, preexec_fn=init_c_process_group)
-      except subprocess.TimeoutExpired:
-        raise TimeoutError(f"CoralNPU execution timed out after {timeout} seconds.")
-      except subprocess.CalledProcessError as e:
-        raise RuntimeError(f"CoralNPU execution failed with exit code {e.returncode}")
-    else:
-      subprocess.run(cmd, check=True, preexec_fn=init_c_process_group)
+    p = subprocess.Popen(cmd, preexec_fn=os.setpgrp)
+    active_pids.add(p.pid)
+    try:
+      if timeout is not None:
+        try:
+          p.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+          os.killpg(p.pid, signal.SIGKILL)
+          raise TimeoutError(f"CoralNPU execution timed out after {timeout} seconds.")
+      else:
+        p.wait()
+    finally:
+      if p.poll() is None:
+        try:
+          os.killpg(p.pid, signal.SIGKILL)
+        except Exception:
+          pass
+      active_pids.discard(p.pid)
+
+    if p.returncode != 0:
+      raise RuntimeError(f"CoralNPU execution failed with exit code {p.returncode}")
     return 0.0
 
 
