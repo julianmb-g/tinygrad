@@ -1,5 +1,5 @@
 # Test to compare Python and Rust RDNA3 emulators by running real tinygrad kernels
-import unittest, ctypes
+import math, unittest, ctypes
 from dataclasses import dataclass
 from pathlib import Path
 from tinygrad import Device
@@ -463,7 +463,7 @@ class TestTinygradKernels(unittest.TestCase):
     import numpy as np
     np.random.seed(0)
     classes = np.random.randint(0, 10, (16,), dtype=np.int32).tolist()
-    x_np = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(16, 10).astype(np.float32)
+    x_np = (np.arange(160) % 10 * 0.1).reshape(16, 10).astype(np.float32)
     self._test_kernel(lambda T: (T(x_np.tolist()).reshape(16,10) + 0).cross_entropy((T(classes).int().reshape(16) + 0)))
   def test_isinf(self): self._test_kernel(lambda T: T([float('-inf'), 0., float('inf'), 1.1]*8).isinf())
   def test_sin_f64(self):

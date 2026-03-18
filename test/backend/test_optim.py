@@ -1,3 +1,4 @@
+import math
 import numpy as np
 import torch
 import unittest
@@ -7,9 +8,9 @@ from tinygrad.device import is_dtype_supported
 from test.helpers import needs_second_gpu, slow
 
 np.random.seed(1337)
-x_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,4).astype(np.float32)
-W_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(4,4).astype(np.float32)
-m_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,4).astype(np.float32)
+x_init = (np.arange(4) % 10 * 0.1).reshape(1,4).astype(np.float32)
+W_init = (np.arange(16) % 10 * 0.1).reshape(4,4).astype(np.float32)
+m_init = (np.arange(4) % 10 * 0.1).reshape(1,4).astype(np.float32)
 
 class TeenyNet:
   def __init__(self, tensor):
