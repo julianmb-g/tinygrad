@@ -13,23 +13,17 @@ def reconstruction_helper(A:list[Tensor],B:Tensor, tolerance=1e-5):
 
 class TestLinAlg(unittest.TestCase):
   def test_svd_general(self):
-    try:
-      sizes = [(2,2),(5,3),(3,5),(3,4,4),(2,2,2,2,3)]
-      for size in sizes:
-        a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
-        U,S,V = a.svd()
-        b_shape,m,n = size[0:-2],size[-2],size[-1]
-        k = min(m,n)
-        s_diag = (S.unsqueeze(-2) * Tensor.eye(k).reshape((1,) * len(b_shape) + (k,k)))
-        s_diag = s_diag.expand(b_shape + (k,k)).pad(tuple([None]*len(b_shape) + [(0,m-k), (0,n-k)]))
-        orthogonality_helper(U)
-        orthogonality_helper(V)
-        reconstruction_helper([U,s_diag,V],a)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    sizes = [(2,2),(5,3),(3,5),(3,4,4),(2,2,2,2,3)]
+    for size in sizes:
+      a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
+      U,S,V = a.svd()
+      b_shape,m,n = size[0:-2],size[-2],size[-1]
+      k = min(m,n)
+      s_diag = (S.unsqueeze(-2) * Tensor.eye(k).reshape((1,) * len(b_shape) + (k,k)))
+      s_diag = s_diag.expand(b_shape + (k,k)).pad(tuple([None]*len(b_shape) + [(0,m-k), (0,n-k)]))
+      orthogonality_helper(U)
+      orthogonality_helper(V)
+      reconstruction_helper([U,s_diag,V],a)
   def _test_svd_nonfull(self, size):
     with Context(CHECK_OOB=0):  # sometimes this is slow in CI
       a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
@@ -49,22 +43,16 @@ class TestLinAlg(unittest.TestCase):
   def test_svd_nonfull_2_2_2_2_3(self): self._test_svd_nonfull((2,2,2,2,3))
 
   def test_svd_large(self):
-    try:
-      size = (1024,1024)
-      a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
-      U,S,V = a.svd()
-      b_shape,m,n = size[0:-2],size[-2],size[-1]
-      k = min(m,n)
-      s_diag = (S.unsqueeze(-2) * Tensor.eye(k).reshape((1,) * len(b_shape) + (k,k)))
-      s_diag = s_diag.expand(b_shape + (k,k)).pad(tuple([None]*len(b_shape) + [(0,m-k), (0,n-k)]))
-      orthogonality_helper(U,tolerance=1e-3)
-      orthogonality_helper(V,tolerance=1e-3)
-      reconstruction_helper([U,s_diag,V],a,tolerance=1e-3)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    size = (1024,1024)
+    a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
+    U,S,V = a.svd()
+    b_shape,m,n = size[0:-2],size[-2],size[-1]
+    k = min(m,n)
+    s_diag = (S.unsqueeze(-2) * Tensor.eye(k).reshape((1,) * len(b_shape) + (k,k)))
+    s_diag = s_diag.expand(b_shape + (k,k)).pad(tuple([None]*len(b_shape) + [(0,m-k), (0,n-k)]))
+    orthogonality_helper(U,tolerance=1e-3)
+    orthogonality_helper(V,tolerance=1e-3)
+    reconstruction_helper([U,s_diag,V],a,tolerance=1e-3)
   def test_qr_general(self):
     sizes = [(3,3),(3,6),(6,3),(2,2,2,2,2)]
     for size in sizes:

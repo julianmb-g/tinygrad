@@ -63,19 +63,13 @@ class TestConv(unittest.TestCase):
     np.testing.assert_allclose(r2.numpy(), np.where(out.numpy() > 0, out.numpy(), (np.exp(out.numpy()) - 1)), atol=1e-5)
 
   def test_two_overlapping_binops_no_rerun_wino(self):
-    try:
-      with Context(WINO=1):
-        x = ((Tensor.arange(1*4*16*16) % 10) * 0.1).reshape(1,4,16,16)
-        w = ((Tensor.arange(6*4*3*3) % 10) * 0.1).reshape(6,4,3,3)
-        out = x.conv2d(w, padding=(1,1))
-        r1, r2 = out.relu(), out.elu()
-        np.testing.assert_allclose(r1.numpy(), np.maximum(out.numpy(), 0), atol=1e-5)
-        np.testing.assert_allclose(r2.numpy(), np.where(out.numpy() > 0, out.numpy(), (np.exp(out.numpy()) - 1)), atol=1e-5)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with Context(WINO=1):
+      x = ((Tensor.arange(1*4*16*16) % 10) * 0.1).reshape(1,4,16,16)
+      w = ((Tensor.arange(6*4*3*3) % 10) * 0.1).reshape(6,4,3,3)
+      out = x.conv2d(w, padding=(1,1))
+      r1, r2 = out.relu(), out.elu()
+      np.testing.assert_allclose(r1.numpy(), np.maximum(out.numpy(), 0), atol=1e-5)
+      np.testing.assert_allclose(r2.numpy(), np.where(out.numpy() > 0, out.numpy(), (np.exp(out.numpy()) - 1)), atol=1e-5)
   def test_first_three(self):
     x = Tensor.rand(1,12,16,32)
 

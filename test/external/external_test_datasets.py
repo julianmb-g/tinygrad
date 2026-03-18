@@ -65,21 +65,15 @@ class TestKiTS19Dataset(ExternalTestDatasets):
     return iter(dataset)
 
   def test_training_set(self):
-    try:
-      preproc_pth, preproc_img_pths, preproc_lbl_pths = self._create_samples(False)
-      ref_dataset = self._create_ref_dataloader(preproc_img_pths, preproc_lbl_pths, False)
-      tinygrad_dataset = self._create_tinygrad_dataloader(preproc_pth, False)
+    preproc_pth, preproc_img_pths, preproc_lbl_pths = self._create_samples(False)
+    ref_dataset = self._create_ref_dataloader(preproc_img_pths, preproc_lbl_pths, False)
+    tinygrad_dataset = self._create_tinygrad_dataloader(preproc_pth, False)
 
-      for ref_sample, tinygrad_sample in zip(ref_dataset, tinygrad_dataset):
-        self._set_seed()
+    for ref_sample, tinygrad_sample in zip(ref_dataset, tinygrad_dataset):
+      self._set_seed()
 
-        np.testing.assert_equal(tinygrad_sample[0][:, 0].numpy(), ref_sample[0])
-        np.testing.assert_equal(tinygrad_sample[1][:, 0].numpy(), ref_sample[1])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+      np.testing.assert_equal(tinygrad_sample[0][:, 0].numpy(), ref_sample[0])
+      np.testing.assert_equal(tinygrad_sample[1][:, 0].numpy(), ref_sample[1])
   def test_validation_set(self):
     preproc_pth, preproc_img_pths, preproc_lbl_pths = self._create_samples(True)
     ref_dataset = self._create_ref_dataloader(preproc_img_pths, preproc_lbl_pths, True)

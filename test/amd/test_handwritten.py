@@ -137,22 +137,16 @@ class TestIntegrationCDNA(IntegrationTestBase):
     self.inst = v_mfma_f32_16x16x16_f16(v[0:3], v[0:1], v[0:1], 0)
 
   def test_mfma_fp8(self):
+    import subprocess, unittest
     try:
-      import subprocess, unittest
-      try:
-        out = subprocess.check_output(["clang", "--print-supported-cpus", "--target=amdgcn-amd-amdhsa"], stderr=subprocess.STDOUT)
-      except subprocess.CalledProcessError as e:
-        if b"cannot find ROCm device library" in e.output:
-          raise unittest.SkipTest("ROCm device library not found")
-        raise
-      if b"gfx950" not in out: raise unittest.SkipTest("LLVM target gfx950 not supported in environment")
-      from tinygrad.runtime.autogen.amd.cdna.ins import v_mfma_f32_16x16x128_f8f6f4
-      self.inst = v_mfma_f32_16x16x128_f8f6f4(v[0:3], v[0:5], v[0:5], 1, cbsz=2, blgp=2)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+      out = subprocess.check_output(["clang", "--print-supported-cpus", "--target=amdgcn-amd-amdhsa"], stderr=subprocess.STDOUT)
+    except subprocess.CalledProcessError as e:
+      if b"cannot find ROCm device library" in e.output:
+        raise unittest.SkipTest("ROCm device library not found")
+      raise
+    if b"gfx950" not in out: raise unittest.SkipTest("LLVM target gfx950 not supported in environment")
+    from tinygrad.runtime.autogen.amd.cdna.ins import v_mfma_f32_16x16x128_f8f6f4
+    self.inst = v_mfma_f32_16x16x128_f8f6f4(v[0:3], v[0:5], v[0:5], 1, cbsz=2, blgp=2)
 class TestRegisterSliceSyntax(unittest.TestCase):
   """
   Issue: Register slice syntax should use AMD assembly convention (inclusive end).

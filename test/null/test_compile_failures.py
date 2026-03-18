@@ -10,13 +10,7 @@ class TestCompileFailures(unittest.TestCase):
     for si in out.schedule(): si.lower()
 
   def test_interpolate_atari(self):
-    try:
-      self.compile(Tensor.empty(210, 160, dtype='uint8').interpolate((64, 64)))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self.compile(Tensor.empty(210, 160, dtype='uint8').interpolate((64, 64)))
   def test_add_max_uchar(self):
     self.compile((Tensor.empty(1024, dtype='uint8') + Tensor.empty(1024, dtype='uint8')).max())
 
@@ -24,18 +18,12 @@ class TestDisassembly(unittest.TestCase):
   # TODO: fails on llvm. llvm.LLVMGetHostCPUName() returns "generic"
   @unittest.skipUnless(Device.DEFAULT in ("CPU",) and DEV.renderer not in ("LLVM", "LVP") and OSX, "m series cpus support fp16 arithmetic")
   def test_float16_alu(self):
-    try:
-      c = Tensor([1], dtype=dtypes.float16) + Tensor([1], dtype=dtypes.float16)
-      s = c.schedule()[-1]
-      p = get_program(s.ast, Device[Device.DEFAULT].renderer)
-      lib = Device[Device.DEFAULT].compiler.compile(p.src)
-      out = io.StringIO()
-      with redirect_stdout(out): Device[Device.DEFAULT].compiler.disassemble(lib)
-      assert "fcvt" not in out.getvalue()
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    c = Tensor([1], dtype=dtypes.float16) + Tensor([1], dtype=dtypes.float16)
+    s = c.schedule()[-1]
+    p = get_program(s.ast, Device[Device.DEFAULT].renderer)
+    lib = Device[Device.DEFAULT].compiler.compile(p.src)
+    out = io.StringIO()
+    with redirect_stdout(out): Device[Device.DEFAULT].compiler.disassemble(lib)
+    assert "fcvt" not in out.getvalue()
 if __name__ == '__main__':
   unittest.main()

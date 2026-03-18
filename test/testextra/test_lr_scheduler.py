@@ -111,19 +111,13 @@ class TestLrScheduler(unittest.TestCase):
                                                          'cycle_momentum': False, 'div_factor': 25.0,
                                                          'final_div_factor': 10000.0, 'max_lr':1e-5}, 1e-6, 1e-6)
   def test_training(self):
-    try:
-      without = lr_scheduler_training()
-      sched_fns = [MultiStepLR, ReduceLROnPlateau, CosineAnnealingLR, OneCycleLR]
-      argss = [{'milestones': [5, 7, 10, 15], 'gamma': 0.5}, {'factor': 0.5, 'patience': 2}, {'T_max': 25, 'eta_min': 0.001},
-               {'pct_start': 0.3, 'anneal_strategy': 'linear', 'cycle_momentum': False, 'div_factor': 25.0, 'final_div_factor': 10000.0,
-                'max_lr':1e-5, 'total_steps': 25}]
-      for sched_fn, args in zip(sched_fns, argss):
-        with_sched = lr_scheduler_training(sched_fn, args)
-        assert with_sched > without
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    without = lr_scheduler_training()
+    sched_fns = [MultiStepLR, ReduceLROnPlateau, CosineAnnealingLR, OneCycleLR]
+    argss = [{'milestones': [5, 7, 10, 15], 'gamma': 0.5}, {'factor': 0.5, 'patience': 2}, {'T_max': 25, 'eta_min': 0.001},
+             {'pct_start': 0.3, 'anneal_strategy': 'linear', 'cycle_momentum': False, 'div_factor': 25.0, 'final_div_factor': 10000.0,
+              'max_lr':1e-5, 'total_steps': 25}]
+    for sched_fn, args in zip(sched_fns, argss):
+      with_sched = lr_scheduler_training(sched_fn, args)
+      assert with_sched > without
 if __name__ == '__main__':
   unittest.main()

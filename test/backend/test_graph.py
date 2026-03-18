@@ -91,320 +91,230 @@ def helper_test_graphs(graph_impl, graphs, runs=RUN_CNT):
 
 class TestGraph(unittest.TestCase):
   def skip_if_no_offset(self):
-    try:
-      if not hasattr(Device[Device.DEFAULT].allocator, "_offset"): self.skipTest("device does not support _offset")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    if not hasattr(Device[Device.DEFAULT].allocator, "_offset"): self.skipTest("device does not support _offset")
   def skip_if_not_multigraph(self):
-    try:
-      graph = g.func if isinstance(g:=(d:=Device[Device.DEFAULT]).graph, functools.partial) else g
-      if not issubclass(graph, MultiGraphRunner): self.skipTest("graph is not supported (not MultiGraphRunner)")
-      if not hasattr(d.allocator, '_transfer') or not d.allocator.supports_transfer: self.skipTest("device is not supported (no transfers)")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    graph = g.func if isinstance(g:=(d:=Device[Device.DEFAULT]).graph, functools.partial) else g
+    if not issubclass(graph, MultiGraphRunner): self.skipTest("graph is not supported (not MultiGraphRunner)")
+    if not hasattr(d.allocator, '_transfer') or not d.allocator.supports_transfer: self.skipTest("device is not supported (no transfers)")
   def test_order_2_writes_to_same_buf(self):
-    try:
-      d0 = Device.DEFAULT
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(5)]
+    d0 = Device.DEFAULT
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(5)]
 
-      graphs = [
-        [helper_exec_op(d0, b0[0], [b0[1], b0[2]]), helper_exec_op(d0, b0[0], [b0[3], b0[4]])]
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[0], [b0[1], b0[2]]), helper_exec_op(d0, b0[0], [b0[3], b0[4]])]
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_order_read_write_same_buf(self):
-    try:
-      d0 = Device.DEFAULT
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(5)]
+    d0 = Device.DEFAULT
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(5)]
 
-      graphs = [
-        [helper_exec_op(d0, b0[0], [b0[1], b0[2]]), helper_exec_op(d0, b0[1], [b0[3], b0[4]])]
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[0], [b0[1], b0[2]]), helper_exec_op(d0, b0[1], [b0[3], b0[4]])]
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_order_write_read_same_buf(self):
-    try:
-      d0 = Device.DEFAULT
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(5)]
+    d0 = Device.DEFAULT
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(5)]
 
-      graphs = [
-        [helper_exec_op(d0, b0[0], [b0[1], b0[2]]), helper_exec_op(d0, b0[1], [b0[0], b0[4]])]
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[0], [b0[1], b0[2]]), helper_exec_op(d0, b0[1], [b0[0], b0[4]])]
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_order_copy_writed(self):
-    try:
-      self.skip_if_not_multigraph()
+    self.skip_if_not_multigraph()
 
-      d0 = Device.DEFAULT
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(4)]
+    d0 = Device.DEFAULT
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(4)]
 
-      graphs = [
-        [helper_exec_op(d0, b0[0], [b0[1], b0[2]]), helper_copy_op(d0, b0[3], b0[0])]
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[0], [b0[1], b0[2]]), helper_copy_op(d0, b0[3], b0[0])]
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_order_copy_then_read(self):
-    try:
-      self.skip_if_not_multigraph()
+    self.skip_if_not_multigraph()
 
-      d0 = Device.DEFAULT
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(4)]
+    d0 = Device.DEFAULT
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(4)]
 
-      graphs = [
-        [helper_copy_op(d0, b0[1], b0[0]), helper_exec_op(d0, b0[3], [b0[1], b0[2]])]
-      ]
+    graphs = [
+      [helper_copy_op(d0, b0[1], b0[0]), helper_exec_op(d0, b0[3], [b0[1], b0[2]])]
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_read_write_several_graphs(self):
-    try:
-      d0 = Device.DEFAULT
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(8)]
+    d0 = Device.DEFAULT
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(8)]
 
-      graphs = [
-        [helper_exec_op(d0, b0[3], [b0[1], b0[2]])],
-        [helper_exec_op(d0, b0[4], [b0[1], b0[3]])],
-        [helper_exec_op(d0, b0[5], [b0[4], b0[2]])]
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[3], [b0[1], b0[2]])],
+      [helper_exec_op(d0, b0[4], [b0[1], b0[3]])],
+      [helper_exec_op(d0, b0[5], [b0[4], b0[2]])]
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
+    helper_test_graphs(Device[d0].graph, graphs)
 
-      graphs = [
-        [helper_exec_op(d0, b0[3], [b0[1], b0[2]]), helper_exec_op(d0, b0[4], [b0[1], b0[2]]), helper_exec_op(d0, b0[5], [b0[1], b0[2]])],
-        [helper_exec_op(d0, b0[2], [b0[6], b0[7]])]
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[3], [b0[1], b0[2]]), helper_exec_op(d0, b0[4], [b0[1], b0[2]]), helper_exec_op(d0, b0[5], [b0[1], b0[2]])],
+      [helper_exec_op(d0, b0[2], [b0[6], b0[7]])]
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   @needs_second_gpu
   def test_copies_2_devs(self):
-    try:
-      self.skip_if_not_multigraph()
+    self.skip_if_not_multigraph()
 
-      d0, d1 = Device.DEFAULT, f"{Device.DEFAULT}:1"
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(3)]
-      b1 = [helper_alloc_rawbuffer(d1, fill=True) for _ in range(1)]
+    d0, d1 = Device.DEFAULT, f"{Device.DEFAULT}:1"
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(3)]
+    b1 = [helper_alloc_rawbuffer(d1, fill=True) for _ in range(1)]
 
-      graphs = [
-        [helper_copy_op(d0, b1[0], b0[0]), helper_exec_op(d0, b0[2], [b0[0], b0[1]])]
-      ]
+    graphs = [
+      [helper_copy_op(d0, b1[0], b0[0]), helper_exec_op(d0, b0[2], [b0[0], b0[1]])]
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   @needs_second_gpu
   def test_copies_after_graph_global(self):
-    try:
-      self.skip_if_not_multigraph()
+    self.skip_if_not_multigraph()
 
-      d0, d1, d2, d3 = Device.DEFAULT, f"{Device.DEFAULT}:1", f"{Device.DEFAULT}:2", f"{Device.DEFAULT}:3"
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(8)]
-      b1 = [helper_alloc_rawbuffer(d1, fill=True) for _ in range(6)]
-      b2 = [helper_alloc_rawbuffer(d2, fill=True) for _ in range(6)]
-      b3 = [helper_alloc_rawbuffer(d3, fill=True) for _ in range(6)]
+    d0, d1, d2, d3 = Device.DEFAULT, f"{Device.DEFAULT}:1", f"{Device.DEFAULT}:2", f"{Device.DEFAULT}:3"
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(8)]
+    b1 = [helper_alloc_rawbuffer(d1, fill=True) for _ in range(6)]
+    b2 = [helper_alloc_rawbuffer(d2, fill=True) for _ in range(6)]
+    b3 = [helper_alloc_rawbuffer(d3, fill=True) for _ in range(6)]
 
-      graphs = [
-        [helper_exec_op(d0, b0[2], [b0[0], b0[1]]), helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
-         helper_exec_op(d0, b0[5], [b0[0], b0[2]]), helper_exec_op(d0, b0[6], [b0[1], b0[2]]), helper_exec_op(d0, b0[7], [b0[0], b0[2]])],
-        [helper_copy_op(d1, b0[2], b1[0])],
-        [helper_exec_op(d0, b0[2], [b0[0], b0[1]]), helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
-         helper_exec_op(d0, b0[5], [b0[0], b0[2]]), helper_exec_op(d0, b0[6], [b0[1], b0[2]]), helper_exec_op(d0, b0[7], [b0[0], b0[2]])],
-        [helper_copy_op(d3, b0[2], b3[0])],
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[2], [b0[0], b0[1]]), helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
+       helper_exec_op(d0, b0[5], [b0[0], b0[2]]), helper_exec_op(d0, b0[6], [b0[1], b0[2]]), helper_exec_op(d0, b0[7], [b0[0], b0[2]])],
+      [helper_copy_op(d1, b0[2], b1[0])],
+      [helper_exec_op(d0, b0[2], [b0[0], b0[1]]), helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
+       helper_exec_op(d0, b0[5], [b0[0], b0[2]]), helper_exec_op(d0, b0[6], [b0[1], b0[2]]), helper_exec_op(d0, b0[7], [b0[0], b0[2]])],
+      [helper_copy_op(d3, b0[2], b3[0])],
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
+    helper_test_graphs(Device[d0].graph, graphs)
 
-      graphs = [
-        [helper_exec_op(d0, b0[2], [b0[0], b0[1]]), helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
-         helper_exec_op(d0, b0[5], [b0[0], b0[2]]), helper_copy_op(d0, b2[0], b0[2]), helper_copy_op(d0, b2[1], b0[5]),
-         helper_exec_op(d0, b0[7], [b0[0], b0[2]])],
-        [helper_copy_op(d1, b0[2], b1[0])],
-        [helper_exec_op(d0, b0[2], [b0[0], b0[1]])],
-        [helper_copy_op(d3, b0[2], b3[0])],
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[2], [b0[0], b0[1]]), helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
+       helper_exec_op(d0, b0[5], [b0[0], b0[2]]), helper_copy_op(d0, b2[0], b0[2]), helper_copy_op(d0, b2[1], b0[5]),
+       helper_exec_op(d0, b0[7], [b0[0], b0[2]])],
+      [helper_copy_op(d1, b0[2], b1[0])],
+      [helper_exec_op(d0, b0[2], [b0[0], b0[1]])],
+      [helper_copy_op(d3, b0[2], b3[0])],
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
+    helper_test_graphs(Device[d0].graph, graphs)
 
-      graphs = [
-        [helper_exec_op(d0, b0[2], [b0[0], b0[1]]), helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
-         helper_exec_op(d0, b0[5], [b0[0], b0[2]]), helper_copy_op(d0, b2[0], b0[2]), helper_copy_op(d0, b2[1], b0[5]),
-         helper_exec_op(d0, b0[7], [b0[0], b0[2]])],
-        [helper_copy_op(d1, b0[5], b1[0])],
-        [helper_copy_op(d3, b0[5], b3[0])],
-      ]
+    graphs = [
+      [helper_exec_op(d0, b0[2], [b0[0], b0[1]]), helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
+       helper_exec_op(d0, b0[5], [b0[0], b0[2]]), helper_copy_op(d0, b2[0], b0[2]), helper_copy_op(d0, b2[1], b0[5]),
+       helper_exec_op(d0, b0[7], [b0[0], b0[2]])],
+      [helper_copy_op(d1, b0[5], b1[0])],
+      [helper_copy_op(d3, b0[5], b3[0])],
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
+    helper_test_graphs(Device[d0].graph, graphs)
 
-      graphs = [
-        [helper_copy_op(d1, b0[5], b1[0])],
-        [helper_copy_op(d3, b0[5], b3[0])],
-      ]
+    graphs = [
+      [helper_copy_op(d1, b0[5], b1[0])],
+      [helper_copy_op(d3, b0[5], b3[0])],
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   @needs_second_gpu
   def test_graph_after_copies_devs(self):
-    try:
-      self.skip_if_not_multigraph()
+    self.skip_if_not_multigraph()
 
-      d0, d1, d2, d3 = Device.DEFAULT, f"{Device.DEFAULT}:1", f"{Device.DEFAULT}:2", f"{Device.DEFAULT}:3"
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(8)]
-      b1 = [helper_alloc_rawbuffer(d1, fill=True) for _ in range(1)]
-      b2 = [helper_alloc_rawbuffer(d2, fill=True) for _ in range(2)]
-      b3 = [helper_alloc_rawbuffer(d3, fill=True) for _ in range(2)]
+    d0, d1, d2, d3 = Device.DEFAULT, f"{Device.DEFAULT}:1", f"{Device.DEFAULT}:2", f"{Device.DEFAULT}:3"
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(8)]
+    b1 = [helper_alloc_rawbuffer(d1, fill=True) for _ in range(1)]
+    b2 = [helper_alloc_rawbuffer(d2, fill=True) for _ in range(2)]
+    b3 = [helper_alloc_rawbuffer(d3, fill=True) for _ in range(2)]
 
-      graphs = [
-        [helper_copy_op(d1, b0[0], b1[0])],
-        [helper_copy_op(d2, b0[1], b2[0]), helper_copy_op(d3, b0[2], b3[0])],
-        [helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
-         helper_exec_op(d0, b0[5], [b0[0], b0[2]])],
-      ]
+    graphs = [
+      [helper_copy_op(d1, b0[0], b1[0])],
+      [helper_copy_op(d2, b0[1], b2[0]), helper_copy_op(d3, b0[2], b3[0])],
+      [helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
+       helper_exec_op(d0, b0[5], [b0[0], b0[2]])],
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
+    helper_test_graphs(Device[d0].graph, graphs)
 
-      graphs = [
-        [helper_copy_op(d1, b0[0], b1[0])],
-        [helper_exec_op(d0, b0[2], [b0[0], b0[1]])],
-        [helper_copy_op(d2, b0[1], b2[0]), helper_copy_op(d3, b0[2], b3[0])],
-        [helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
-         helper_exec_op(d0, b0[5], [b0[0], b0[2]])],
-      ]
+    graphs = [
+      [helper_copy_op(d1, b0[0], b1[0])],
+      [helper_exec_op(d0, b0[2], [b0[0], b0[1]])],
+      [helper_copy_op(d2, b0[1], b2[0]), helper_copy_op(d3, b0[2], b3[0])],
+      [helper_exec_op(d0, b0[3], [b0[0], b0[2]]), helper_exec_op(d0, b0[4], [b0[3], b0[2]]),
+       helper_exec_op(d0, b0[5], [b0[0], b0[2]])],
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_graph_offset_bufs(self):
-    try:
-      self.skip_if_not_multigraph()
+    self.skip_if_not_multigraph()
 
-      d0 = Device.DEFAULT
-      if not hasattr(Device[d0].allocator, "_offset"): self.skipTest("device does not support _offset")
+    d0 = Device.DEFAULT
+    if not hasattr(Device[d0].allocator, "_offset"): self.skipTest("device does not support _offset")
 
-      b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(1)]
-      b0 += [helper_create_offset_rawbuffer(b0[0]), helper_create_offset_rawbuffer(b0[0])]
+    b0 = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(1)]
+    b0 += [helper_create_offset_rawbuffer(b0[0]), helper_create_offset_rawbuffer(b0[0])]
 
-      graphs = [
-        [helper_copy_op(d0, b0[0], b0[2]), helper_exec_op(d0, b0[1], [b0[0], b0[2]])],
-      ]
+    graphs = [
+      [helper_copy_op(d0, b0[0], b0[2]), helper_exec_op(d0, b0[1], [b0[0], b0[2]])],
+    ]
 
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_partial_write_preserves_write_dep(self):
-    try:
-      self.skip_if_not_multigraph()
-      self.skip_if_no_offset()
-      d0 = Device.DEFAULT
+    self.skip_if_not_multigraph()
+    self.skip_if_no_offset()
+    d0 = Device.DEFAULT
 
-      base = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 2, fill=True)
-      copy_src_full = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 2, fill=True)
-      copy_src_lo = helper_alloc_rawbuffer(d0, fill=True)
-      v_lo = helper_make_view(base, 0, BUF_SIZE)
-      v_hi = helper_make_view(base, BUF_SIZE, BUF_SIZE)
-      a, c = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(2)]
+    base = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 2, fill=True)
+    copy_src_full = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 2, fill=True)
+    copy_src_lo = helper_alloc_rawbuffer(d0, fill=True)
+    v_lo = helper_make_view(base, 0, BUF_SIZE)
+    v_hi = helper_make_view(base, BUF_SIZE, BUF_SIZE)
+    a, c = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(2)]
 
-      graphs = [
-        [helper_copy_op(d0, base, copy_src_full), helper_copy_op(d0, v_lo, copy_src_lo), helper_exec_op(d0, c, [v_hi, a])]
-      ]
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    graphs = [
+      [helper_copy_op(d0, base, copy_src_full), helper_copy_op(d0, v_lo, copy_src_lo), helper_exec_op(d0, c, [v_hi, a])]
+    ]
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_partial_write_preserves_read_dep(self):
-    try:
-      self.skip_if_not_multigraph()
-      self.skip_if_no_offset()
-      d0 = Device.DEFAULT
+    self.skip_if_not_multigraph()
+    self.skip_if_no_offset()
+    d0 = Device.DEFAULT
 
-      base = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 2, fill=True)
-      copy_dst = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 2, fill=True)
-      copy_src_lo = helper_alloc_rawbuffer(d0, fill=True)
-      v_lo = helper_make_view(base, 0, BUF_SIZE)
-      v_hi = helper_make_view(base, BUF_SIZE, BUF_SIZE)
-      a, b = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(2)]
+    base = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 2, fill=True)
+    copy_dst = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 2, fill=True)
+    copy_src_lo = helper_alloc_rawbuffer(d0, fill=True)
+    v_lo = helper_make_view(base, 0, BUF_SIZE)
+    v_hi = helper_make_view(base, BUF_SIZE, BUF_SIZE)
+    a, b = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(2)]
 
-      graphs = [
-        [helper_copy_op(d0, copy_dst, base), helper_copy_op(d0, v_lo, copy_src_lo), helper_exec_op(d0, v_hi, [a, b])]
-      ]
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    graphs = [
+      [helper_copy_op(d0, copy_dst, base), helper_copy_op(d0, v_lo, copy_src_lo), helper_exec_op(d0, v_hi, [a, b])]
+    ]
+    helper_test_graphs(Device[d0].graph, graphs)
   def test_middle_write_splits_write_dep(self):
-    try:
-      self.skip_if_not_multigraph()
-      self.skip_if_no_offset()
-      d0 = Device.DEFAULT
+    self.skip_if_not_multigraph()
+    self.skip_if_no_offset()
+    d0 = Device.DEFAULT
 
-      base = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 3, fill=True)
-      copy_src_full = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 3, fill=True)
-      copy_src_mid = helper_alloc_rawbuffer(d0, fill=True)
-      v_lo = helper_make_view(base, 0, BUF_SIZE)
-      v_mid = helper_make_view(base, BUF_SIZE, BUF_SIZE)
-      v_hi = helper_make_view(base, BUF_SIZE * 2, BUF_SIZE)
-      a, c, e = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(3)]
+    base = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 3, fill=True)
+    copy_src_full = helper_alloc_rawbuffer_sized(d0, BUF_SIZE * 3, fill=True)
+    copy_src_mid = helper_alloc_rawbuffer(d0, fill=True)
+    v_lo = helper_make_view(base, 0, BUF_SIZE)
+    v_mid = helper_make_view(base, BUF_SIZE, BUF_SIZE)
+    v_hi = helper_make_view(base, BUF_SIZE * 2, BUF_SIZE)
+    a, c, e = [helper_alloc_rawbuffer(d0, fill=True) for _ in range(3)]
 
-      graphs = [
-        [helper_copy_op(d0, base, copy_src_full), helper_copy_op(d0, v_mid, copy_src_mid),
-         helper_exec_op(d0, c, [v_lo, a]), helper_exec_op(d0, e, [v_hi, a])]
-      ]
-      helper_test_graphs(Device[d0].graph, graphs)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    graphs = [
+      [helper_copy_op(d0, base, copy_src_full), helper_copy_op(d0, v_mid, copy_src_mid),
+       helper_exec_op(d0, c, [v_lo, a]), helper_exec_op(d0, e, [v_hi, a])]
+    ]
+    helper_test_graphs(Device[d0].graph, graphs)
 if __name__ == '__main__':
   unittest.main()

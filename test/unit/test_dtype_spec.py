@@ -43,47 +43,35 @@ class TestTypeSpec(unittest.TestCase):
 
   def test_env_set_default_float(self):
     # check default
-    try:
-      subprocess.run(['python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.float"'],
+    subprocess.run(['python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.float"'],
+                    shell=True, check=True)
+    # check change
+    subprocess.run(['DEFAULT_FLOAT=HALF python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.half"'],
+                    shell=True, check=True)
+    # check invalid
+    with self.assertRaises(subprocess.CalledProcessError):
+      subprocess.run(['DEFAULT_FLOAT=INT32 python3 -c "from tinygrad import dtypes"'],
                       shell=True, check=True)
-      # check change
-      subprocess.run(['DEFAULT_FLOAT=HALF python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.half"'],
+
+    with self.assertRaises(subprocess.CalledProcessError):
+      subprocess.run(['DEFAULT_FLOAT=TYPO python3 -c "from tinygrad import dtypes"'],
                       shell=True, check=True)
-      # check invalid
-      with self.assertRaises(subprocess.CalledProcessError):
-        subprocess.run(['DEFAULT_FLOAT=INT32 python3 -c "from tinygrad import dtypes"'],
-                        shell=True, check=True)
-
-      with self.assertRaises(subprocess.CalledProcessError):
-        subprocess.run(['DEFAULT_FLOAT=TYPO python3 -c "from tinygrad import dtypes"'],
-                        shell=True, check=True)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
   def test_dtype_str_arg(self):
-    try:
-      n = np.random.normal(0, 1, (10, 10)).astype(np.float32)
-      tested = 0
-      for dtype_str, dtype in [
-        ("bool", dtypes.bool), ("int8", dtypes.int8), ("int", dtypes.int), ("uint32", dtypes.uint32), ("float32", dtypes.float32)]:
-        np.testing.assert_equal(Tensor(n, dtype=dtype_str).numpy(), Tensor(n, dtype=dtype).numpy())
-        np.testing.assert_equal(Tensor(n).cast(dtype_str).numpy(), Tensor(n).cast(dtype).numpy())
-        if dtype.itemsize == 4:
-          np.testing.assert_equal(Tensor(n).bitcast(dtype_str).numpy(), Tensor(n).bitcast(dtype).numpy())
-          tested += 1
-      assert tested == 3
+    n = np.random.normal(0, 1, (10, 10)).astype(np.float32)
+    tested = 0
+    for dtype_str, dtype in [
+      ("bool", dtypes.bool), ("int8", dtypes.int8), ("int", dtypes.int), ("uint32", dtypes.uint32), ("float32", dtypes.float32)]:
+      np.testing.assert_equal(Tensor(n, dtype=dtype_str).numpy(), Tensor(n, dtype=dtype).numpy())
+      np.testing.assert_equal(Tensor(n).cast(dtype_str).numpy(), Tensor(n).cast(dtype).numpy())
+      if dtype.itemsize == 4:
+        np.testing.assert_equal(Tensor(n).bitcast(dtype_str).numpy(), Tensor(n).bitcast(dtype).numpy())
+        tested += 1
+    assert tested == 3
 
-      with self.assertRaises(AttributeError): Tensor([1, 2, 3], dtype="nonexistdtype")
-      with self.assertRaises(AttributeError): Tensor([1, 2, 3], dtype="")
+    with self.assertRaises(AttributeError): Tensor([1, 2, 3], dtype="nonexistdtype")
+    with self.assertRaises(AttributeError): Tensor([1, 2, 3], dtype="")
 
-      np.testing.assert_equal(Tensor(n).sum(dtype="int16").numpy(), Tensor(n).sum(dtype=dtypes.int16).numpy())
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    np.testing.assert_equal(Tensor(n).sum(dtype="int16").numpy(), Tensor(n).sum(dtype=dtypes.int16).numpy())
   @given(strat.sampled_from(dtype_ints), strat.sampled_from(dtype_floats))
   def test_creation(self, default_int, default_float):
     dtypes.default_int, dtypes.default_float = default_int, default_float
@@ -175,19 +163,13 @@ class TestAutoCastType(unittest.TestCase):
       np.testing.assert_allclose(func(Tensor(a, dtype=dtype)).numpy(), func(torch.tensor(a)), rtol=1e-3, atol=1e-3)
 
   def test_sum_dtype_arg(self):
-    try:
-      t = Tensor([40000, 40000], dtype=dtypes.float16)
-      # default float16 sum returns in float16, overflowed in this case
-      assert t.sum().dtype == dtypes.float16
-      assert math.isinf(t.sum().numpy().item())
-      # specifiying dtype and it's not downcasted
-      assert t.sum(dtype=dtypes.float32).dtype == dtypes.float32
-      np.testing.assert_allclose(t.sum(dtype=dtypes.float32).numpy(), 80000)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    t = Tensor([40000, 40000], dtype=dtypes.float16)
+    # default float16 sum returns in float16, overflowed in this case
+    assert t.sum().dtype == dtypes.float16
+    assert math.isinf(t.sum().numpy().item())
+    # specifiying dtype and it's not downcasted
+    assert t.sum(dtype=dtypes.float32).dtype == dtypes.float32
+    np.testing.assert_allclose(t.sum(dtype=dtypes.float32).numpy(), 80000)
   def test_prod_dtype_arg(self):
     t = Tensor([100, 200], dtype=dtypes.int32)
     assert t.prod().dtype == dtypes.int32
@@ -215,47 +197,30 @@ class TestAutoCastType(unittest.TestCase):
 
   @slow
   def test_mean_half_precision_underflow(self):
-    try:
-      N = 10000
-      x = 0.001
-      t = Tensor([[x]], dtype=dtypes.half, requires_grad=True).expand(N, N).contiguous()
-      np.testing.assert_allclose(t.mean(axis=1).numpy(), np.array([x] * N, dtype=np.float16), rtol=1e-3)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    N = 10000
+    x = 0.001
+    t = Tensor([[x]], dtype=dtypes.half, requires_grad=True).expand(N, N).contiguous()
+    np.testing.assert_allclose(t.mean(axis=1).numpy(), np.array([x] * N, dtype=np.float16), rtol=1e-3)
   def test_mean_half_precision_overflow(self):
-    try:
-      N = 256
-      t = Tensor([60000] * N*N, dtype=dtypes.half, requires_grad=True).reshape(N, N)
-      np.testing.assert_allclose(t.mean().numpy(), 60000)
-      t.square().mean().backward()
-      np.testing.assert_allclose(t.grad.numpy().flatten(), [60000 * 2 / (N*N)] * N*N)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    N = 256
+    t = Tensor([60000] * N*N, dtype=dtypes.half, requires_grad=True).reshape(N, N)
+    np.testing.assert_allclose(t.mean().numpy(), 60000)
+    t.square().mean().backward()
+    np.testing.assert_allclose(t.grad.numpy().flatten(), [60000 * 2 / (N*N)] * N*N)
   def test_softmax_dtype(self):
-    try:
-      data = [1, 2, 3]
-      t = Tensor(data, dtype=dtypes.half)
-      tt = torch.tensor(data, dtype=torch.half)
+    data = [1, 2, 3]
+    t = Tensor(data, dtype=dtypes.half)
+    tt = torch.tensor(data, dtype=torch.half)
 
-      out = t.softmax(0)
-      self.assertEqual(out.dtype, dtypes.half)
-      np.testing.assert_allclose(out.numpy(), tt.softmax(0).numpy(), rtol=1e-3)
-      out = t.softmax(0, dtype=dtypes.float)
-      self.assertEqual(out.dtype, dtypes.float)
-      np.testing.assert_allclose(out.numpy(), tt.softmax(0, dtype=torch.float).numpy(), rtol=1e-3)
-      out = t.log_softmax(0)
-      self.assertEqual(out.dtype, dtypes.half)
-      np.testing.assert_allclose(out.numpy(), tt.log_softmax(0).numpy(), rtol=1e-3)
-      out = t.log_softmax(0, dtype=dtypes.float)
-      self.assertEqual(out.dtype, dtypes.float)
-      np.testing.assert_allclose(out.numpy(), tt.log_softmax(0, dtype=torch.float).numpy(), rtol=1e-3)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    out = t.softmax(0)
+    self.assertEqual(out.dtype, dtypes.half)
+    np.testing.assert_allclose(out.numpy(), tt.softmax(0).numpy(), rtol=1e-3)
+    out = t.softmax(0, dtype=dtypes.float)
+    self.assertEqual(out.dtype, dtypes.float)
+    np.testing.assert_allclose(out.numpy(), tt.softmax(0, dtype=torch.float).numpy(), rtol=1e-3)
+    out = t.log_softmax(0)
+    self.assertEqual(out.dtype, dtypes.half)
+    np.testing.assert_allclose(out.numpy(), tt.log_softmax(0).numpy(), rtol=1e-3)
+    out = t.log_softmax(0, dtype=dtypes.float)
+    self.assertEqual(out.dtype, dtypes.float)
+    np.testing.assert_allclose(out.numpy(), tt.log_softmax(0, dtype=torch.float).numpy(), rtol=1e-3)

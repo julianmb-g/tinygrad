@@ -282,20 +282,14 @@ class TestVizGC(BaseTestViz):
     self.assertEqual(len(lst), 1)
 
   def test_gc_uop_in_arg(self):
-    try:
-      init = bufs_allocated()
-      a = UOp.new_buffer("NULL", 10, dtypes.char)
-      a.buffer.allocate()
-      exec_rewrite(UOp(Ops.CUSTOM, src=(a,), arg=a), [PatternMatcher([])])
-      del a
-      self.assertEqual(bufs_allocated()-init, 0)
-      lst = get_viz_list()
-      self.assertEqual(len(lst), 1)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    init = bufs_allocated()
+    a = UOp.new_buffer("NULL", 10, dtypes.char)
+    a.buffer.allocate()
+    exec_rewrite(UOp(Ops.CUSTOM, src=(a,), arg=a), [PatternMatcher([])])
+    del a
+    self.assertEqual(bufs_allocated()-init, 0)
+    lst = get_viz_list()
+    self.assertEqual(len(lst), 1)
 # VIZ integrates with other parts of tinygrad
 
 from tinygrad import Tensor, Device
@@ -637,21 +631,15 @@ class TestVizMemoryLayout(BaseTestViz):
     self.assertEqual(len(user_cnt), len(programs))
 
   def test_inflight_buf(self):
-    try:
-      a = Tensor.empty(1, device="NULL")
-      n = 4
-      for i in range(n): (a+i).realize()
-      profile = load_profile(cpu_events+Buffer.profile_events)
-      buffers = profile["layout"]["NULL Memory"]["events"]
-      user_cnt = [len(b["arg"]["users"]) for b in buffers if b["arg"].get("users")]
-      self.assertEqual(max(user_cnt), n)
-      input_buf = buffers.pop()
-      assert all(u[3] == 0 for u in input_buf["arg"]["users"])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1, device="NULL")
+    n = 4
+    for i in range(n): (a+i).realize()
+    profile = load_profile(cpu_events+Buffer.profile_events)
+    buffers = profile["layout"]["NULL Memory"]["events"]
+    user_cnt = [len(b["arg"]["users"]) for b in buffers if b["arg"].get("users")]
+    self.assertEqual(max(user_cnt), n)
+    input_buf = buffers.pop()
+    assert all(u[3] == 0 for u in input_buf["arg"]["users"])
   def test_annotate_read_write(self):
     a = Tensor.ones(4, device="NULL").contiguous().realize()
     b = a.assign(a+2)

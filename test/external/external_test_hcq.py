@@ -49,384 +49,252 @@ class TestHCQ(unittest.TestCase):
     TestHCQ.d0.synchronize() # wait for copyins to complete
 
   def test_run_1000_times_one_submit(self):
-    try:
-      temp_signal, temp_value = TestHCQ.d0._alloc_signal(value=0), 0
-      q = TestHCQ.compute_queue()
-      for _ in range(1000):
-        q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-        q.signal(temp_signal, temp_value + 1).wait(temp_signal, temp_value + 1)
-        temp_value += 1
-
-        q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-        q.signal(temp_signal, temp_value + 1).wait(temp_signal, temp_value + 1)
-        temp_value += 1
-
-      q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      q.submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.a.uop.buffer.as_memoryview().cast("f")[0]
-      assert val == 2000.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_run_1000_times(self):
-    try:
-      temp_signal = TestHCQ.d0._alloc_signal(value=0)
-      q = TestHCQ.compute_queue()
+    temp_signal, temp_value = TestHCQ.d0._alloc_signal(value=0), 0
+    q = TestHCQ.compute_queue()
+    for _ in range(1000):
       q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-      q.signal(temp_signal, 2).wait(temp_signal, 2)
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size, TestHCQ.runner.p.global_size,
-             TestHCQ.runner.p.local_size)
-      for _ in range(1000):
-        TestHCQ.d0._set_signal(temp_signal, 1)
-        q.submit(TestHCQ.d0)
-        TestHCQ.compute_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-        TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.a.uop.buffer.as_memoryview().cast("f")[0]
-      assert val == 2000.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+      q.signal(temp_signal, temp_value + 1).wait(temp_signal, temp_value + 1)
+      temp_value += 1
 
-  def test_run_to_3(self):
-    try:
-      temp_signal = TestHCQ.d0._alloc_signal(value=0)
-      q = TestHCQ.compute_queue()
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-      q.signal(temp_signal, 1).wait(temp_signal, 1)
       q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-      q.signal(temp_signal, 2).wait(temp_signal, 2)
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-      q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
-      assert val == 3.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+      q.signal(temp_signal, temp_value + 1).wait(temp_signal, temp_value + 1)
+      temp_value += 1
 
-  def test_update_exec(self):
-    try:
-      q = TestHCQ.compute_queue()
-      exec_cmd_idx = len(q)
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-      q.update_exec(exec_cmd_idx, (1,1,1), (1,1,1))
-      q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
-      assert val == 1.0, f"got val {val}"
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
-      assert val == 0.0, f"got val {val}, should not be updated"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_bind_run(self):
-    try:
-      temp_signal = TestHCQ.d0._alloc_signal(value=0)
-      q = TestHCQ.compute_queue()
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-      q.signal(temp_signal, 2).wait(temp_signal, 2)
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size, TestHCQ.runner.p.global_size,
-             TestHCQ.runner.p.local_size)
-      q.bind(TestHCQ.d0)
-      for _ in range(1000):
-        TestHCQ.d0._set_signal(temp_signal, 1)
-        q.submit(TestHCQ.d0)
-        TestHCQ.compute_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-        TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.a.uop.buffer.as_memoryview().cast("f")[0]
-      assert val == 2000.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_update_exec_binded(self):
-    try:
-      q = TestHCQ.compute_queue()
-      exec_ptr = q.ptr()
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-      q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      q.bind(TestHCQ.d0)
-
-      q.update_exec(exec_ptr, (1,1,1), (1,1,1))
+    q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    q.submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.a.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 2000.0, f"got val {val}"
+  def test_run_1000_times(self):
+    temp_signal = TestHCQ.d0._alloc_signal(value=0)
+    q = TestHCQ.compute_queue()
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.signal(temp_signal, 2).wait(temp_signal, 2)
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size, TestHCQ.runner.p.global_size,
+           TestHCQ.runner.p.local_size)
+    for _ in range(1000):
+      TestHCQ.d0._set_signal(temp_signal, 1)
       q.submit(TestHCQ.d0)
+      TestHCQ.compute_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
       TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
       TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
-      assert val == 1.0, f"got val {val}"
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
-      assert val == 0.0, f"got val {val}, should not be updated"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    val = TestHCQ.a.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 2000.0, f"got val {val}"
+  def test_run_to_3(self):
+    temp_signal = TestHCQ.d0._alloc_signal(value=0)
+    q = TestHCQ.compute_queue()
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.signal(temp_signal, 1).wait(temp_signal, 1)
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.signal(temp_signal, 2).wait(temp_signal, 2)
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 3.0, f"got val {val}"
+  def test_update_exec(self):
+    q = TestHCQ.compute_queue()
+    exec_cmd_idx = len(q)
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.update_exec(exec_cmd_idx, (1,1,1), (1,1,1))
+    q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 1.0, f"got val {val}"
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
+    assert val == 0.0, f"got val {val}, should not be updated"
+  def test_bind_run(self):
+    temp_signal = TestHCQ.d0._alloc_signal(value=0)
+    q = TestHCQ.compute_queue()
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.signal(temp_signal, 2).wait(temp_signal, 2)
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size, TestHCQ.runner.p.global_size,
+           TestHCQ.runner.p.local_size)
+    q.bind(TestHCQ.d0)
+    for _ in range(1000):
+      TestHCQ.d0._set_signal(temp_signal, 1)
+      q.submit(TestHCQ.d0)
+      TestHCQ.compute_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+      TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.a.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 2000.0, f"got val {val}"
+  def test_update_exec_binded(self):
+    q = TestHCQ.compute_queue()
+    exec_ptr = q.ptr()
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    q.bind(TestHCQ.d0)
 
+    q.update_exec(exec_ptr, (1,1,1), (1,1,1))
+    q.submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 1.0, f"got val {val}"
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
+    assert val == 0.0, f"got val {val}, should not be updated"
   @unittest.skipIf(CI, "Can't handle async update on CPU")
   def test_wait_signal(self):
-    try:
-      temp_signal = TestHCQ.d0._alloc_signal(value=0)
-      TestHCQ.compute_queue().wait(temp_signal, value=1).signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-      with self.assertRaises(RuntimeError):
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=50)
-      # clean up
-      TestHCQ.d0._set_signal(temp_signal, 1)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=100)
-      TestHCQ.d0.timeline_value += 1
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    temp_signal = TestHCQ.d0._alloc_signal(value=0)
+    TestHCQ.compute_queue().wait(temp_signal, value=1).signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
+    with self.assertRaises(RuntimeError):
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=50)
+    # clean up
+    TestHCQ.d0._set_signal(temp_signal, 1)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=100)
+    TestHCQ.d0.timeline_value += 1
   @unittest.skipIf(CI, "Can't handle async update on CPU")
   def test_wait_copy_signal(self):
-    try:
-      temp_signal = TestHCQ.d0._alloc_signal(value=0)
-      TestHCQ.copy_queue().wait(temp_signal, value=1).signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-      with self.assertRaises(RuntimeError):
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=50)
-      # clean up
-      TestHCQ.d0._set_signal(temp_signal, 1)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=100)
-      TestHCQ.d0.timeline_value += 1
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    temp_signal = TestHCQ.d0._alloc_signal(value=0)
+    TestHCQ.copy_queue().wait(temp_signal, value=1).signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
+    with self.assertRaises(RuntimeError):
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=50)
+    # clean up
+    TestHCQ.d0._set_signal(temp_signal, 1)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=100)
+    TestHCQ.d0.timeline_value += 1
   def test_run_normal(self):
-    try:
+    q = TestHCQ.compute_queue()
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 1.0, f"got val {val}"
+  def test_submit_empty_queues(self):
+    TestHCQ.compute_queue().submit(TestHCQ.d0)
+    TestHCQ.copy_queue().submit(TestHCQ.d0)
+  def test_signal_timeout(self):
+    with self.assertRaises(RuntimeError):
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=50)
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value + 122, timeout=50)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value - 1, timeout=50)
+  def test_signal(self):
+    new_timeline_value = TestHCQ.d0.timeline_value + 0xff
+    TestHCQ.compute_queue().signal(TestHCQ.d0.timeline_signal, new_timeline_value).submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, new_timeline_value)
+    TestHCQ.d0.timeline_value = new_timeline_value + 1 # update to not break runtime
+  def test_copy_signal(self):
+    new_timeline_value = TestHCQ.d0.timeline_value + 0xff
+    TestHCQ.copy_queue().signal(TestHCQ.d0.timeline_signal, new_timeline_value).submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, new_timeline_value)
+    TestHCQ.d0.timeline_value = new_timeline_value + 1 # update to not break runtime
+  def test_run_signal(self):
+    q = TestHCQ.compute_queue()
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
+    q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    q.submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 1.0, f"got val {val}"
+  def test_copy_1000_times(self):
+    q = TestHCQ.copy_queue()
+    q.copy(TestHCQ.a.uop.buffer._buf.va_addr, TestHCQ.b.uop.buffer._buf.va_addr, 8)
+    q.copy(TestHCQ.b.uop.buffer._buf.va_addr, TestHCQ.a.uop.buffer._buf.va_addr, 8)
+    for _ in range(1000):
+      q.submit(TestHCQ.d0)
+      TestHCQ.copy_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+      TestHCQ.d0.timeline_value += 1
+    # confirm the signal didn't exceed the put value
+    with self.assertRaises(RuntimeError):
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value + 1, timeout=50)
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
+    assert val == 0.0, f"got val {val}"
+  def test_copy(self):
+    q = TestHCQ.copy_queue()
+    q.copy(TestHCQ.b.uop.buffer._buf.va_addr, TestHCQ.a.uop.buffer._buf.va_addr, 8)
+    q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    q.submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
+    assert val == 1.0, f"got val {val}"
+  def test_bind_copy(self):
+    q = TestHCQ.copy_queue()
+    q.copy(TestHCQ.a.uop.buffer._buf.va_addr, TestHCQ.b.uop.buffer._buf.va_addr, 8)
+    q.copy(TestHCQ.b.uop.buffer._buf.va_addr, TestHCQ.a.uop.buffer._buf.va_addr, 8)
+    q.bind(TestHCQ.d0)
+    for _ in range(1000):
+      q.submit(TestHCQ.d0)
+      TestHCQ.copy_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+      TestHCQ.d0.timeline_value += 1
+    # confirm the signal didn't exceed the put value
+    with self.assertRaises(RuntimeError):
+      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value + 1, timeout=50)
+    val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
+    assert val == 0.0, f"got val {val}"
+  def test_copy_bandwidth(self):
+    # THEORY: the bandwidth is low here because it's only using one SDMA queue. I suspect it's more stable like this at least.
+    SZ = 2_000_000_000
+    a = Buffer(Device.DEFAULT, SZ, dtypes.uint8, options=BufferSpec(nolru=True)).allocate()
+    b = Buffer(Device.DEFAULT, SZ, dtypes.uint8, options=BufferSpec(nolru=True)).allocate()
+    q = TestHCQ.copy_queue()
+    q.copy(a._buf.va_addr, b._buf.va_addr, SZ)
+    et = _time_queue(q, TestHCQ.d0)
+    gb_s = (SZ/1e9)/et
+    print(f"same device copy:  {et*1e3:.2f} ms, {gb_s:.2f} GB/s")
+    assert 0.3 <= gb_s <= 1000
+  def test_cross_device_copy_bandwidth(self):
+    SZ = 2_000_000_000
+    b = Buffer(f"{Device.DEFAULT}:1", SZ, dtypes.uint8, options=BufferSpec(nolru=True)).allocate()
+    a = Buffer(Device.DEFAULT, SZ, dtypes.uint8, options=BufferSpec(nolru=True)).allocate()
+    TestHCQ.d0._gpu_map(b._buf)
+    q = TestHCQ.copy_queue()
+    q.copy(a._buf.va_addr, b._buf.va_addr, SZ)
+    et = _time_queue(q, TestHCQ.d0)
+    gb_s = (SZ/1e9)/et
+    print(f"cross device copy: {et*1e3:.2f} ms, {gb_s:.2f} GB/s")
+    assert 0.3 <= gb_s <= 50
+  def test_interleave_compute_and_copy(self):
+    q = TestHCQ.compute_queue()
+    qc = TestHCQ.copy_queue()
+    q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)  # b = [1, 2]
+    q.signal(sig:=TestHCQ.d0._alloc_signal(value=0), value=1)
+    qc.wait(sig, value=1)
+    qc.copy(TestHCQ.a.uop.buffer._buf.va_addr, TestHCQ.b.uop.buffer._buf.va_addr, 8)
+    qc.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    qc.submit(TestHCQ.d0)
+    time.sleep(0.02) # give it time for the wait to fail
+    q.submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    val = TestHCQ.a.uop.buffer.as_memoryview().cast("f")[0]
+    assert val == 1.0, f"got val {val}"
+  def test_cross_device_signal(self):
+    d1 = Device[f"{Device.DEFAULT}:1"]
+    q1 = TestHCQ.compute_queue()
+    q2 = TestHCQ.compute_queue()
+    q1.signal(sig:=TestHCQ.d0._alloc_signal(value=0), value=0xfff)
+    q2.wait(sig, value=0xfff)
+    q2.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    q2.submit(TestHCQ.d0)
+    q1.signal(d1.timeline_signal, d1.timeline_value)
+    q1.submit(d1)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
+    TestHCQ.d0.timeline_value += 1
+    d1._wait_signal(d1.timeline_signal, d1.timeline_value)
+    d1.timeline_value += 1
+  def test_timeline_signal_rollover(self):
+    # NV 64bit, AMD 32bit
+    TestHCQ.d0.timeline_value = (1 << 64) - 20 if Device.DEFAULT == "NV" else (1 << 32) - 20 # close value to reset
+    TestHCQ.compute_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value - 1).submit(TestHCQ.d0)
+    TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value - 1)
+
+    for _ in range(40):
       q = TestHCQ.compute_queue()
+      q.wait(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value - 1)
       q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
       q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
       TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
       TestHCQ.d0.timeline_value += 1
       val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
       assert val == 1.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_submit_empty_queues(self):
-    try:
-      TestHCQ.compute_queue().submit(TestHCQ.d0)
-      TestHCQ.copy_queue().submit(TestHCQ.d0)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_signal_timeout(self):
-    try:
-      with self.assertRaises(RuntimeError):
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value, timeout=50)
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value + 122, timeout=50)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value - 1, timeout=50)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_signal(self):
-    try:
-      new_timeline_value = TestHCQ.d0.timeline_value + 0xff
-      TestHCQ.compute_queue().signal(TestHCQ.d0.timeline_signal, new_timeline_value).submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, new_timeline_value)
-      TestHCQ.d0.timeline_value = new_timeline_value + 1 # update to not break runtime
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_copy_signal(self):
-    try:
-      new_timeline_value = TestHCQ.d0.timeline_value + 0xff
-      TestHCQ.copy_queue().signal(TestHCQ.d0.timeline_signal, new_timeline_value).submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, new_timeline_value)
-      TestHCQ.d0.timeline_value = new_timeline_value + 1 # update to not break runtime
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_run_signal(self):
-    try:
-      q = TestHCQ.compute_queue()
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-      q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      q.submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
-      assert val == 1.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_copy_1000_times(self):
-    try:
-      q = TestHCQ.copy_queue()
-      q.copy(TestHCQ.a.uop.buffer._buf.va_addr, TestHCQ.b.uop.buffer._buf.va_addr, 8)
-      q.copy(TestHCQ.b.uop.buffer._buf.va_addr, TestHCQ.a.uop.buffer._buf.va_addr, 8)
-      for _ in range(1000):
-        q.submit(TestHCQ.d0)
-        TestHCQ.copy_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-        TestHCQ.d0.timeline_value += 1
-      # confirm the signal didn't exceed the put value
-      with self.assertRaises(RuntimeError):
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value + 1, timeout=50)
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
-      assert val == 0.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_copy(self):
-    try:
-      q = TestHCQ.copy_queue()
-      q.copy(TestHCQ.b.uop.buffer._buf.va_addr, TestHCQ.a.uop.buffer._buf.va_addr, 8)
-      q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      q.submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
-      assert val == 1.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_bind_copy(self):
-    try:
-      q = TestHCQ.copy_queue()
-      q.copy(TestHCQ.a.uop.buffer._buf.va_addr, TestHCQ.b.uop.buffer._buf.va_addr, 8)
-      q.copy(TestHCQ.b.uop.buffer._buf.va_addr, TestHCQ.a.uop.buffer._buf.va_addr, 8)
-      q.bind(TestHCQ.d0)
-      for _ in range(1000):
-        q.submit(TestHCQ.d0)
-        TestHCQ.copy_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-        TestHCQ.d0.timeline_value += 1
-      # confirm the signal didn't exceed the put value
-      with self.assertRaises(RuntimeError):
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value + 1, timeout=50)
-      val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[1]
-      assert val == 0.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_copy_bandwidth(self):
-    # THEORY: the bandwidth is low here because it's only using one SDMA queue. I suspect it's more stable like this at least.
-    try:
-      SZ = 2_000_000_000
-      a = Buffer(Device.DEFAULT, SZ, dtypes.uint8, options=BufferSpec(nolru=True)).allocate()
-      b = Buffer(Device.DEFAULT, SZ, dtypes.uint8, options=BufferSpec(nolru=True)).allocate()
-      q = TestHCQ.copy_queue()
-      q.copy(a._buf.va_addr, b._buf.va_addr, SZ)
-      et = _time_queue(q, TestHCQ.d0)
-      gb_s = (SZ/1e9)/et
-      print(f"same device copy:  {et*1e3:.2f} ms, {gb_s:.2f} GB/s")
-      assert 0.3 <= gb_s <= 1000
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_cross_device_copy_bandwidth(self):
-    try:
-      SZ = 2_000_000_000
-      b = Buffer(f"{Device.DEFAULT}:1", SZ, dtypes.uint8, options=BufferSpec(nolru=True)).allocate()
-      a = Buffer(Device.DEFAULT, SZ, dtypes.uint8, options=BufferSpec(nolru=True)).allocate()
-      TestHCQ.d0._gpu_map(b._buf)
-      q = TestHCQ.copy_queue()
-      q.copy(a._buf.va_addr, b._buf.va_addr, SZ)
-      et = _time_queue(q, TestHCQ.d0)
-      gb_s = (SZ/1e9)/et
-      print(f"cross device copy: {et*1e3:.2f} ms, {gb_s:.2f} GB/s")
-      assert 0.3 <= gb_s <= 50
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_interleave_compute_and_copy(self):
-    try:
-      q = TestHCQ.compute_queue()
-      qc = TestHCQ.copy_queue()
-      q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)  # b = [1, 2]
-      q.signal(sig:=TestHCQ.d0._alloc_signal(value=0), value=1)
-      qc.wait(sig, value=1)
-      qc.copy(TestHCQ.a.uop.buffer._buf.va_addr, TestHCQ.b.uop.buffer._buf.va_addr, 8)
-      qc.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      qc.submit(TestHCQ.d0)
-      time.sleep(0.02) # give it time for the wait to fail
-      q.submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      TestHCQ.d0.timeline_value += 1
-      val = TestHCQ.a.uop.buffer.as_memoryview().cast("f")[0]
-      assert val == 1.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_cross_device_signal(self):
-    try:
-      d1 = Device[f"{Device.DEFAULT}:1"]
-      q1 = TestHCQ.compute_queue()
-      q2 = TestHCQ.compute_queue()
-      q1.signal(sig:=TestHCQ.d0._alloc_signal(value=0), value=0xfff)
-      q2.wait(sig, value=0xfff)
-      q2.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      q2.submit(TestHCQ.d0)
-      q1.signal(d1.timeline_signal, d1.timeline_value)
-      q1.submit(d1)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-      TestHCQ.d0.timeline_value += 1
-      d1._wait_signal(d1.timeline_signal, d1.timeline_value)
-      d1.timeline_value += 1
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_timeline_signal_rollover(self):
-    # NV 64bit, AMD 32bit
-    try:
-      TestHCQ.d0.timeline_value = (1 << 64) - 20 if Device.DEFAULT == "NV" else (1 << 32) - 20 # close value to reset
-      TestHCQ.compute_queue().signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value - 1).submit(TestHCQ.d0)
-      TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value - 1)
-
-      for _ in range(40):
-        q = TestHCQ.compute_queue()
-        q.wait(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value - 1)
-        q.exec(TestHCQ.runner._prg, TestHCQ.d0.kernargs_ptr, TestHCQ.runner.p.global_size, TestHCQ.runner.p.local_size)
-        q.signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value).submit(TestHCQ.d0)
-        TestHCQ.d0._wait_signal(TestHCQ.d0.timeline_signal, TestHCQ.d0.timeline_value)
-        TestHCQ.d0.timeline_value += 1
-        val = TestHCQ.b.uop.buffer.as_memoryview().cast("f")[0]
-        assert val == 1.0, f"got val {val}"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
 if __name__ == "__main__":
   unittest.main()

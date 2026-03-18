@@ -46,13 +46,7 @@ class TestUPatCompile(unittest.TestCase):
 
   def test_range_named(self):
     # this should be one src, but this should also still work
-    try:
-      up = UPat(Ops.CAST, dtypes.float, UPat.var("x", dtypes.bfloat16))
-      do_compile(up)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    up = UPat(Ops.CAST, dtypes.float, UPat.var("x", dtypes.bfloat16))
+    do_compile(up)
 if __name__ == "__main__":
   unittest.main()

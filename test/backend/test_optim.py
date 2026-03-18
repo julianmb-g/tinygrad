@@ -143,18 +143,12 @@ class TestOptim(unittest.TestCase):
       np.testing.assert_allclose(losses[0], losses[1], atol=1e-4, rtol=0)
 
   def test_mixed_precision(self):
-    try:
-      old_default_float, dtypes.default_float = dtypes.default_float, dtypes.half
-      # weight update would overflow without upcasting
-      self._test_sgd(10, {'lr': 1e10}, 1e-6, 3e-4)
-      self._test_adam(1, {'lr': 1e10}, 1e-4, 1e-4)
-      self._test_adamw(1, {'lr': 1e10}, 1e-4, 1e-4)
-      dtypes.default_float = old_default_float
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    old_default_float, dtypes.default_float = dtypes.default_float, dtypes.half
+    # weight update would overflow without upcasting
+    self._test_sgd(10, {'lr': 1e10}, 1e-6, 3e-4)
+    self._test_adam(1, {'lr': 1e10}, 1e-4, 1e-4)
+    self._test_adamw(1, {'lr': 1e10}, 1e-4, 1e-4)
+    dtypes.default_float = old_default_float
   def test_assert_tensor_train(self):
     t = Tensor.ones((1,1), requires_grad=True)
     optimizer = Adam([t])

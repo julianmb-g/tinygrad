@@ -78,21 +78,15 @@ class TestCopySpeed(unittest.TestCase):
 
   @unittest.skipIf(CI, "CI doesn't have 6 GPUs")
   def testCopyCPUto6GPUs(self):
-    try:
-      from tinygrad.runtime.ops_cl import CLDevice
-      if len(CLDevice.device_ids) != 6: raise unittest.SkipTest("computer doesn't have 6 GPUs")
-      t = Tensor.ones(N, N, device="CPU").contiguous().realize()
-      print(f"buffer: {t.nbytes()*1e-9:.2f} GB")
-      for _ in range(3):
-        with Timing("sync:  ", on_exit=lambda ns: f" @ {t.nbytes()/ns:.2f} GB/s ({t.nbytes()*6/ns:.2f} GB/s total)"):
-          with Timing("queue: "):
-            for g in range(6):
-              t.to(f"CL:{g}").realize()
-          Device["CL"].synchronize()
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    from tinygrad.runtime.ops_cl import CLDevice
+    if len(CLDevice.device_ids) != 6: raise unittest.SkipTest("computer doesn't have 6 GPUs")
+    t = Tensor.ones(N, N, device="CPU").contiguous().realize()
+    print(f"buffer: {t.nbytes()*1e-9:.2f} GB")
+    for _ in range(3):
+      with Timing("sync:  ", on_exit=lambda ns: f" @ {t.nbytes()/ns:.2f} GB/s ({t.nbytes()*6/ns:.2f} GB/s total)"):
+        with Timing("queue: "):
+          for g in range(6):
+            t.to(f"CL:{g}").realize()
+        Device["CL"].synchronize()
 if __name__ == '__main__':
   unittest.main()

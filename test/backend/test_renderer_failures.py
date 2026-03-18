@@ -38,60 +38,36 @@ def _setup_and_test_alu(alu_op:Ops, input_val:ConstType, *alu_src_uops:UOp):
 
 class TestRendererFailures(unittest.TestCase):
   def test_gated_store_with_alu(self):
-    try:
-      a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
-      gate_alu = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
-      gated_alu_store = UOp(Ops.STORE, dtypes.void, (a.index(lidx0.valid(gate_alu)), UOp.const(dtypes.int, 1)))
-      sink = UOp(Ops.SINK, dtypes.void, (gated_alu_store,), arg=KernelInfo())
-      prg = get_program(sink, Device[Device.DEFAULT].renderer)
-      ret = _test_uop_result([], prg, local_size=[4, 1, 1])[0]
-      np.testing.assert_equal(ret, [0, 1, 1, 1])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
+    gate_alu = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
+    gated_alu_store = UOp(Ops.STORE, dtypes.void, (a.index(lidx0.valid(gate_alu)), UOp.const(dtypes.int, 1)))
+    sink = UOp(Ops.SINK, dtypes.void, (gated_alu_store,), arg=KernelInfo())
+    prg = get_program(sink, Device[Device.DEFAULT].renderer)
+    ret = _test_uop_result([], prg, local_size=[4, 1, 1])[0]
+    np.testing.assert_equal(ret, [0, 1, 1, 1])
   def test_gated_store_with_alu_2d(self):
-    try:
-      a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
-      gate_alu_0 = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
-      gate_alu_1 = (lidx1:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 2),), 'lidx1')).ne(0)
-      gated_alu_store = UOp(Ops.STORE, dtypes.void, (a.index((lidx0+lidx1*4).valid(gate_alu_0&gate_alu_1)), UOp.const(dtypes.int, 1)))
-      sink = UOp(Ops.SINK, dtypes.void, (gated_alu_store,), arg=KernelInfo())
-      prg = get_program(sink, Device[Device.DEFAULT].renderer)
-      ret = _test_uop_result([], prg, local_size=[4, 2, 1])[0]
-      np.testing.assert_equal(ret, [0, 0, 0, 0, 0, 1, 1, 1])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
+    gate_alu_0 = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
+    gate_alu_1 = (lidx1:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 2),), 'lidx1')).ne(0)
+    gated_alu_store = UOp(Ops.STORE, dtypes.void, (a.index((lidx0+lidx1*4).valid(gate_alu_0&gate_alu_1)), UOp.const(dtypes.int, 1)))
+    sink = UOp(Ops.SINK, dtypes.void, (gated_alu_store,), arg=KernelInfo())
+    prg = get_program(sink, Device[Device.DEFAULT].renderer)
+    ret = _test_uop_result([], prg, local_size=[4, 2, 1])[0]
+    np.testing.assert_equal(ret, [0, 0, 0, 0, 0, 1, 1, 1])
 class TestCStyleFailures(unittest.TestCase):
   def test_inline_const_alu(self):
     # CPU doesn't use the max function
-    try:
-      ret = _setup_and_test_alu(Ops.MAX, 1, UOp.const(dtypes.int, dtypes.int.min+1))
-      self.assertEqual(ret[0], 1)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    ret = _setup_and_test_alu(Ops.MAX, 1, UOp.const(dtypes.int, dtypes.int.min+1))
+    self.assertEqual(ret[0], 1)
   def _test_src_strip_paren(self, op: Ops, should_strip_paren:bool=True):
-    try:
-      dtype = "bool" if op in (Ops.OR, Ops.XOR, Ops.AND) else None
-      ret = Tensor.empty(1, dtype=dtype)
-      for _ in range(5): ret = python_alu[op](ret, Tensor.empty(1, dtype=dtype))
-      schedule = ret.schedule()
-      assert len(schedule) == 1
-      schedule[0].lower()
-      src = schedule[0].prg.p.src
-      self.assertEqual("("*5 not in src, should_strip_paren)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    dtype = "bool" if op in (Ops.OR, Ops.XOR, Ops.AND) else None
+    ret = Tensor.empty(1, dtype=dtype)
+    for _ in range(5): ret = python_alu[op](ret, Tensor.empty(1, dtype=dtype))
+    schedule = ret.schedule()
+    assert len(schedule) == 1
+    schedule[0].lower()
+    src = schedule[0].prg.p.src
+    self.assertEqual("("*5 not in src, should_strip_paren)
   def test_repeat_add(self): self._test_src_strip_paren(Ops.ADD)
   def test_repeat_mul(self): self._test_src_strip_paren(Ops.MUL)
   def test_repeat_xor(self): self._test_src_strip_paren(Ops.XOR)
@@ -103,42 +79,24 @@ class TestWGSLFailures(unittest.TestCase):
   def test_multiply_infinity(self):
     # multiplying a positive constant by infinity should return infinity
     # WGSL pipelines do not handle this reliably, some of which return zero, unless infinity always comes from a read on a dynamic buffer
-    try:
-      ret = _setup_and_test_alu(Ops.MUL, 5.0, UOp.const(dtypes.float32, float("inf")))
-      self.assertEqual(ret[0], float("inf"))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    ret = _setup_and_test_alu(Ops.MUL, 5.0, UOp.const(dtypes.float32, float("inf")))
+    self.assertEqual(ret[0], float("inf"))
 class TestPTXFailures(unittest.TestCase):
   def test_gated_store_with_if(self):
-    try:
-      a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
-      gate_alu = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
-      val = UOp.const(dtypes.int, 1)
-      if_uop = UOp(Ops.IF, dtypes.void, (gate_alu,))
-      gated_alu_store = UOp(Ops.STORE, dtypes.void, (a.index(lidx0, if_uop), val))
-      sink = UOp(Ops.SINK, dtypes.void, (gated_alu_store,), arg=KernelInfo())
-      prg = get_program(sink, Device[Device.DEFAULT].renderer)
-      ret = _test_uop_result([], prg, local_size=[4, 1, 1])[0]
-      np.testing.assert_equal(ret, [0, 1, 1, 1])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
+    gate_alu = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
+    val = UOp.const(dtypes.int, 1)
+    if_uop = UOp(Ops.IF, dtypes.void, (gate_alu,))
+    gated_alu_store = UOp(Ops.STORE, dtypes.void, (a.index(lidx0, if_uop), val))
+    sink = UOp(Ops.SINK, dtypes.void, (gated_alu_store,), arg=KernelInfo())
+    prg = get_program(sink, Device[Device.DEFAULT].renderer)
+    ret = _test_uop_result([], prg, local_size=[4, 1, 1])[0]
+    np.testing.assert_equal(ret, [0, 1, 1, 1])
   def test_gated_define_acc_with_half_dtype(self):
-    try:
-      a = ((Tensor.arange(32*32) % 10) * 0.1).reshape(32, 32).cast(dtypes.half).realize()
-      b = ((Tensor.arange(34*32) % 10) * 0.1).reshape(34, 32).cast(dtypes.half).realize()
-      result = a.pad((1,1)).matmul(b, dtype=dtypes.half).numpy()
-      reference = a.pad((1,1)).matmul(b, dtype=dtypes.float).numpy()
-      np.testing.assert_allclose(result, reference, atol=1e-2, rtol=1e-2)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = ((Tensor.arange(32*32) % 10) * 0.1).reshape(32, 32).cast(dtypes.half).realize()
+    b = ((Tensor.arange(34*32) % 10) * 0.1).reshape(34, 32).cast(dtypes.half).realize()
+    result = a.pad((1,1)).matmul(b, dtype=dtypes.half).numpy()
+    reference = a.pad((1,1)).matmul(b, dtype=dtypes.float).numpy()
+    np.testing.assert_allclose(result, reference, atol=1e-2, rtol=1e-2)
 if __name__ == '__main__':
   unittest.main()

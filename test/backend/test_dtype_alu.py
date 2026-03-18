@@ -101,22 +101,16 @@ def universal_test_cast(a, in_dtype, dtype):
   np.testing.assert_equal(tensor_value.numpy(), numpy_value)
 
 def universal_test_midcast(a, b, c, op1, op2, d1:DType, d2:DType):
-  try:
-    if not isinstance(op1, tuple): op1 = (op1, op1)
-    if not isinstance(op2, tuple): op2 = (op2, op2)
-    # lt and max with nan is undefined in tinygrad
-    if op1[0] in (operator.lt, Tensor.maximum) and (math.isnan(a) or math.isnan(b)): return
-    if op2[0] in (operator.lt, Tensor.maximum) and math.isnan(c): return
-    at, bt, ct = Tensor([a], dtype=d1), Tensor([b], dtype=d1), Tensor([c], dtype=d2)
-    an, bn, cn = np.array([a]).astype(_to_np_dtype(d1)), np.array([b]).astype(_to_np_dtype(d1)), np.array([c]).astype(_to_np_dtype(d2))
-    tensor_value = op2[0](op1[0](at, bt).cast(d2), ct).numpy()
-    numpy_value = op2[1](op1[1](an, bn).astype(_to_np_dtype(d2)), cn)
-    np.testing.assert_allclose(tensor_value, numpy_value, rtol=1e-6 if isinstance(Device[Device.DEFAULT].renderer, PTXRenderer) else 1e-7)
-  except (RuntimeError, Exception) as e:
-    import unittest, subprocess
-    if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-    raise unittest.SkipTest(str(e))
-
+  if not isinstance(op1, tuple): op1 = (op1, op1)
+  if not isinstance(op2, tuple): op2 = (op2, op2)
+  # lt and max with nan is undefined in tinygrad
+  if op1[0] in (operator.lt, Tensor.maximum) and (math.isnan(a) or math.isnan(b)): return
+  if op2[0] in (operator.lt, Tensor.maximum) and math.isnan(c): return
+  at, bt, ct = Tensor([a], dtype=d1), Tensor([b], dtype=d1), Tensor([c], dtype=d2)
+  an, bn, cn = np.array([a]).astype(_to_np_dtype(d1)), np.array([b]).astype(_to_np_dtype(d1)), np.array([c]).astype(_to_np_dtype(d2))
+  tensor_value = op2[0](op1[0](at, bt).cast(d2), ct).numpy()
+  numpy_value = op2[1](op1[1](an, bn).astype(_to_np_dtype(d2)), cn)
+  np.testing.assert_allclose(tensor_value, numpy_value, rtol=1e-6 if isinstance(Device[Device.DEFAULT].renderer, PTXRenderer) else 1e-7)
 class TestDTypeALU(unittest.TestCase):
   @given(ht.float64, ht.float64, strat.sampled_from(binary_operations))
   def test_float64(self, a, b, op): universal_test(a, b, dtypes.float64, op)
@@ -133,13 +127,7 @@ class TestDTypeALU(unittest.TestCase):
 
   @given(ht.bfloat16, ht.bfloat16, strat.sampled_from(binary_operations))
   def test_bfloat16(self, a, b, op):
-    try:
-      universal_test(from_storage_scalar(a, dtypes.bfloat16), from_storage_scalar(a, dtypes.bfloat16), dtypes.bfloat16, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    universal_test(from_storage_scalar(a, dtypes.bfloat16), from_storage_scalar(a, dtypes.bfloat16), dtypes.bfloat16, op)
   @given(ht.bfloat16, ht.bfloat16, strat.sampled_from(binary_operations))
   @Context(EMULATED_DTYPES="bfloat16")
   def test_emulated_bfloat16(self, a, b, op):
@@ -147,13 +135,7 @@ class TestDTypeALU(unittest.TestCase):
 
   @given(ht.fp8e4m3, ht.fp8e4m3, strat.sampled_from(binary_operations))
   def test_fp8e4m3(self, a, b, op):
-    try:
-      universal_test(from_storage_scalar(a, dtypes.fp8e4m3), from_storage_scalar(b, dtypes.fp8e4m3), dtypes.fp8e4m3, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    universal_test(from_storage_scalar(a, dtypes.fp8e4m3), from_storage_scalar(b, dtypes.fp8e4m3), dtypes.fp8e4m3, op)
   @given(ht.fp8e4m3, ht.fp8e4m3, strat.sampled_from(binary_operations))
   @Context(EMULATED_DTYPES="fp8e4m3")
   def test_emulated_fp8e4m3(self, a, b, op):
@@ -161,13 +143,7 @@ class TestDTypeALU(unittest.TestCase):
 
   @given(ht.fp8e5m2, ht.fp8e5m2, strat.sampled_from(binary_operations))
   def test_fp8e5m2(self, a, b, op):
-    try:
-      universal_test(from_storage_scalar(a, dtypes.fp8e5m2), from_storage_scalar(b, dtypes.fp8e5m2), dtypes.fp8e5m2, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    universal_test(from_storage_scalar(a, dtypes.fp8e5m2), from_storage_scalar(b, dtypes.fp8e5m2), dtypes.fp8e5m2, op)
   @given(ht.fp8e5m2, ht.fp8e5m2, strat.sampled_from(binary_operations))
   @Context(EMULATED_DTYPES="fp8e5m2")
   def test_emulated_fp8e5m2(self, a, b, op):
@@ -175,22 +151,10 @@ class TestDTypeALU(unittest.TestCase):
 
   @given(ht.fp8e4m3fnuz, ht.fp8e4m3fnuz, strat.sampled_from(binary_operations))
   def test_fp8e4m3fnuz(self, a, b, op):
-    try:
-      universal_test(from_storage_scalar(a, dtypes.fp8e4m3fnuz), from_storage_scalar(b, dtypes.fp8e4m3fnuz), dtypes.fp8e4m3fnuz, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    universal_test(from_storage_scalar(a, dtypes.fp8e4m3fnuz), from_storage_scalar(b, dtypes.fp8e4m3fnuz), dtypes.fp8e4m3fnuz, op)
   @given(ht.fp8e5m2fnuz, ht.fp8e5m2fnuz, strat.sampled_from(binary_operations))
   def test_fp8e5m2fnuz(self, a, b, op):
-    try:
-      universal_test(from_storage_scalar(a, dtypes.fp8e5m2fnuz), from_storage_scalar(b, dtypes.fp8e5m2fnuz), dtypes.fp8e5m2fnuz, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    universal_test(from_storage_scalar(a, dtypes.fp8e5m2fnuz), from_storage_scalar(b, dtypes.fp8e5m2fnuz), dtypes.fp8e5m2fnuz, op)
   @given(ht.fp8e4m3fnuz, ht.fp8e4m3fnuz, strat.sampled_from(binary_operations))
   @Context(EMULATED_DTYPES="fp8e4m3fnuz")
   def test_emulated_fp8e4m3fnuz(self, a, b, op):
@@ -220,14 +184,8 @@ class TestDTypeALU(unittest.TestCase):
 
   @given(ht.fp8e4m3, strat.sampled_from(unary_operations))
   def test_fp8e4m3_unary(self, a, op):
-    try:
-      if op[1] == np.reciprocal: assume(from_storage_scalar(a, dtype=dtypes.fp8e4m3) != 0.0)
-      universal_test_unary(from_storage_scalar(a, dtype=dtypes.fp8e4m3), dtypes.fp8e4m3, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    if op[1] == np.reciprocal: assume(from_storage_scalar(a, dtype=dtypes.fp8e4m3) != 0.0)
+    universal_test_unary(from_storage_scalar(a, dtype=dtypes.fp8e4m3), dtypes.fp8e4m3, op)
   @given(ht.fp8e4m3, strat.sampled_from(unary_operations))
   @Context(EMULATED_DTYPES="fp8e4m3")
   def test_emulated_fp8e4m3_unary(self, a, op):
@@ -236,14 +194,8 @@ class TestDTypeALU(unittest.TestCase):
 
   @given(ht.fp8e5m2, strat.sampled_from(unary_operations))
   def test_fp8e5m2_unary(self, a, op):
-    try:
-      if op[1] == np.reciprocal: assume(from_storage_scalar(a, dtype=dtypes.fp8e5m2) != 0.0)
-      universal_test_unary(from_storage_scalar(a, dtype=dtypes.fp8e5m2), dtypes.fp8e5m2, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    if op[1] == np.reciprocal: assume(from_storage_scalar(a, dtype=dtypes.fp8e5m2) != 0.0)
+    universal_test_unary(from_storage_scalar(a, dtype=dtypes.fp8e5m2), dtypes.fp8e5m2, op)
   @given(ht.fp8e5m2, strat.sampled_from(unary_operations))
   @Context(EMULATED_DTYPES="fp8e5m2")
   def test_emulated_fp8e5m2_unary(self, a, op):
@@ -252,24 +204,12 @@ class TestDTypeALU(unittest.TestCase):
 
   @given(ht.fp8e4m3fnuz, strat.sampled_from(unary_operations))
   def test_fp8e4m3fnuz_unary(self, a, op):
-    try:
-      if op[1] == np.reciprocal: assume(from_storage_scalar(a, dtype=dtypes.fp8e4m3fnuz) != 0.0)
-      universal_test_unary(from_storage_scalar(a, dtype=dtypes.fp8e4m3fnuz), dtypes.fp8e4m3fnuz, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    if op[1] == np.reciprocal: assume(from_storage_scalar(a, dtype=dtypes.fp8e4m3fnuz) != 0.0)
+    universal_test_unary(from_storage_scalar(a, dtype=dtypes.fp8e4m3fnuz), dtypes.fp8e4m3fnuz, op)
   @given(ht.fp8e5m2fnuz, strat.sampled_from(unary_operations))
   def test_fp8e5m2fnuz_unary(self, a, op):
-    try:
-      if op[1] == np.reciprocal: assume(from_storage_scalar(a, dtype=dtypes.fp8e5m2fnuz) != 0.0)
-      universal_test_unary(from_storage_scalar(a, dtype=dtypes.fp8e5m2fnuz), dtypes.fp8e5m2fnuz, op)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    if op[1] == np.reciprocal: assume(from_storage_scalar(a, dtype=dtypes.fp8e5m2fnuz) != 0.0)
+    universal_test_unary(from_storage_scalar(a, dtype=dtypes.fp8e5m2fnuz), dtypes.fp8e5m2fnuz, op)
   @given(ht.fp8e4m3fnuz, strat.sampled_from(unary_operations))
   @Context(EMULATED_DTYPES="fp8e4m3fnuz")
   def test_emulated_fp8e4m3fnuz_unary(self, a, op):
@@ -374,25 +314,13 @@ class TestDTypeALU(unittest.TestCase):
   @given(strat.floats(width=32, min_value=256.0, max_value=65000.0, allow_subnormal=False),
          strat.sampled_from(dtypes_float), strat.sampled_from((dtypes.uint8, dtypes.uint16)))
   def test_float_cast_to_unsigned_overflow(self, a, float_dtype, unsigned_dtype):
-    try:
-      if not is_dtype_supported(float_dtype): float_dtype = dtypes.float32
-      universal_test_cast(a, float_dtype, unsigned_dtype)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    if not is_dtype_supported(float_dtype): float_dtype = dtypes.float32
+    universal_test_cast(a, float_dtype, unsigned_dtype)
   @given(strat.floats(width=32, min_value=-65000.0, max_value=-1.0, allow_subnormal=False),
          strat.sampled_from(dtypes_float), strat.sampled_from((dtypes.uint8, dtypes.uint16)))
   def test_float_cast_to_unsigned_underflow(self, a, float_dtype, unsigned_dtype):
-    try:
-      if not is_dtype_supported(float_dtype): float_dtype = dtypes.float32
-      universal_test_cast(a, float_dtype, unsigned_dtype)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    if not is_dtype_supported(float_dtype): float_dtype = dtypes.float32
+    universal_test_cast(a, float_dtype, unsigned_dtype)
   @unittest.expectedFailure
   def test_unsafe_cast_float_to_int_failure(self):
     val = float(dtypes.int32.max - 1)

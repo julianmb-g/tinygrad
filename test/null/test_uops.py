@@ -129,131 +129,89 @@ class TestGatedStoreRewrite(unittest.TestCase):
 
   # scaled down version of TestLinearizerDumb.test_unmerged_ifs
   def test_merge_ifs_alt(self):
-    try:
-      gmem0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
-      gmem1 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
-      gidx0 = UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'gidx0')
-      idx = gidx0*UOp.const(dtypes.int, 2)
-      gate = gidx0<UOp.const(dtypes.int, 1)
-      idx0 = UOp(Ops.INDEX, dtypes.float.ptr(), (gmem0, idx, gate))
-      idx1 = UOp(Ops.INDEX, dtypes.float.ptr(), (gmem1, idx, gate))
-      val = UOp.const(dtypes.float, 42.0)
-      stores = [UOp.store(idx0, val), UOp.store(idx1, val)]
-      uops = to_uops_list(stores)
-      ifs = [u for u in uops if u.op is Ops.IF]
-      endifs = [u for u in uops if u.op is Ops.ENDIF]
-      self.assertEqual(len(ifs), 1)
-      self.assertEqual(len(endifs), 1)
-      gated_uops = tuple(uops[uops.index(ifs[0])+1:uops.index(endifs[0])])
-      self.assertEqual(len(gated_uops), 2)
-      for x in gated_uops: self.assertIs(x.op, Ops.STORE)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    gmem0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
+    gmem1 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
+    gidx0 = UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'gidx0')
+    idx = gidx0*UOp.const(dtypes.int, 2)
+    gate = gidx0<UOp.const(dtypes.int, 1)
+    idx0 = UOp(Ops.INDEX, dtypes.float.ptr(), (gmem0, idx, gate))
+    idx1 = UOp(Ops.INDEX, dtypes.float.ptr(), (gmem1, idx, gate))
+    val = UOp.const(dtypes.float, 42.0)
+    stores = [UOp.store(idx0, val), UOp.store(idx1, val)]
+    uops = to_uops_list(stores)
+    ifs = [u for u in uops if u.op is Ops.IF]
+    endifs = [u for u in uops if u.op is Ops.ENDIF]
+    self.assertEqual(len(ifs), 1)
+    self.assertEqual(len(endifs), 1)
+    gated_uops = tuple(uops[uops.index(ifs[0])+1:uops.index(endifs[0])])
+    self.assertEqual(len(gated_uops), 2)
+    for x in gated_uops: self.assertIs(x.op, Ops.STORE)
 class TestFastIdiv(unittest.TestCase):
   def test_division_power_of_two(self):
-    try:
-      for dt in (dtypes.int32, dtypes.uint32):
-        g = UOp(Ops.PARAM, dt.ptr(), (), 0)
-        c = UOp.const(dt, 2)
-        l = g.index(c)
-        a = UOp(Ops.IDIV, dt, (l, c))
-        uops = to_uops_list([a], ren=Device[Device.DEFAULT].renderer)
-        Device[Device.DEFAULT].renderer.render(uops)
-        ops = [x.op for x in uops]
-        self.assertIn(Ops.SHR, ops, f"For dtype={dt} divison by power of two did not simplify to shift")
-        self.assertNotIn(Ops.IDIV, ops, f"For dtype={dt} divison by power of two did not simplify to shift")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_fast_idiv_and_mod(self):
-    try:
-      g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
-      c = UOp.const(dtypes.uint, 3)
+    for dt in (dtypes.int32, dtypes.uint32):
+      g = UOp(Ops.PARAM, dt.ptr(), (), 0)
+      c = UOp.const(dt, 2)
       l = g.index(c)
-      a = UOp(Ops.IDIV, dtypes.uint, (l, c))
+      a = UOp(Ops.IDIV, dt, (l, c))
       uops = to_uops_list([a], ren=Device[Device.DEFAULT].renderer)
       Device[Device.DEFAULT].renderer.render(uops)
       ops = [x.op for x in uops]
-      self.assertIn(Ops.SHR, ops)
-      self.assertNotIn(Ops.IDIV, ops)
+      self.assertIn(Ops.SHR, ops, f"For dtype={dt} divison by power of two did not simplify to shift")
+      self.assertNotIn(Ops.IDIV, ops, f"For dtype={dt} divison by power of two did not simplify to shift")
+  def test_fast_idiv_and_mod(self):
+    g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
+    c = UOp.const(dtypes.uint, 3)
+    l = g.index(c)
+    a = UOp(Ops.IDIV, dtypes.uint, (l, c))
+    uops = to_uops_list([a], ren=Device[Device.DEFAULT].renderer)
+    Device[Device.DEFAULT].renderer.render(uops)
+    ops = [x.op for x in uops]
+    self.assertIn(Ops.SHR, ops)
+    self.assertNotIn(Ops.IDIV, ops)
 
-      b = UOp(Ops.MOD, dtypes.uint, (l, c))
-      uops = to_uops_list([b], ren=Device[Device.DEFAULT].renderer)
-      Device[Device.DEFAULT].renderer.render(uops)
-      ops = [x.op for x in uops]
-      self.assertIn(Ops.SHR, ops)
-      self.assertNotIn(Ops.MOD, ops)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    b = UOp(Ops.MOD, dtypes.uint, (l, c))
+    uops = to_uops_list([b], ren=Device[Device.DEFAULT].renderer)
+    Device[Device.DEFAULT].renderer.render(uops)
+    ops = [x.op for x in uops]
+    self.assertIn(Ops.SHR, ops)
+    self.assertNotIn(Ops.MOD, ops)
   def test_fast_idiv_remove_powers_of_two(self):
-    try:
-      ridx = UOp.range(2**20, 0)
-      uops = to_uops_list([ridx//(7*64)], ren=Device[Device.DEFAULT].renderer)
-      ops = [x.op for x in uops]
-      # this requires shifting out the powers of two before doing fast_idiv
-      # (((ridx0>>6)*18725)>>17) instead of (int)((((long)(ridx0)*1198373)>>29))
-      self.assertNotIn(Ops.CAST, ops)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    ridx = UOp.range(2**20, 0)
+    uops = to_uops_list([ridx//(7*64)], ren=Device[Device.DEFAULT].renderer)
+    ops = [x.op for x in uops]
+    # this requires shifting out the powers of two before doing fast_idiv
+    # (((ridx0>>6)*18725)>>17) instead of (int)((((long)(ridx0)*1198373)>>29))
+    self.assertNotIn(Ops.CAST, ops)
   @unittest.expectedFailure
   def test_fast_idiv_overflow(self):
     # This will be possible with a slightly different method for fast_idiv
-    try:
-      g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
-      c = UOp.const(dtypes.uint, 7)
-      l = UOp(Ops.LOAD, dtypes.uint, (g.index(c),))
-      a = UOp(Ops.IDIV, dtypes.uint, (l, c))
-      uops = to_uops_list([a], ren=Device[Device.DEFAULT].renderer)
-      Device[Device.DEFAULT].renderer.render(uops)
-      ops = [x.op for x in uops]
-      self.assertIn(Ops.SHR, ops)
-      self.assertNotIn(Ops.IDIV, ops)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
+    c = UOp.const(dtypes.uint, 7)
+    l = UOp(Ops.LOAD, dtypes.uint, (g.index(c),))
+    a = UOp(Ops.IDIV, dtypes.uint, (l, c))
+    uops = to_uops_list([a], ren=Device[Device.DEFAULT].renderer)
+    Device[Device.DEFAULT].renderer.render(uops)
+    ops = [x.op for x in uops]
+    self.assertIn(Ops.SHR, ops)
+    self.assertNotIn(Ops.IDIV, ops)
   def test_disable_fast_idiv(self):
-    try:
-      g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
-      c = UOp.const(dtypes.uint, 3)
-      l = g.index(c)
-      a = UOp(Ops.IDIV, dtypes.uint, (l, c))
-      with Context(DISABLE_FAST_IDIV=1):
-        uops = to_uops_list([a], ren=Device[Device.DEFAULT].renderer)
-      ops = [x.op for x in uops]
-      self.assertNotIn(Ops.SHR, ops)
-      self.assertIn(Ops.IDIV, ops)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
+    c = UOp.const(dtypes.uint, 3)
+    l = g.index(c)
+    a = UOp(Ops.IDIV, dtypes.uint, (l, c))
+    with Context(DISABLE_FAST_IDIV=1):
+      uops = to_uops_list([a], ren=Device[Device.DEFAULT].renderer)
+    ops = [x.op for x in uops]
+    self.assertNotIn(Ops.SHR, ops)
+    self.assertIn(Ops.IDIV, ops)
 class TestUOpMethod(unittest.TestCase):
   def test_compare_alu_same_src_different_arg(self):
-    try:
-      a = UOp.const(dtypes.float, 2.0)
-      b = UOp.const(dtypes.float, 3.0)
+    a = UOp.const(dtypes.float, 2.0)
+    b = UOp.const(dtypes.float, 3.0)
 
-      add = UOp(Ops.ADD, dtypes.float, (a, b))
-      mul = UOp(Ops.MUL, dtypes.float, (a, b))
-      assert (add < mul) or (mul < add), "add and mul with same src should have an order"
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    add = UOp(Ops.ADD, dtypes.float, (a, b))
+    mul = UOp(Ops.MUL, dtypes.float, (a, b))
+    assert (add < mul) or (mul < add), "add and mul with same src should have an order"
   def test_uop_variables(self):
     a = UOp.variable("a", 1, 10)
     uop_var = Tensor(a.bind(1))

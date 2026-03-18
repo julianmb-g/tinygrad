@@ -87,21 +87,9 @@ class TestIdxUpcast(unittest.TestCase):
 
   def test_overflow(self):
     # 2**11, 2**11, 2**11 -> 2**33 will overflow when indexed
-    try:
-      self.do_op_then_assert(dtypes.long, 2048, 2048, 2048)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self.do_op_then_assert(dtypes.long, 2048, 2048, 2048)
   def test_overflow_sym(self):
-    try:
-      self.do_op_then_assert(dtypes.long, 2048, 2048, UOp.variable("dim3", 1, 2048).bind(32))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self.do_op_then_assert(dtypes.long, 2048, 2048, UOp.variable("dim3", 1, 2048).bind(32))
   def test_regular(self):
     self.do_op_then_assert(dtypes.int, 64, 64, 64)
 
@@ -110,49 +98,25 @@ class TestIdxUpcast(unittest.TestCase):
 
   def test_symfold(self):
     # This would cause an overflow, but after sym fold it's within int32
-    try:
-      a = Tensor.arange(65535)
-      uops = self._schedule_render(a)
-      assert all(uop.dtype is not dtypes.long for uop in uops)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.arange(65535)
+    uops = self._schedule_render(a)
+    assert all(uop.dtype is not dtypes.long for uop in uops)
   def test_arange_raise_overflow(self):
     with self.assertRaises(ValueError):
       self._schedule_render(Tensor.arange(2**33, dtype=dtypes.int))
 
   def test_int64_unsupported_overflow_sym(self):
-    try:
-      with self.assertRaises((KeyError, RuntimeError)):
-        self.do_op_then_assert(dtypes.long, 2048, 2048, UOp.variable("dim3", 1, 2048).bind(32))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with self.assertRaises((KeyError, RuntimeError)):
+      self.do_op_then_assert(dtypes.long, 2048, 2048, UOp.variable("dim3", 1, 2048).bind(32))
   @unittest.expectedFailure  # bug in gpu dims limiting
   def test_int64_unsupported_overflow(self):
-    try:
-      with self.assertRaises((KeyError, RuntimeError)):
-        self.do_op_then_assert(dtypes.long, 2048, 2048, 2048)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with self.assertRaises((KeyError, RuntimeError)):
+      self.do_op_then_assert(dtypes.long, 2048, 2048, 2048)
   def test_overflow_kernel_run(self):
     # This creates a total of 2**31+10 elements, requiring at least 2147 MB memory to run
     # Modified example from issue 3271
-    try:
-      a = Tensor.empty(2**11, 2**11, 1, dtype=dtypes.int8).permute((2, 0, 1)).expand((2**9+10, -1, -1)).contiguous()
-      a.realize()
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(2**11, 2**11, 1, dtype=dtypes.int8).permute((2, 0, 1)).expand((2**9+10, -1, -1)).contiguous()
+    a.realize()
 class TestTensorUnique(unittest.TestCase):
   def test_empty_bufs_unique(self):
     a = Tensor.empty(10, 10).contiguous()

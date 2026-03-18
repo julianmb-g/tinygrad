@@ -7,36 +7,30 @@ from test.backend.test_linearizer import helper_linearizer_opt
 
 class TestKernelOpts(unittest.TestCase):
   def test_local_and_grouped_reduce(self):
-    try:
-      N = 128
-      Tensor.manual_seed(1882)
-      a = Tensor.rand(4, 4, N, N)
-      b = Tensor.rand(4, 4, N)
-      r = (b.sqrt() + ((a+1).sum(axis=3).exp()))
-      helper_linearizer_opt(r, [
-        [Opt(OptOps.LOCAL, 0, 2)],
-        [Opt(OptOps.LOCAL, 0, 8)],
-        [Opt(OptOps.LOCAL, 0, 16)], # Checking how it works with locals
-        [Opt(OptOps.GROUPTOP, 0, 2)],
-        [Opt(OptOps.GROUPTOP, 0, 32)],
-        [Opt(OptOps.GROUPTOP, 0, 64)], # Checking how it works with grouped reduce
-        [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 2)],
-        [Opt(OptOps.LOCAL, 0, 16), Opt(OptOps.GROUPTOP, 0, 16)],
-        [Opt(OptOps.LOCAL, 0, 32), Opt(OptOps.GROUPTOP, 0, 2)],
-        # Checking how it works with locals + grouped reduce
-        [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 64)],
-        # Checking how it works with locals + grouped reduce + upcasts
-        [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 2), Opt(OptOps.UPCAST, 0, 8), Opt(OptOps.UNROLL, 1, 4)],
-        # many local + many group
-        [Opt(OptOps.GROUP, 0, 2)] * 4,
-        [Opt(OptOps.LOCAL, 0, 2)] * 4,
-        [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUP, 0, 2)] * 4,
-      ])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    N = 128
+    Tensor.manual_seed(1882)
+    a = Tensor.rand(4, 4, N, N)
+    b = Tensor.rand(4, 4, N)
+    r = (b.sqrt() + ((a+1).sum(axis=3).exp()))
+    helper_linearizer_opt(r, [
+      [Opt(OptOps.LOCAL, 0, 2)],
+      [Opt(OptOps.LOCAL, 0, 8)],
+      [Opt(OptOps.LOCAL, 0, 16)], # Checking how it works with locals
+      [Opt(OptOps.GROUPTOP, 0, 2)],
+      [Opt(OptOps.GROUPTOP, 0, 32)],
+      [Opt(OptOps.GROUPTOP, 0, 64)], # Checking how it works with grouped reduce
+      [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 2)],
+      [Opt(OptOps.LOCAL, 0, 16), Opt(OptOps.GROUPTOP, 0, 16)],
+      [Opt(OptOps.LOCAL, 0, 32), Opt(OptOps.GROUPTOP, 0, 2)],
+      # Checking how it works with locals + grouped reduce
+      [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 64)],
+      # Checking how it works with locals + grouped reduce + upcasts
+      [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 2), Opt(OptOps.UPCAST, 0, 8), Opt(OptOps.UNROLL, 1, 4)],
+      # many local + many group
+      [Opt(OptOps.GROUP, 0, 2)] * 4,
+      [Opt(OptOps.LOCAL, 0, 2)] * 4,
+      [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUP, 0, 2)] * 4,
+    ])
   def test_upcasts(self):
     N = 16
     Tensor.manual_seed(1772)
@@ -59,37 +53,31 @@ class TestKernelOpts(unittest.TestCase):
     ])
 
   def test_matmul(self):
-    try:
-      N = 128
-      Tensor.manual_seed(1552)
-      a = Tensor.rand(N, N)
-      b = Tensor.rand(N, N)
-      r = a@b
-      helper_linearizer_opt(r, [
-        [Opt(OptOps.UPCAST, 0, 2)],
-        [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4)], # Checking how it works with upcasts
-        [Opt(OptOps.LOCAL, 0, 2)],
-        [Opt(OptOps.LOCAL, 1, 32)],
-        [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 1, 4)],
-        [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 1, 32)],
-        [Opt(OptOps.LOCAL, 0, 16), Opt(OptOps.LOCAL, 1, 8)], # Checking how it works with locals
-        [Opt(OptOps.GROUPTOP, 0, 2)],
-        [Opt(OptOps.GROUPTOP, 0, 32)],
-        [Opt(OptOps.GROUPTOP, 0, 32), Opt(OptOps.UNROLL, 0, 4)], # Checking how it works with grouped_reduce
-        [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.LOCAL, 1, 2), Opt(OptOps.GROUPTOP, 0, 32)],
-        [Opt(OptOps.LOCAL, 0, 8), Opt(OptOps.GROUPTOP, 0, 32)],
-        [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 0, 8), Opt(OptOps.GROUPTOP, 0, 4)], # Checking how it works with local+grouped_reduce
-        # Checking all together
-        [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UPCAST, 0, 4),
-         Opt(OptOps.UPCAST, 1, 2)],
-        # Full global upcast + local
-        [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UPCAST, 0, 8)],
-      ])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    N = 128
+    Tensor.manual_seed(1552)
+    a = Tensor.rand(N, N)
+    b = Tensor.rand(N, N)
+    r = a@b
+    helper_linearizer_opt(r, [
+      [Opt(OptOps.UPCAST, 0, 2)],
+      [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4)], # Checking how it works with upcasts
+      [Opt(OptOps.LOCAL, 0, 2)],
+      [Opt(OptOps.LOCAL, 1, 32)],
+      [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 1, 4)],
+      [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 1, 32)],
+      [Opt(OptOps.LOCAL, 0, 16), Opt(OptOps.LOCAL, 1, 8)], # Checking how it works with locals
+      [Opt(OptOps.GROUPTOP, 0, 2)],
+      [Opt(OptOps.GROUPTOP, 0, 32)],
+      [Opt(OptOps.GROUPTOP, 0, 32), Opt(OptOps.UNROLL, 0, 4)], # Checking how it works with grouped_reduce
+      [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.LOCAL, 1, 2), Opt(OptOps.GROUPTOP, 0, 32)],
+      [Opt(OptOps.LOCAL, 0, 8), Opt(OptOps.GROUPTOP, 0, 32)],
+      [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 0, 8), Opt(OptOps.GROUPTOP, 0, 4)], # Checking how it works with local+grouped_reduce
+      # Checking all together
+      [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UPCAST, 0, 4),
+       Opt(OptOps.UPCAST, 1, 2)],
+      # Full global upcast + local
+      [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UPCAST, 0, 8)],
+    ])
   def test_double_reduce(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -115,71 +103,53 @@ class TestKernelOpts(unittest.TestCase):
     ])
 
   def test_tensor_core_opts(self):
-    try:
-      N = 128
-      Tensor.manual_seed(1552)
-      a, b = Tensor.rand(N, N, dtype=dtypes.half), Tensor.rand(N, N, dtype=dtypes.half)
-      r = a.matmul(b, dtype=dtypes.half)
-      atol, rtol = 0.25, 0.01
-      helper_linearizer_opt(r, [
-        [],
-        [Opt(OptOps.UPCAST, 0, 4)],
-        [Opt(OptOps.UPCAST, 1, 4)],
-        [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4)], # check upcasts
-        [Opt(OptOps.UNROLL, 0, 2)], # check unroll
-        [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 2)], # check combo of unroll and local
-        [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 2)],
-        [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4)],
-        [Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 0, 4)], # check permutations
-        [Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 0, 4)],
-        [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 4)],
-        [Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 4)],
-      ], apply_tc=True, atol=atol, rtol=rtol)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    N = 128
+    Tensor.manual_seed(1552)
+    a, b = Tensor.rand(N, N, dtype=dtypes.half), Tensor.rand(N, N, dtype=dtypes.half)
+    r = a.matmul(b, dtype=dtypes.half)
+    atol, rtol = 0.25, 0.01
+    helper_linearizer_opt(r, [
+      [],
+      [Opt(OptOps.UPCAST, 0, 4)],
+      [Opt(OptOps.UPCAST, 1, 4)],
+      [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4)], # check upcasts
+      [Opt(OptOps.UNROLL, 0, 2)], # check unroll
+      [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 2)], # check combo of unroll and local
+      [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 2)],
+      [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4)],
+      [Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 0, 4)], # check permutations
+      [Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 0, 4)],
+      [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 4)],
+      [Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 4)],
+    ], apply_tc=True, atol=atol, rtol=rtol)
   def test_tensor_core_opts_locals(self):
-    try:
-      N = 128
-      Tensor.manual_seed(1552)
-      a, b = Tensor.rand(N, N, dtype=dtypes.half), Tensor.rand(N, N, dtype=dtypes.half)
-      r = a.matmul(b, dtype=dtypes.half)
-      atol, rtol = 0.25, 0.01
-      helper_linearizer_opt(r, [
-        [Opt(OptOps.UNROLL, 0, 0)], # check full unroll of reduce with locals
-        [Opt(OptOps.LOCAL, 0, 4)], # check local
-        [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.LOCAL, 0, 2)],
-        [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 0, 4)],
-      ], apply_tc=True, atol=atol, rtol=rtol)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    N = 128
+    Tensor.manual_seed(1552)
+    a, b = Tensor.rand(N, N, dtype=dtypes.half), Tensor.rand(N, N, dtype=dtypes.half)
+    r = a.matmul(b, dtype=dtypes.half)
+    atol, rtol = 0.25, 0.01
+    helper_linearizer_opt(r, [
+      [Opt(OptOps.UNROLL, 0, 0)], # check full unroll of reduce with locals
+      [Opt(OptOps.LOCAL, 0, 4)], # check local
+      [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.LOCAL, 0, 2)],
+      [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 0, 4)],
+    ], apply_tc=True, atol=atol, rtol=rtol)
   # NOTE: the METAL test is broken, likely due to a compiler bug. passes on CI with -O0 and with default opt level locally on M3
   def test_tensor_core_opts_group(self):
-    try:
-      N = 128
-      Tensor.manual_seed(1552)
-      a, b = Tensor.rand(N, N, dtype=dtypes.half), Tensor.rand(N, N, dtype=dtypes.half)
-      r = a.matmul(b, dtype=dtypes.half)
-      atol, rtol = 0.25, 0.01
-      helper_linearizer_opt(r, [
-        [Opt(OptOps.GROUP, 0, 2)],
-        [Opt(OptOps.GROUPTOP, 0, 4)],
-        [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.GROUP, 0, 2)],
-        [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.GROUP, 0, 2)],
-        [Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.GROUP, 0, 2)],
-        [Opt(OptOps.UPCAST, 0, 2), Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUP, 0, 2)],
-        [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 2)],
-      ], apply_tc=True, atol=atol, rtol=rtol)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    N = 128
+    Tensor.manual_seed(1552)
+    a, b = Tensor.rand(N, N, dtype=dtypes.half), Tensor.rand(N, N, dtype=dtypes.half)
+    r = a.matmul(b, dtype=dtypes.half)
+    atol, rtol = 0.25, 0.01
+    helper_linearizer_opt(r, [
+      [Opt(OptOps.GROUP, 0, 2)],
+      [Opt(OptOps.GROUPTOP, 0, 4)],
+      [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.GROUP, 0, 2)],
+      [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.GROUP, 0, 2)],
+      [Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.GROUP, 0, 2)],
+      [Opt(OptOps.UPCAST, 0, 2), Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUP, 0, 2)],
+      [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 2)],
+    ], apply_tc=True, atol=atol, rtol=rtol)
   def test_padto_matmul(self):
     N = 17
     Tensor.manual_seed(289)
@@ -303,63 +273,45 @@ class TestKernelOpts(unittest.TestCase):
     ])
 
   def test_color_shapes_with_local(self):
-    try:
-      N = 32
-      Tensor.manual_seed(1552)
-      a = Tensor.rand(N, N)
-      b = Tensor.rand(N, N)
-      r = a@b
-      opts_shapes = [
-        ([Opt(OptOps.LOCAL, 0, 2)], [("blue",16),("blue",32),("cyan",2),("red",32)]),
-        ([Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.GROUP, 0, 2)], [("blue",16),("blue",32),("cyan",2),("green",2),("red",16)]),
-        # check to ensure local_dims are stable for full UNROLL of the first reduce
-        ([Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.UNROLL, 0, 0)], [("blue",16),("blue",32),("cyan",2),("magenta",32)]),
-        ([Opt(OptOps.UNROLL, 0, 0),Opt(OptOps.LOCAL, 0, 2)], [("blue",16),("blue",32),("cyan",2),("magenta",32)]),
-        # check behavior for full UNROLL on an existing GROUP
-        ([Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.GROUP, 0, 0),Opt(OptOps.UNROLL, 0, 2)], [("blue",16),("blue",32),("cyan",2),("green",16),("magenta",2)]),
-        ([Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.GROUP, 0, 0),Opt(OptOps.UNROLL, 0, 0)], [("blue",16),("blue",32),("cyan",2),("magenta",32)]),
-        ([Opt(OptOps.GROUP, 0, 0),Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.UNROLL, 0, 0)], [("blue",16),("blue",32),("cyan",2),("magenta",32)]),
-        ([Opt(OptOps.GROUP, 0, 2),Opt(OptOps.UNROLL, 0, 0)], [("blue",32),("blue",32),("red",16),("magenta",2)]),
-      ]
-      helper_linearizer_opt(r, [x[0] for x in opts_shapes], color_sizes=[x[1] for x in opts_shapes])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    N = 32
+    Tensor.manual_seed(1552)
+    a = Tensor.rand(N, N)
+    b = Tensor.rand(N, N)
+    r = a@b
+    opts_shapes = [
+      ([Opt(OptOps.LOCAL, 0, 2)], [("blue",16),("blue",32),("cyan",2),("red",32)]),
+      ([Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.GROUP, 0, 2)], [("blue",16),("blue",32),("cyan",2),("green",2),("red",16)]),
+      # check to ensure local_dims are stable for full UNROLL of the first reduce
+      ([Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.UNROLL, 0, 0)], [("blue",16),("blue",32),("cyan",2),("magenta",32)]),
+      ([Opt(OptOps.UNROLL, 0, 0),Opt(OptOps.LOCAL, 0, 2)], [("blue",16),("blue",32),("cyan",2),("magenta",32)]),
+      # check behavior for full UNROLL on an existing GROUP
+      ([Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.GROUP, 0, 0),Opt(OptOps.UNROLL, 0, 2)], [("blue",16),("blue",32),("cyan",2),("green",16),("magenta",2)]),
+      ([Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.GROUP, 0, 0),Opt(OptOps.UNROLL, 0, 0)], [("blue",16),("blue",32),("cyan",2),("magenta",32)]),
+      ([Opt(OptOps.GROUP, 0, 0),Opt(OptOps.LOCAL, 0, 2),Opt(OptOps.UNROLL, 0, 0)], [("blue",16),("blue",32),("cyan",2),("magenta",32)]),
+      ([Opt(OptOps.GROUP, 0, 2),Opt(OptOps.UNROLL, 0, 0)], [("blue",32),("blue",32),("red",16),("magenta",2)]),
+    ]
+    helper_linearizer_opt(r, [x[0] for x in opts_shapes], color_sizes=[x[1] for x in opts_shapes])
   def test_arange_opts(self):
-    try:
-      a = Tensor.arange(128)
-      # NOTE: arange no longer has reduce ops available for opt
-      helper_linearizer_opt(a, [
-        #[Opt(OptOps.GROUP, 0, 32)],
-        #[Opt(OptOps.GROUPTOP, 0, 32)],
-        [Opt(op=OptOps.LOCAL, axis=0, arg=8)],
-        [Opt(op=OptOps.LOCAL, axis=0, arg=8), Opt(op=OptOps.UPCAST, axis=0, arg=0)],
-        #[Opt(op=OptOps.LOCAL, axis=0, arg=8), Opt(op=OptOps.UPCAST, axis=0, arg=0), Opt(op=OptOps.GROUP, axis=0, arg=8)],
-        #[Opt(op=OptOps.LOCAL, axis=0, arg=8), Opt(op=OptOps.UPCAST, axis=0, arg=0), Opt(op=OptOps.GROUP, axis=0, arg=8), Opt(op=OptOps.UNROLL, axis=1, arg=4)], # noqa: E501
-      ])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.arange(128)
+    # NOTE: arange no longer has reduce ops available for opt
+    helper_linearizer_opt(a, [
+      #[Opt(OptOps.GROUP, 0, 32)],
+      #[Opt(OptOps.GROUPTOP, 0, 32)],
+      [Opt(op=OptOps.LOCAL, axis=0, arg=8)],
+      [Opt(op=OptOps.LOCAL, axis=0, arg=8), Opt(op=OptOps.UPCAST, axis=0, arg=0)],
+      #[Opt(op=OptOps.LOCAL, axis=0, arg=8), Opt(op=OptOps.UPCAST, axis=0, arg=0), Opt(op=OptOps.GROUP, axis=0, arg=8)],
+      #[Opt(op=OptOps.LOCAL, axis=0, arg=8), Opt(op=OptOps.UPCAST, axis=0, arg=0), Opt(op=OptOps.GROUP, axis=0, arg=8), Opt(op=OptOps.UNROLL, axis=1, arg=4)], # noqa: E501
+    ])
   def test_thread_opts(self):
-    try:
-      a = Tensor.rand(4, 4, 4, 4)
-      b = Tensor.rand(4, 4, 4)
-      r = (b.sqrt() + ((a+1).sum(axis=3).exp()))
-      helper_linearizer_opt(r, [
-        [Opt(OptOps.THREAD, 0, 2)],
-        [Opt(OptOps.UPCAST, 0, 2), Opt(OptOps.THREAD, 0, 2)],
-        [Opt(OptOps.UPCAST, 0, 2), Opt(OptOps.THREAD, 0, 2), Opt(OptOps.UNROLL, 0, 2)],
-      ] + [[Opt(OptOps.THREAD, 0, 4)] if Device[Device.DEFAULT].renderer.global_max[0] >= 4 else []]
-        + [[Opt(OptOps.THREAD, 0, 8)] if Device[Device.DEFAULT].renderer.global_max[0] >= 8 else []])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.rand(4, 4, 4, 4)
+    b = Tensor.rand(4, 4, 4)
+    r = (b.sqrt() + ((a+1).sum(axis=3).exp()))
+    helper_linearizer_opt(r, [
+      [Opt(OptOps.THREAD, 0, 2)],
+      [Opt(OptOps.UPCAST, 0, 2), Opt(OptOps.THREAD, 0, 2)],
+      [Opt(OptOps.UPCAST, 0, 2), Opt(OptOps.THREAD, 0, 2), Opt(OptOps.UNROLL, 0, 2)],
+    ] + [[Opt(OptOps.THREAD, 0, 4)] if Device[Device.DEFAULT].renderer.global_max[0] >= 4 else []]
+      + [[Opt(OptOps.THREAD, 0, 8)] if Device[Device.DEFAULT].renderer.global_max[0] >= 8 else []])
   def test_double_sum_group(self):
     a = Tensor.rand(4, 4, 4)
     r = a.sum((1, 2)).sum()

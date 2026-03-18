@@ -159,25 +159,18 @@ class ExternalTestOptim(unittest.TestCase):
     }, 1e-5, 1e-5)
 
   def test_lars_polylr_resnet(self):
-    try:
-      train_files = 1_281_167
-      BS = 624
-      steps_per_epoch = train_files // BS
-      epochs = 45
-      warmup_epochs = 5
-      self._test_lars_polylr(steps_per_epoch * epochs, {'lr': 10.4}, {
-        'initial_lr': 10.4,
-        'end_lr': 1e-4,
-        # step counts for BS=624 EPOCHS=45 resnet
-        'train_steps': steps_per_epoch * epochs,
-        'warmup': steps_per_epoch * warmup_epochs,
-      }, 1e-5, 1e-5, do_optim=False)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-
+    train_files = 1_281_167
+    BS = 624
+    steps_per_epoch = train_files // BS
+    epochs = 45
+    warmup_epochs = 5
+    self._test_lars_polylr(steps_per_epoch * epochs, {'lr': 10.4}, {
+      'initial_lr': 10.4,
+      'end_lr': 1e-4,
+      # step counts for BS=624 EPOCHS=45 resnet
+      'train_steps': steps_per_epoch * epochs,
+      'warmup': steps_per_epoch * warmup_epochs,
+    }, 1e-5, 1e-5, do_optim=False)
 class TestCosineAnnealingLRWithWarmup(unittest.TestCase):
   # only tests the lr
   def _test_lr(self, base_lr, end_lr, warmup_steps, decay_steps):

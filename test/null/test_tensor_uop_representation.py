@@ -9,23 +9,17 @@ def is_pattern(ten:Tensor, pat:UPat): is_pattern_uop(ten.uop, pat)
 
 class TestTensorMutates(unittest.TestCase):
   def test_mutate_add(self):
-    try:
-      a = Tensor([1,2,3])
-      b = Tensor([4,5,6])
-      ret = a+b
-      pa = a.uop
-      pb = b.uop
-      pr = ret.uop
-      ret.schedule()
-      self.assertIsNot(pa, a.uop)
-      self.assertIsNot(pb, b.uop)
-      self.assertIsNot(pr, ret.uop)
-      for t in [a,b,ret]: is_pattern_uop(t.uop.base, realized_pattern)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor([1,2,3])
+    b = Tensor([4,5,6])
+    ret = a+b
+    pa = a.uop
+    pb = b.uop
+    pr = ret.uop
+    ret.schedule()
+    self.assertIsNot(pa, a.uop)
+    self.assertIsNot(pb, b.uop)
+    self.assertIsNot(pr, ret.uop)
+    for t in [a,b,ret]: is_pattern_uop(t.uop.base, realized_pattern)
   def test_reshape_is_same_parent(self):
     a = Tensor([1,2,3])
     b = Tensor([4,5,6])

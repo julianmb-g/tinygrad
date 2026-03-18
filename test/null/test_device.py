@@ -127,6 +127,14 @@ class TestDevVar(unittest.TestCase):
     with Context(DEV="AMD:LLVM"): self.assertEqual(DEV.target("CPU"), Target("CPU"))
     with Context(DEV=""): self.assertEqual(DEV.target("CPU"), Target("CPU"))
 
+    with Context(CPU_LLVM=1):
+      inst = Device["CPU"].compiler
+      self.assertIsInstance(Device["CPU"].compiler, CPULLVMCompiler)
+    with Context(CPU_LLVM=0):
+      self.assertIsInstance(Device["CPU"].compiler, ClangJITCompiler)
+    with Context(CPU_LLVM=1):
+      self.assertIsInstance(Device["CPU"].compiler, CPULLVMCompiler)
+      assert inst is Device["CPU"].compiler  # cached
 class MockCompiler(Compiler):
   def __init__(self, key): super().__init__(key)
   def compile(self, src) -> bytes: return src.encode()

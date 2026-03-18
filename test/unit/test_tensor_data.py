@@ -72,15 +72,10 @@ class TestTensorData(unittest.TestCase):
     assert dat[0, 1] == 2.5
 
   def test_data_float16(self):
-    try:
-      a = Tensor([[1,2.5],[3,4]], dtype=dtypes.float16)
-      dat = a.data()
-      assert dat.format == "e"
-      assert dat.shape == (2,2)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    a = Tensor([[1,2.5],[3,4]], dtype=dtypes.float16)
+    dat = a.data()
+    assert dat.format == "e"
+    assert dat.shape == (2,2)
     # NOTE: python can't deref float16
 
   def test_data_uop_device(self):

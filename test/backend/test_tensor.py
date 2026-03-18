@@ -565,58 +565,34 @@ class TestMoveTensor(unittest.TestCase):
   @given(strat.sampled_from([d0, d1]), strat.sampled_from([d0, d1]),
          strat.sampled_from([dtypes.float16, dtypes.float32]), strat.sampled_from([True, False, None]))
   def test_to_preserves(self, src, dest, dtype, requires_grad):
-    try:
-      if not is_dtype_supported(dtype):
-        return
-      s = Tensor([1, 2, 3], device=src, dtype=dtype, requires_grad=requires_grad)
-      if requires_grad: s.sum().backward()
-      t = s.to(dest)
-      np.testing.assert_equal(s.numpy(), t.numpy())
-      assert s.dtype == t.dtype
-      assert s.requires_grad == t.requires_grad
-      if requires_grad:
-        np.testing.assert_equal(s.grad.numpy(), t.grad.numpy())
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    if not is_dtype_supported(dtype):
+      return
+    s = Tensor([1, 2, 3], device=src, dtype=dtype, requires_grad=requires_grad)
+    if requires_grad: s.sum().backward()
+    t = s.to(dest)
+    np.testing.assert_equal(s.numpy(), t.numpy())
+    assert s.dtype == t.dtype
+    assert s.requires_grad == t.requires_grad
+    if requires_grad:
+      np.testing.assert_equal(s.grad.numpy(), t.grad.numpy())
   @given(strat.sampled_from([dtypes.float16, dtypes.float32]), strat.sampled_from([True, False, None]))
   def test_shard_preserves(self, dtype, requires_grad):
-    try:
-      s = Tensor([1, 2, 3], dtype=dtype, requires_grad=requires_grad)
-      t = s.shard((f"{Device.DEFAULT}:0", f"{Device.DEFAULT}:1"))
-      np.testing.assert_equal(s.numpy(), t.numpy())
-      assert s.dtype == t.dtype
-      assert s.requires_grad == t.requires_grad
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    s = Tensor([1, 2, 3], dtype=dtype, requires_grad=requires_grad)
+    t = s.shard((f"{Device.DEFAULT}:0", f"{Device.DEFAULT}:1"))
+    np.testing.assert_equal(s.numpy(), t.numpy())
+    assert s.dtype == t.dtype
+    assert s.requires_grad == t.requires_grad
   @given(strat.sampled_from([d0, d1]))
   def test_same_dev(self, dev):
-    try:
-      x = Tensor([1,2,3], device=dev)
-      y = x.to(dev)
-      assert x is y
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor([1,2,3], device=dev)
+    y = x.to(dev)
+    assert x is y
   def test_to_grad(self):
-    try:
-      x = Tensor.eye(3, requires_grad=True, device=self.d0)
-      y = Tensor([[2.0,0,-2.0]], requires_grad=True, device=self.d0)
-      z = y.matmul(x).to(self.d1).sum()
-      z.backward()
-      np.testing.assert_equal(x.grad.numpy(), [[2,2,2],[0,0,0],[-2,-2,-2]])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor.eye(3, requires_grad=True, device=self.d0)
+    y = Tensor([[2.0,0,-2.0]], requires_grad=True, device=self.d0)
+    z = y.matmul(x).to(self.d1).sum()
+    z.backward()
+    np.testing.assert_equal(x.grad.numpy(), [[2,2,2],[0,0,0],[-2,-2,-2]])
 class TestZeroShapeTensor(unittest.TestCase):
   def test_rand(self):
     t = Tensor.rand(3, 2, 0)

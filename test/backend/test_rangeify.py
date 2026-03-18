@@ -13,19 +13,13 @@ class TestDoubleMatmul(unittest.TestCase):
       self.ref = (self.a @ self.b @ self.c).realize()
 
   def _test(self, opts):
-    try:
-      with Context(PCONTIG=2, DEBUG=max(2, DEBUG.value)):
-        out = (self.a @ self.b @ self.c).contiguous(arg=opts).realize()
+    with Context(PCONTIG=2, DEBUG=max(2, DEBUG.value)):
+      out = (self.a @ self.b @ self.c).contiguous(arg=opts).realize()
 
-      with Context(DEBUG=0):
-        err = (out-self.ref).square()
-        self.assertLess(err.max().item(), 1e-4)
-        self.assertLess(err.mean().item(), 1e-6)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with Context(DEBUG=0):
+      err = (out-self.ref).square()
+      self.assertLess(err.max().item(), 1e-4)
+      self.assertLess(err.mean().item(), 1e-6)
   def test_baseline(self): self._test(())
   def test_upcast_0(self): self._test((Opt(OptOps.UPCAST, 0, 4),))
   def test_upcast_1(self): self._test((Opt(OptOps.UPCAST, 1, 4),))
@@ -51,20 +45,9 @@ class TestDoubleMatmul(unittest.TestCase):
   def test_upcast_1_unroll_1_rev(self): self._test((Opt(OptOps.UNROLL, 1, 2), Opt(OptOps.UPCAST, 1, 2)))
 
   def test_upcast_01_unroll_01(self):
-    try:
-      self._test((Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UNROLL, 1, 4)))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    self._test((Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UNROLL, 1, 4)))
   def test_upcast_12_unroll_01(self):
-    try:
-      self._test((Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 2, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UNROLL, 1, 4)))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self._test((Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 2, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UNROLL, 1, 4)))
 class TestRangeifyAssign(unittest.TestCase):
   def test_assign_permuted(self):
     A = Tensor.empty(4, 4, dtype='int')
@@ -142,148 +125,82 @@ def fa_bw():
 
 class TestPcontig(unittest.TestCase):
   def test_flash_attention_bw(self):
-    try:
-      with Context(PCONTIG=max(2, PCONTIG.value), DEBUG=2):
-        grads = fa_bw()
-        print(f"{GlobalCounters.global_ops/1e9:.2f} GFLOPS")
+    with Context(PCONTIG=max(2, PCONTIG.value), DEBUG=2):
+      grads = fa_bw()
+      print(f"{GlobalCounters.global_ops/1e9:.2f} GFLOPS")
 
-      with Context(PCONTIG=0, DEBUG=2):
-        cmp_grads = fa_bw()
-        print(f"{GlobalCounters.global_ops/1e9:.2f} GFLOPS")
+    with Context(PCONTIG=0, DEBUG=2):
+      cmp_grads = fa_bw()
+      print(f"{GlobalCounters.global_ops/1e9:.2f} GFLOPS")
 
-      with Context(DEBUG=0):
-        mses = [((x-y)**2).sum().item() for x,y in zip(grads, cmp_grads)]
-      mse = sum(mses)
-      print(f"mse: {mse}")
-      self.assertLessEqual(mse, 1e-6)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with Context(DEBUG=0):
+      mses = [((x-y)**2).sum().item() for x,y in zip(grads, cmp_grads)]
+    mse = sum(mses)
+    print(f"mse: {mse}")
+    self.assertLessEqual(mse, 1e-6)
   def test_flash_attention(self, opts=None):
-    try:
-      with Context(PCONTIG=2, DEBUG=max(2, DEBUG.value)):
-        ret = fa().realize() if opts is None else fa().contiguous(arg=opts).realize()
-        print(f"{GlobalCounters.global_ops/1e9:.2f} GFLOPS")
-      with Context(DEBUG=2):
-        cmp = fa().realize()
-        print(f"{GlobalCounters.global_ops/1e9:.2f} GFLOPS")
-      with Context(DEBUG=0):
-        mse = ((cmp-ret)**2).sum().item()
-      print(f"mse: {mse}")
-      self.assertLessEqual(mse, 1e-6)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with Context(PCONTIG=2, DEBUG=max(2, DEBUG.value)):
+      ret = fa().realize() if opts is None else fa().contiguous(arg=opts).realize()
+      print(f"{GlobalCounters.global_ops/1e9:.2f} GFLOPS")
+    with Context(DEBUG=2):
+      cmp = fa().realize()
+      print(f"{GlobalCounters.global_ops/1e9:.2f} GFLOPS")
+    with Context(DEBUG=0):
+      mse = ((cmp-ret)**2).sum().item()
+    print(f"mse: {mse}")
+    self.assertLessEqual(mse, 1e-6)
   def test_flash_attention_opt(self):
-    try:
-      opts = ()
-      # columns in top matrix
-      opts += (Opt(OptOps.UPCAST, 0, 4),)
-      # columns in bottom matrix
-      opts += (Opt(OptOps.UPCAST, 3, 4),)
-      # rows in all the matrix
-      opts += (Opt(OptOps.UPCAST, 4, 4),)
-      self.test_flash_attention(opts)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    opts = ()
+    # columns in top matrix
+    opts += (Opt(OptOps.UPCAST, 0, 4),)
+    # columns in bottom matrix
+    opts += (Opt(OptOps.UPCAST, 3, 4),)
+    # rows in all the matrix
+    opts += (Opt(OptOps.UPCAST, 4, 4),)
+    self.test_flash_attention(opts)
 # contiguous + reduce can support ranges?
 
 class TestRangeifyPM(unittest.TestCase):
   def setUp(self): self.base = Tensor.empty(10*10).reshape(10, 10).contiguous()
   def assert_same(self, a, b):
-    try:
-      def run_pm_rangeify(t:Tensor):
-        from tinygrad.schedule.rangeify import pm_rangeify, RangeifyContext
-        sink = t.uop.sink()
-        pm_realize = PatternMatcher([(UPat(Ops.CONTIGUOUS, name="x"), lambda x: x.replace(op=Ops.REALIZE))])
-        sink = graph_rewrite(sink, pm_realize)
-        return graph_rewrite(sink, pm_rangeify, ctx=RangeifyContext())
-      self.assertIs(run_pm_rangeify(a.contiguous()), run_pm_rangeify(b.contiguous()))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    def run_pm_rangeify(t:Tensor):
+      from tinygrad.schedule.rangeify import pm_rangeify, RangeifyContext
+      sink = t.uop.sink()
+      pm_realize = PatternMatcher([(UPat(Ops.CONTIGUOUS, name="x"), lambda x: x.replace(op=Ops.REALIZE))])
+      sink = graph_rewrite(sink, pm_realize)
+      return graph_rewrite(sink, pm_rangeify, ctx=RangeifyContext())
+    self.assertIs(run_pm_rangeify(a.contiguous()), run_pm_rangeify(b.contiguous()))
   def test_nothing_match(self):
-    try:
-      a = self.base.pad(((0,0),(0,1)))
-      b = self.base.pad(((0,0),(0,1)))
-      self.assert_same(a, b)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = self.base.pad(((0,0),(0,1)))
+    b = self.base.pad(((0,0),(0,1)))
+    self.assert_same(a, b)
   def test_reshape_match(self):
-    try:
-      a = self.base
-      b = self.base.reshape(100).reshape(10, 10)
-      self.assert_same(a, b)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = self.base
+    b = self.base.reshape(100).reshape(10, 10)
+    self.assert_same(a, b)
   def test_permute_reshape_match(self):
-    try:
-      a = self.base
-      b = self.base.permute(1,0).reshape(100).reshape(10, 10).permute(1,0)
-      self.assert_same(a, b)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = self.base
+    b = self.base.permute(1,0).reshape(100).reshape(10, 10).permute(1,0)
+    self.assert_same(a, b)
   def test_padded_permute_match(self):
-    try:
-      a = self.base.pad(((0,0),(0,1)))
-      b = self.base.permute(1,0).pad(((0,1),(0,0))).permute(1,0)
-      self.assert_same(a, b)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = self.base.pad(((0,0),(0,1)))
+    b = self.base.permute(1,0).pad(((0,1),(0,0))).permute(1,0)
+    self.assert_same(a, b)
   @unittest.expectedFailure
   def test_padded_reshape_match(self):
-    try:
-      a = self.base.pad(((0,0),(0,1)))
-      b = self.base.reshape(100).reshape(10, 10).pad(((0,0),(0,1)))
-      self.assert_same(a, b)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = self.base.pad(((0,0),(0,1)))
+    b = self.base.reshape(100).reshape(10, 10).pad(((0,0),(0,1)))
+    self.assert_same(a, b)
   @unittest.expectedFailure
   def test_padded_permute_reshape_match(self):
-    try:
-      a = self.base.pad(((0,0),(0,1)))
-      b = self.base.permute(1,0).reshape(100).reshape(10, 10).pad(((0,1),(0,0))).permute(1,0)
-      self.assert_same(a, b)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = self.base.pad(((0,0),(0,1)))
+    b = self.base.permute(1,0).reshape(100).reshape(10, 10).pad(((0,1),(0,0))).permute(1,0)
+    self.assert_same(a, b)
   # why is this failing?
   @unittest.expectedFailure
   def test_cross_pad_match(self):
-    try:
-      a = self.base.pad(((0,0),(0,1))).pad(((0,1),(0,0)))
-      b = self.base.pad(((0,1),(0,0))).pad(((0,0),(0,1)))
-      self.assert_same(a, b)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = self.base.pad(((0,0),(0,1))).pad(((0,1),(0,0)))
+    b = self.base.pad(((0,1),(0,0))).pad(((0,0),(0,1)))
+    self.assert_same(a, b)
 if __name__ == '__main__':
   unittest.main()

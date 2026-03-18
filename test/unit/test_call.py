@@ -61,23 +61,17 @@ class TestCall(unittest.TestCase):
     np.testing.assert_allclose(c.numpy(), a.numpy() @ b.numpy(), rtol=1e-5, atol=1e-6)
 
   def test_call_gemm_uop(self):
-    try:
-      M, K, N = 4, 8, 4
-      a = ((Tensor.arange(M*K) % 10) * 0.1).reshape(M, K)
-      b = ((Tensor.arange(K*N) % 10) * 0.1).reshape(K, N)
-      Tensor.realize(a, b)
+    M, K, N = 4, 8, 4
+    a = ((Tensor.arange(M*K) % 10) * 0.1).reshape(M, K)
+    b = ((Tensor.arange(K*N) % 10) * 0.1).reshape(K, N)
+    Tensor.realize(a, b)
 
-      # we define a gemm function
-      x = UOp.param(0, dtypes.float, shape=(M, K))
-      y = UOp.param(1, dtypes.float, shape=(K, N))
-      c = Tensor.call(a, b, fxn=x@y)
+    # we define a gemm function
+    x = UOp.param(0, dtypes.float, shape=(M, K))
+    y = UOp.param(1, dtypes.float, shape=(K, N))
+    c = Tensor.call(a, b, fxn=x@y)
 
-      np.testing.assert_allclose(c.numpy(), a.numpy() @ b.numpy(), rtol=1e-5, atol=1e-6)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    np.testing.assert_allclose(c.numpy(), a.numpy() @ b.numpy(), rtol=1e-5, atol=1e-6)
   def test_call_complex_backward_auto(self):
     # complex chain: (a*b + a).exp2() * b.reciprocal() - tests mul, add, exp2, reciprocal, param reuse
     a = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10).requires_grad_(True)

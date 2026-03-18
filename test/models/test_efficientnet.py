@@ -83,23 +83,11 @@ class TestViT(unittest.TestCase):
     del cls.model
 
   def test_chicken(self):
-    try:
-      labels = _infer(self.model, chicken_img)
-      self.assertEqual(_LABELS[labels[0]], "cock")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    labels = _infer(self.model, chicken_img)
+    self.assertEqual(_LABELS[labels[0]], "cock")
   def test_car(self):
-    try:
-      labels = _infer(self.model, car_img)
-      self.assertEqual(_LABELS[labels[0]], "racer, race car, racing car")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    labels = _infer(self.model, car_img)
+    self.assertEqual(_LABELS[labels[0]], "racer, race car, racing car")
 class TestResNet(unittest.TestCase):
   @classmethod
   def setUpClass(cls):

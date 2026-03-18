@@ -204,78 +204,48 @@ class TestIndexing(unittest.TestCase):
     numpy_testing_assert_equal_helper(v[1:].sum(), 0)
 
   def test_bool_indices(self):
-    try:
-      v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
-      boolIndices = Tensor([True, False, True, True, False], dtype=dtypes.bool)
-      numpy_testing_assert_equal_helper(v[boolIndices].shape, (3, 7, 3))
-      numpy_testing_assert_equal_helper(v[boolIndices], Tensor.stack([v[0], v[2], v[3]]))
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
+    boolIndices = Tensor([True, False, True, True, False], dtype=dtypes.bool)
+    numpy_testing_assert_equal_helper(v[boolIndices].shape, (3, 7, 3))
+    numpy_testing_assert_equal_helper(v[boolIndices], Tensor.stack([v[0], v[2], v[3]]))
 
-      v = Tensor([True, False, True], dtype=dtypes.bool)
-      boolIndices = Tensor([True, False, False], dtype=dtypes.bool)
-      uint8Indices = Tensor([1, 0, 0], dtype=dtypes.uint8)
-      with warnings.catch_warnings(record=True) as w:
-        numpy_testing_assert_equal_helper(v[boolIndices].shape, v[uint8Indices].shape)
-        numpy_testing_assert_equal_helper(v[boolIndices], v[uint8Indices])
-        numpy_testing_assert_equal_helper(v[boolIndices], Tensor([True]))
-        numpy_testing_assert_equal_helper(len(w), 2)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    v = Tensor([True, False, True], dtype=dtypes.bool)
+    boolIndices = Tensor([True, False, False], dtype=dtypes.bool)
+    uint8Indices = Tensor([1, 0, 0], dtype=dtypes.uint8)
+    with warnings.catch_warnings(record=True) as w:
+      numpy_testing_assert_equal_helper(v[boolIndices].shape, v[uint8Indices].shape)
+      numpy_testing_assert_equal_helper(v[boolIndices], v[uint8Indices])
+      numpy_testing_assert_equal_helper(v[boolIndices], Tensor([True]))
+      numpy_testing_assert_equal_helper(len(w), 2)
   def test_bool_indices_accumulate(self):
-    try:
-      mask = Tensor.zeros(size=(10, ), dtype=dtypes.bool)
-      y = Tensor.ones(size=(10, 10))
+    mask = Tensor.zeros(size=(10, ), dtype=dtypes.bool)
+    y = Tensor.ones(size=(10, 10))
+    index_put_(y, (mask, ), y[mask], accumulate=True)
+    numpy_testing_assert_equal_helper(y, Tensor.ones(size=(10, 10)))
+  def test_multiple_bool_indices(self):
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
+    # note: these broadcast together and are transposed to the first dim
+    mask1 = Tensor([1, 0, 1, 1, 0], dtype=dtypes.bool)
+    mask2 = Tensor([1, 1, 1], dtype=dtypes.bool)
+    numpy_testing_assert_equal_helper(v[mask1, :, mask2].shape, (3, 7))
+  def test_byte_mask(self):
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
+    mask = Tensor([1, 0, 1, 1, 0], dtype=dtypes.uint8)
+    with warnings.catch_warnings(record=True) as w:
+      numpy_testing_assert_equal_helper(v[mask].shape, (3, 7, 3))
+      numpy_testing_assert_equal_helper(v[mask], Tensor.stack([v[0], v[2], v[3]]))
+      numpy_testing_assert_equal_helper(len(w), 2)
+
+    v = Tensor([1.])
+    numpy_testing_assert_equal_helper(v[v == 0], Tensor([]))
+  def test_byte_mask_accumulate(self):
+    mask = Tensor.zeros(size=(10, ), dtype=dtypes.uint8)
+    y = Tensor.ones(size=(10, 10))
+    with warnings.catch_warnings(record=True) as w:
+      warnings.simplefilter("always")
       index_put_(y, (mask, ), y[mask], accumulate=True)
       numpy_testing_assert_equal_helper(y, Tensor.ones(size=(10, 10)))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_multiple_bool_indices(self):
-    try:
-      v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
-      # note: these broadcast together and are transposed to the first dim
-      mask1 = Tensor([1, 0, 1, 1, 0], dtype=dtypes.bool)
-      mask2 = Tensor([1, 1, 1], dtype=dtypes.bool)
-      numpy_testing_assert_equal_helper(v[mask1, :, mask2].shape, (3, 7))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_byte_mask(self):
-    try:
-      v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
-      mask = Tensor([1, 0, 1, 1, 0], dtype=dtypes.uint8)
-      with warnings.catch_warnings(record=True) as w:
-        numpy_testing_assert_equal_helper(v[mask].shape, (3, 7, 3))
-        numpy_testing_assert_equal_helper(v[mask], Tensor.stack([v[0], v[2], v[3]]))
-        numpy_testing_assert_equal_helper(len(w), 2)
-
-      v = Tensor([1.])
-      numpy_testing_assert_equal_helper(v[v == 0], Tensor([]))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
-  def test_byte_mask_accumulate(self):
-    try:
-      mask = Tensor.zeros(size=(10, ), dtype=dtypes.uint8)
-      y = Tensor.ones(size=(10, 10))
-      with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        index_put_(y, (mask, ), y[mask], accumulate=True)
-        numpy_testing_assert_equal_helper(y, Tensor.ones(size=(10, 10)))
-        numpy_testing_assert_equal_helper(len(w), 2)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+      numpy_testing_assert_equal_helper(len(w), 2)
   # TODO setitem
   # NOTE: tinygrad doesn't support idx.max that big
   '''
@@ -340,41 +310,35 @@ class TestIndexing(unittest.TestCase):
   '''
 
   def test_index_ind_dtype(self):
-    try:
-      x = ((Tensor.arange(4*4) % 10) * 0.1).reshape(4, 4)
-      # ind_long = torch.randint(4, (4,), dtype=torch.long)
-      # TODO should we spend an extra line to allow for randint other dtypes?
-      # copied from randint
-      ind_long = (Tensor.rand((4,),)*(4-0)+0).cast(dtypes.int64)
-      # ind_int = ind_long.int()
-      ind_int = (ind_long).cast(dtypes.int32)
-      ref = x[ind_long, ind_long]
-      res = x[ind_int, ind_int]
-      numpy_testing_assert_equal_helper(ref, res)
-      ref = x[ind_long, :]
-      res = x[ind_int, :]
-      numpy_testing_assert_equal_helper(ref, res)
-      ref = x[:, ind_long]
-      res = x[:, ind_int]
-      numpy_testing_assert_equal_helper(ref, res)
-      # no repeating indices for index_put
-      # TODO fancy setitem
-      '''
-      src = ((Tensor.arange(4) % 10) * 0.1).reshape(4)
-      ind_long = Tensor.arange(4, dtype=dtypes.int64)
-      ind_int = ind_long.cast(dtypes.int32)
-      for accum in (True, False):
-        inp_ref = clone(x)
-        inp_res = clone(x)
-        index_put_(inp_ref, (ind_long, ind_long), src, accum)
-        index_put_(inp_res, (ind_int, ind_int), src, accum)
-        numpy_testing_assert_equal_helper(inp_ref, inp_res)
-      '''
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = ((Tensor.arange(4*4) % 10) * 0.1).reshape(4, 4)
+    # ind_long = torch.randint(4, (4,), dtype=torch.long)
+    # TODO should we spend an extra line to allow for randint other dtypes?
+    # copied from randint
+    ind_long = (Tensor.rand((4,),)*(4-0)+0).cast(dtypes.int64)
+    # ind_int = ind_long.int()
+    ind_int = (ind_long).cast(dtypes.int32)
+    ref = x[ind_long, ind_long]
+    res = x[ind_int, ind_int]
+    numpy_testing_assert_equal_helper(ref, res)
+    ref = x[ind_long, :]
+    res = x[ind_int, :]
+    numpy_testing_assert_equal_helper(ref, res)
+    ref = x[:, ind_long]
+    res = x[:, ind_int]
+    numpy_testing_assert_equal_helper(ref, res)
+    # no repeating indices for index_put
+    # TODO fancy setitem
+    '''
+    src = ((Tensor.arange(4) % 10) * 0.1).reshape(4)
+    ind_long = Tensor.arange(4, dtype=dtypes.int64)
+    ind_int = ind_long.cast(dtypes.int32)
+    for accum in (True, False):
+      inp_ref = clone(x)
+      inp_res = clone(x)
+      index_put_(inp_ref, (ind_long, ind_long), src, accum)
+      index_put_(inp_res, (ind_int, ind_int), src, accum)
+      numpy_testing_assert_equal_helper(inp_ref, inp_res)
+    '''
   # TODO empty setitem
   '''
   def test_index_put_accumulate_empty(self):
@@ -385,55 +349,37 @@ class TestIndexing(unittest.TestCase):
   '''
 
   def test_multiple_byte_mask(self):
-    try:
-      v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
-      # note: these broadcast together and are transposed to the first dim
-      mask1 = Tensor([1, 0, 1, 1, 0], dtype=dtypes.uint8)
-      mask2 = Tensor([1, 1, 1], dtype=dtypes.uint8)
-      with warnings.catch_warnings(record=True) as w:
-        warnings.simplefilter("always")
-        numpy_testing_assert_equal_helper(v[mask1, :, mask2].shape, (3, 7))
-        numpy_testing_assert_equal_helper(len(w), 2)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
+    # note: these broadcast together and are transposed to the first dim
+    mask1 = Tensor([1, 0, 1, 1, 0], dtype=dtypes.uint8)
+    mask2 = Tensor([1, 1, 1], dtype=dtypes.uint8)
+    with warnings.catch_warnings(record=True) as w:
+      warnings.simplefilter("always")
+      numpy_testing_assert_equal_helper(v[mask1, :, mask2].shape, (3, 7))
+      numpy_testing_assert_equal_helper(len(w), 2)
   def test_byte_mask2d(self):
-    try:
-      v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
-      c = ((Tensor.arange(5*7) % 10) * 0.1).reshape(5, 7)
-      num_ones = (c > 0).sum()
-      r = v[c > 0]
-      numpy_testing_assert_equal_helper(r.shape, (num_ones, 3))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
+    c = ((Tensor.arange(5*7) % 10) * 0.1).reshape(5, 7)
+    num_ones = (c > 0).sum()
+    r = v[c > 0]
+    numpy_testing_assert_equal_helper(r.shape, (num_ones, 3))
   def test_jit_indexing(self):
-    try:
-      def fn1(x):
-        x[x < 50] = 1.0
-        return x
+    def fn1(x):
+      x[x < 50] = 1.0
+      return x
 
-      def fn2(x):
-        x[0:50] = 1.0
-        return x
+    def fn2(x):
+      x[0:50] = 1.0
+      return x
 
-      scripted_fn1 = TinyJit(fn1)
-      scripted_fn2 = TinyJit(fn2)
-      data = Tensor.arange(100, dtype=dtypes.float)
-      out = scripted_fn1(clone(data))
-      ref = Tensor(np.concatenate((np.ones(50), np.arange(50, 100))), dtype=dtypes.float)
-      numpy_testing_assert_equal_helper(out, ref)
-      out = scripted_fn2(clone(data))
-      numpy_testing_assert_equal_helper(out, ref)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    scripted_fn1 = TinyJit(fn1)
+    scripted_fn2 = TinyJit(fn2)
+    data = Tensor.arange(100, dtype=dtypes.float)
+    out = scripted_fn1(clone(data))
+    ref = Tensor(np.concatenate((np.ones(50), np.arange(50, 100))), dtype=dtypes.float)
+    numpy_testing_assert_equal_helper(out, ref)
+    out = scripted_fn2(clone(data))
+    numpy_testing_assert_equal_helper(out, ref)
   def test_int_indices2d(self):
     # From the NumPy indexing example
     x = Tensor.arange(0, 12).reshape(4, 3)
@@ -451,131 +397,95 @@ class TestIndexing(unittest.TestCase):
 
   # TODO jax supports empty tensor indexing
   def test_empty_index(self):
-    try:
-      x = Tensor.arange(0, 12).reshape(4, 3)
-      idx = Tensor([], dtype=dtypes.int64)
-      numpy_testing_assert_equal_helper(x[idx].numel(), 0)
+    x = Tensor.arange(0, 12).reshape(4, 3)
+    idx = Tensor([], dtype=dtypes.int64)
+    numpy_testing_assert_equal_helper(x[idx].numel(), 0)
 
-      # TODO empty setitem
-      '''
-      # empty assignment should have no effect but not throw an exception
-      y = clone(x)
-      y[idx] = -1
-      numpy_testing_assert_equal_helper(x, y)
+    # TODO empty setitem
+    '''
+    # empty assignment should have no effect but not throw an exception
+    y = clone(x)
+    y[idx] = -1
+    numpy_testing_assert_equal_helper(x, y)
 
-      mask = Tensor.zeros(4, 3).cast(dtypes.bool)
-      y[mask] = -1
-      numpy_testing_assert_equal_helper(x, y)
-      '''
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    mask = Tensor.zeros(4, 3).cast(dtypes.bool)
+    y[mask] = -1
+    numpy_testing_assert_equal_helper(x, y)
+    '''
   # TODO jax supports empty tensor indexing
   def test_empty_ndim_index(self):
-    try:
-      x = ((Tensor.arange(5) % 10) * 0.1).reshape(5)
-      numpy_testing_assert_equal_helper(Tensor.empty(0, 2), x[Tensor.empty(0, 2, dtype=dtypes.int64)])
+    x = ((Tensor.arange(5) % 10) * 0.1).reshape(5)
+    numpy_testing_assert_equal_helper(Tensor.empty(0, 2), x[Tensor.empty(0, 2, dtype=dtypes.int64)])
 
-      x = ((Tensor.arange(2*3*4*5) % 10) * 0.1).reshape(2, 3, 4, 5)
-      numpy_testing_assert_equal_helper(Tensor.empty(2, 0, 6, 4, 5),
-                        x[:, Tensor.empty(0, 6, dtype=dtypes.int64)])
+    x = ((Tensor.arange(2*3*4*5) % 10) * 0.1).reshape(2, 3, 4, 5)
+    numpy_testing_assert_equal_helper(Tensor.empty(2, 0, 6, 4, 5),
+                      x[:, Tensor.empty(0, 6, dtype=dtypes.int64)])
 
-      x = Tensor.empty(10, 0)
-      numpy_testing_assert_equal_helper(x[[1, 2]].shape, (2, 0))
-      numpy_testing_assert_equal_helper(x[[], []].shape, (0,))
-      with self.assertRaises(IndexError):
-        x[:, [0, 1]]
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor.empty(10, 0)
+    numpy_testing_assert_equal_helper(x[[1, 2]].shape, (2, 0))
+    numpy_testing_assert_equal_helper(x[[], []].shape, (0,))
+    with self.assertRaises(IndexError):
+      x[:, [0, 1]]
   def test_index_getitem_copy_bools_slices(self):
-    try:
-      true = Tensor(1, dtype=dtypes.uint8)
-      false = Tensor(0, dtype=dtypes.uint8)
+    true = Tensor(1, dtype=dtypes.uint8)
+    false = Tensor(0, dtype=dtypes.uint8)
 
-      tensors = [((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3), Tensor(3.)]
+    tensors = [((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3), Tensor(3.)]
 
-      for a in tensors:
-        self.assertNotEqual(data_ptr(a), data_ptr(a[True]))
-        numpy_testing_assert_equal_helper(Tensor.empty(0, *a.shape), a[False])
-        self.assertNotEqual(data_ptr(a), data_ptr(a[true]))
-        numpy_testing_assert_equal_helper(Tensor.empty(0, *a.shape), a[false])
-        self.assertEqual(data_ptr(a), data_ptr(a[None]))
-        self.assertEqual(data_ptr(a), data_ptr(a[...]))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    for a in tensors:
+      self.assertNotEqual(data_ptr(a), data_ptr(a[True]))
+      numpy_testing_assert_equal_helper(Tensor.empty(0, *a.shape), a[False])
+      self.assertNotEqual(data_ptr(a), data_ptr(a[true]))
+      numpy_testing_assert_equal_helper(Tensor.empty(0, *a.shape), a[false])
+      self.assertEqual(data_ptr(a), data_ptr(a[None]))
+      self.assertEqual(data_ptr(a), data_ptr(a[...]))
   def test_index_setitem_bools_slices(self):
-    try:
-      true = Tensor(1, dtype=dtypes.uint8)
-      false = Tensor(0, dtype=dtypes.uint8)
+    true = Tensor(1, dtype=dtypes.uint8)
+    false = Tensor(0, dtype=dtypes.uint8)
 
-      tensors = [((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3), Tensor(3)]
+    tensors = [((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3), Tensor(3)]
 
-      for a in tensors:
-        # prefix with a 1,1, to ensure we are compatible with numpy which cuts off prefix 1s
-        # (some of these ops already prefix a 1 to the size)
-        neg_ones = Tensor.ones_like(a) * -1
-        neg_ones_expanded = neg_ones.unsqueeze(0).unsqueeze(0)
-        a[True] = neg_ones_expanded
-        numpy_testing_assert_equal_helper(a, neg_ones)
-        a[False] = 5
-        numpy_testing_assert_equal_helper(a, neg_ones)
-        a[true] = neg_ones_expanded * 2
-        numpy_testing_assert_equal_helper(a, neg_ones * 2)
-        a[false] = 5
-        numpy_testing_assert_equal_helper(a, neg_ones * 2)
-        a[None] = neg_ones_expanded * 3
-        numpy_testing_assert_equal_helper(a, neg_ones * 3)
-        a[...] = neg_ones_expanded * 4
-        numpy_testing_assert_equal_helper(a, neg_ones * 4)
-        if a.dim() == 0:
-          with self.assertRaises(IndexError):
-            a[:] = neg_ones_expanded * 5
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    for a in tensors:
+      # prefix with a 1,1, to ensure we are compatible with numpy which cuts off prefix 1s
+      # (some of these ops already prefix a 1 to the size)
+      neg_ones = Tensor.ones_like(a) * -1
+      neg_ones_expanded = neg_ones.unsqueeze(0).unsqueeze(0)
+      a[True] = neg_ones_expanded
+      numpy_testing_assert_equal_helper(a, neg_ones)
+      a[False] = 5
+      numpy_testing_assert_equal_helper(a, neg_ones)
+      a[true] = neg_ones_expanded * 2
+      numpy_testing_assert_equal_helper(a, neg_ones * 2)
+      a[false] = 5
+      numpy_testing_assert_equal_helper(a, neg_ones * 2)
+      a[None] = neg_ones_expanded * 3
+      numpy_testing_assert_equal_helper(a, neg_ones * 3)
+      a[...] = neg_ones_expanded * 4
+      numpy_testing_assert_equal_helper(a, neg_ones * 4)
+      if a.dim() == 0:
+        with self.assertRaises(IndexError):
+          a[:] = neg_ones_expanded * 5
   def test_index_scalar_with_bool_mask(self):
-    try:
-      a = Tensor(1)
-      uintMask = Tensor(True, dtype=dtypes.uint8)
-      boolMask = Tensor(True, dtype=dtypes.bool)
-      numpy_testing_assert_equal_helper(a[uintMask], a[boolMask])
-      numpy_testing_assert_equal_helper(a[uintMask].dtype, a[boolMask].dtype)
+    a = Tensor(1)
+    uintMask = Tensor(True, dtype=dtypes.uint8)
+    boolMask = Tensor(True, dtype=dtypes.bool)
+    numpy_testing_assert_equal_helper(a[uintMask], a[boolMask])
+    numpy_testing_assert_equal_helper(a[uintMask].dtype, a[boolMask].dtype)
 
-      a = Tensor(True, dtype=dtypes.bool)
-      numpy_testing_assert_equal_helper(a[uintMask], a[boolMask])
-      numpy_testing_assert_equal_helper(a[uintMask].dtype, a[boolMask].dtype)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor(True, dtype=dtypes.bool)
+    numpy_testing_assert_equal_helper(a[uintMask], a[boolMask])
+    numpy_testing_assert_equal_helper(a[uintMask].dtype, a[boolMask].dtype)
   def test_setitem_expansion_error(self):
-    try:
-      true = Tensor(True)
-      a = ((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3)
-      # check prefix with  non-1s doesn't work
-      # a_expanded = a.expand(torch.Size([5, 1]) + a.size())
-      a_expanded = a.expand((5, 1) + a.shape)
-      # NumPy: ValueError
-      with self.assertRaises(RuntimeError):
-        a[True] = a_expanded
-      with self.assertRaises(RuntimeError):
-        a[true] = a_expanded
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    true = Tensor(True)
+    a = ((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3)
+    # check prefix with  non-1s doesn't work
+    # a_expanded = a.expand(torch.Size([5, 1]) + a.size())
+    a_expanded = a.expand((5, 1) + a.shape)
+    # NumPy: ValueError
+    with self.assertRaises(RuntimeError):
+      a[True] = a_expanded
+    with self.assertRaises(RuntimeError):
+      a[true] = a_expanded
   def test_getitem_scalars_simple(self):
     src = Tensor([[[1.,2.],[3.,4.]], [[1,1],[1,1]]])
     a = src[0].mul(src[1])
@@ -637,29 +547,17 @@ class TestIndexing(unittest.TestCase):
   '''
 
   def test_getitem_casted_scalars_folding(self):
-    try:
-      Tensor.manual_seed(0)
-      # cast of const is just another const, don't need extra kernels for this
-      a = ((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3)
-      one = Tensor(1, dtype=dtypes.int64)
-      self.assertEqual(data_ptr(a[1]), data_ptr(a[one.cast(dtypes.int32)]))
-      self.assertEqual(data_ptr(a[1]), data_ptr(a[one.cast(dtypes.int16)]))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    Tensor.manual_seed(0)
+    # cast of const is just another const, don't need extra kernels for this
+    a = ((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3)
+    one = Tensor(1, dtype=dtypes.int64)
+    self.assertEqual(data_ptr(a[1]), data_ptr(a[one.cast(dtypes.int32)]))
+    self.assertEqual(data_ptr(a[1]), data_ptr(a[one.cast(dtypes.int16)]))
   def test_getitem_scalars_simple_folding(self):
-    try:
-      a = ((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3)
-      zero = Tensor(0, dtype=dtypes.int64)
-      one = Tensor(1, dtype=dtypes.int64)
-      self.assertEqual(data_ptr(a[0, 1]), data_ptr(a[zero, one]))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = ((Tensor.arange(2*3) % 10) * 0.1).reshape(2, 3)
+    zero = Tensor(0, dtype=dtypes.int64)
+    one = Tensor(1, dtype=dtypes.int64)
+    self.assertEqual(data_ptr(a[0, 1]), data_ptr(a[zero, one]))
   def test_basic_advanced_combined(self):
     # From the NumPy indexing example
     x = Tensor.arange(0, 12).reshape(4, 3)
@@ -706,16 +604,10 @@ class TestIndexing(unittest.TestCase):
   '''
 
   def test_variable_slicing(self):
-    try:
-      x = Tensor.arange(0, 16).reshape(4, 4)
-      indices = Tensor([0, 1], dtype=dtypes.int32)
-      i, j = indices
-      numpy_testing_assert_equal_helper(x[i:j], x[0:1])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor.arange(0, 16).reshape(4, 4)
+    indices = Tensor([0, 1], dtype=dtypes.int32)
+    i, j = indices
+    numpy_testing_assert_equal_helper(x[i:j], x[0:1])
   def test_variable_with_tensor_index(self):
     t = Tensor.arange(12).reshape(3, 4)
     v = Variable("v", 0, 2).bind(1)
@@ -824,20 +716,14 @@ class TestNumpy(unittest.TestCase):
   # TODO jax supports empty tensor indexing
   def test_empty_fancy_index(self):
     # Empty list index creates an empty array
-    try:
-      a = Tensor([1, 2, 3])
-      numpy_testing_assert_equal_helper(a[[]], np.array([]))
+    a = Tensor([1, 2, 3])
+    numpy_testing_assert_equal_helper(a[[]], np.array([]))
 
-      b = Tensor([]).cast(dtypes.int64)
-      numpy_testing_assert_equal_helper(a[[]], np.array([]))
+    b = Tensor([]).cast(dtypes.int64)
+    numpy_testing_assert_equal_helper(a[[]], np.array([]))
 
-      b = Tensor([]).float()
-      self.assertRaises(IndexError, lambda: a[b])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    b = Tensor([]).float()
+    self.assertRaises(IndexError, lambda: a[b])
   def test_ellipsis_index(self):
     a = Tensor([[1, 2, 3],
                 [4, 5, 6],
@@ -876,147 +762,93 @@ class TestNumpy(unittest.TestCase):
 
   def test_single_bool_index(self):
     # Single boolean index
-    try:
-      a = Tensor([[1, 2, 3],
-                  [4, 5, 6],
-                  [7, 8, 9]])
+    a = Tensor([[1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9]])
 
-      numpy_testing_assert_equal_helper(a[True], a[None])
-      numpy_testing_assert_equal_helper(a[False], a[None][0:0])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    numpy_testing_assert_equal_helper(a[True], a[None])
+    numpy_testing_assert_equal_helper(a[False], a[None][0:0])
   def test_boolean_shape_mismatch(self):
-    try:
-      arr = Tensor.ones((5, 4, 3))
+    arr = Tensor.ones((5, 4, 3))
 
-      index = Tensor([True])
-      self.assertRaises(IndexError, lambda: arr[index])
+    index = Tensor([True])
+    self.assertRaises(IndexError, lambda: arr[index])
 
-      index = Tensor([False] * 6)
-      self.assertRaises(IndexError, lambda: arr[index])
+    index = Tensor([False] * 6)
+    self.assertRaises(IndexError, lambda: arr[index])
 
-      index = Tensor.zeros(4, 4, dtype=dtypes.uint8)
-      self.assertRaises(IndexError, lambda: arr[index])
-      self.assertRaises(IndexError, lambda: arr[(slice(None), index)])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    index = Tensor.zeros(4, 4, dtype=dtypes.uint8)
+    self.assertRaises(IndexError, lambda: arr[index])
+    self.assertRaises(IndexError, lambda: arr[(slice(None), index)])
   def test_boolean_indexing_onedim(self):
     # Indexing a 2-dimensional array with
     # boolean array of length one
-    try:
-      a = Tensor([[0., 0., 0.]])
-      b = Tensor([True])
-      numpy_testing_assert_equal_helper(a[b], a)
-      # boolean assignment
-      a[b] = 1.
-      numpy_testing_assert_equal_helper(a, Tensor([[1., 1., 1.]]))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor([[0., 0., 0.]])
+    b = Tensor([True])
+    numpy_testing_assert_equal_helper(a[b], a)
+    # boolean assignment
+    a[b] = 1.
+    numpy_testing_assert_equal_helper(a, Tensor([[1., 1., 1.]]))
   def test_boolean_assignment_value_mismatch(self):
     # A boolean assignment should fail when the shape of the values
     # cannot be broadcast to the subscription. (see also gh-3458)
-    try:
-      a = Tensor.arange(0, 4)
+    a = Tensor.arange(0, 4)
 
-      def f(a, v):
-        a[a > -1] = Tensor(v)
+    def f(a, v):
+      a[a > -1] = Tensor(v)
 
-      self.assertRaises(Exception, f, a, [])
-      self.assertRaises(Exception, f, a, [1, 2, 3])
-      self.assertRaises(Exception, f, a[:1], [1, 2, 3])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self.assertRaises(Exception, f, a, [])
+    self.assertRaises(Exception, f, a, [1, 2, 3])
+    self.assertRaises(Exception, f, a[:1], [1, 2, 3])
   def test_boolean_indexing_twodim(self):
     # Indexing a 2-dimensional array with
     # 2-dimensional boolean array
-    try:
-      a = Tensor([[1, 2, 3],
-                  [4, 5, 6],
-                  [7, 8, 9]])
-      b = Tensor([[True, False, True],
-                  [False, True, False],
-                  [True, False, True]])
-      numpy_testing_assert_equal_helper(a[b], Tensor([1, 3, 5, 7, 9]))
-      numpy_testing_assert_equal_helper(a[b[1]], Tensor([[4, 5, 6]]))
-      numpy_testing_assert_equal_helper(a[b[0]], a[b[2]])
+    a = Tensor([[1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9]])
+    b = Tensor([[True, False, True],
+                [False, True, False],
+                [True, False, True]])
+    numpy_testing_assert_equal_helper(a[b], Tensor([1, 3, 5, 7, 9]))
+    numpy_testing_assert_equal_helper(a[b[1]], Tensor([[4, 5, 6]]))
+    numpy_testing_assert_equal_helper(a[b[0]], a[b[2]])
 
-      # boolean assignment
-      a[b] = 0
-      numpy_testing_assert_equal_helper(a, Tensor([[0, 2, 0],
-                                                    [4, 0, 6],
-                                                    [0, 8, 0]]))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    # boolean assignment
+    a[b] = 0
+    numpy_testing_assert_equal_helper(a, Tensor([[0, 2, 0],
+                                                  [4, 0, 6],
+                                                  [0, 8, 0]]))
   def test_boolean_indexing_weirdness(self):
     # Weird boolean indexing things
-    try:
-      a = Tensor.ones((2, 3, 4))
-      numpy_testing_assert_equal_helper((0, 2, 3, 4), a[False, True, ...].shape)
-      numpy_testing_assert_equal_helper(Tensor.ones(1, 2), a[True, [0, 1], True, True, [1], [[2]]])
-      self.assertRaises(IndexError, lambda: a[False, [0, 1], ...])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.ones((2, 3, 4))
+    numpy_testing_assert_equal_helper((0, 2, 3, 4), a[False, True, ...].shape)
+    numpy_testing_assert_equal_helper(Tensor.ones(1, 2), a[True, [0, 1], True, True, [1], [[2]]])
+    self.assertRaises(IndexError, lambda: a[False, [0, 1], ...])
   def test_boolean_indexing_weirdness_tensors(self):
     # Weird boolean indexing things
-    try:
-      false = Tensor(False)
-      true = Tensor(True)
-      a = Tensor.ones((2, 3, 4))
-      numpy_testing_assert_equal_helper((0, 2, 3, 4), a[False, True, ...].shape)
-      numpy_testing_assert_equal_helper(Tensor.ones(1, 2), a[true, [0, 1], true, true, [1], [[2]]])
-      self.assertRaises(IndexError, lambda: a[false, [0, 1], ...])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    false = Tensor(False)
+    true = Tensor(True)
+    a = Tensor.ones((2, 3, 4))
+    numpy_testing_assert_equal_helper((0, 2, 3, 4), a[False, True, ...].shape)
+    numpy_testing_assert_equal_helper(Tensor.ones(1, 2), a[true, [0, 1], true, true, [1], [[2]]])
+    self.assertRaises(IndexError, lambda: a[false, [0, 1], ...])
   def test_boolean_indexing_alldims(self):
-    try:
-      true = Tensor(True)
-      a = Tensor.ones((2, 3))
-      numpy_testing_assert_equal_helper((1, 2, 3), a[True, True].shape)
-      numpy_testing_assert_equal_helper((1, 2, 3), a[true, true].shape)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    true = Tensor(True)
+    a = Tensor.ones((2, 3))
+    numpy_testing_assert_equal_helper((1, 2, 3), a[True, True].shape)
+    numpy_testing_assert_equal_helper((1, 2, 3), a[true, true].shape)
   def test_boolean_list_indexing(self):
     # Indexing a 2-dimensional array with
     # boolean lists
-    try:
-      a = Tensor([[1, 2, 3],
-                  [4, 5, 6],
-                  [7, 8, 9]])
-      b = [True, False, False]
-      c = [True, True, False]
-      numpy_testing_assert_equal_helper(a[b], Tensor([[1, 2, 3]]))
-      numpy_testing_assert_equal_helper(a[b, b], Tensor([1]))
-      numpy_testing_assert_equal_helper(a[c], Tensor([[1, 2, 3], [4, 5, 6]]))
-      numpy_testing_assert_equal_helper(a[c, c], Tensor([1, 5]))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor([[1, 2, 3],
+                [4, 5, 6],
+                [7, 8, 9]])
+    b = [True, False, False]
+    c = [True, True, False]
+    numpy_testing_assert_equal_helper(a[b], Tensor([[1, 2, 3]]))
+    numpy_testing_assert_equal_helper(a[b, b], Tensor([1]))
+    numpy_testing_assert_equal_helper(a[c], Tensor([[1, 2, 3], [4, 5, 6]]))
+    numpy_testing_assert_equal_helper(a[c, c], Tensor([1, 5]))
   # TODO out of bound getitem does not raise error
   '''
   def test_trivial_fancy_out_of_bounds(self):

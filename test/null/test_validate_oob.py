@@ -142,46 +142,34 @@ class TestValidateOOB(unittest.TestCase):
 
   # skipped tests (moved from test_uop_graph.py)
   def test_in_bounds_access_gated_local(self):
-    try:
-      with Context(CHECK_OOB=1):
-        # Define buffers
-        gbuf = UOp(Ops.PARAM, dtypes.uint.ptr(400), (), 0)
-        sbuf = UOp(Ops.DEFINE_LOCAL, dtypes.uint.ptr(8, addrspace=AddrSpace.LOCAL), (), "temp0")
+    with Context(CHECK_OOB=1):
+      # Define buffers
+      gbuf = UOp(Ops.PARAM, dtypes.uint.ptr(400), (), 0)
+      sbuf = UOp(Ops.DEFINE_LOCAL, dtypes.uint.ptr(8, addrspace=AddrSpace.LOCAL), (), "temp0")
 
-        # Define indices, valids and barrier
-        gidx = UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 416),), "gidx0")
-        lidx = UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 10),), "lidx0")
+      # Define indices, valids and barrier
+      gidx = UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 416),), "gidx0")
+      lidx = UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 10),), "lidx0")
 
-        gate = (gidx<400) & (lidx<8)
+      gate = (gidx<400) & (lidx<8)
 
-        local_store = UOp(Ops.STORE, dtypes.void, (sbuf.index(lidx, lidx<8), UOp.const(dtypes.uint, 1)))
+      local_store = UOp(Ops.STORE, dtypes.void, (sbuf.index(lidx, lidx<8), UOp.const(dtypes.uint, 1)))
 
-        barrier = UOp(Ops.BARRIER, dtypes.void, (local_store,))
-        if_barrier = UOp(Ops.IF, dtypes.void, (gate, barrier))
+      barrier = UOp(Ops.BARRIER, dtypes.void, (local_store,))
+      if_barrier = UOp(Ops.IF, dtypes.void, (gate, barrier))
 
-        # Load from local memory (after the IF/barrier)
-        local_load = UOp(Ops.LOAD, dtypes.uint, (sbuf.index(lidx, ptr=True), if_barrier))
+      # Load from local memory (after the IF/barrier)
+      local_load = UOp(Ops.LOAD, dtypes.uint, (sbuf.index(lidx, ptr=True), if_barrier))
 
-        # Store to global memory
-        global_store = UOp(Ops.STORE, dtypes.void, (gbuf.index(gidx), local_load))
-        to_uops_list([global_store])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+      # Store to global memory
+      global_store = UOp(Ops.STORE, dtypes.void, (gbuf.index(gidx), local_load))
+      to_uops_list([global_store])
   def test_load_mask(self):
-    try:
-      with Context(CHECK_OOB=1):
-        glbl0 = UOp(Ops.PARAM, dtypes.int.ptr(16), (), 0)
-        mask = UOp(Ops.PARAM, dtypes.bool.ptr(16), (), 0)
-        ridx = UOp.range(20, 0)
-        ld0 = UOp(Ops.LOAD, dtypes.int, (glbl0.index(UOp.const(ridx, ridx<16&mask), ptr=True)))
-        to_uops_list([ld0])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with Context(CHECK_OOB=1):
+      glbl0 = UOp(Ops.PARAM, dtypes.int.ptr(16), (), 0)
+      mask = UOp(Ops.PARAM, dtypes.bool.ptr(16), (), 0)
+      ridx = UOp.range(20, 0)
+      ld0 = UOp(Ops.LOAD, dtypes.int, (glbl0.index(UOp.const(ridx, ridx<16&mask), ptr=True)))
+      to_uops_list([ld0])
 if __name__ == "__main__":
   unittest.main()

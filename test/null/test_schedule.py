@@ -144,27 +144,15 @@ class TestSimpleSchedule(unittest.TestCase):
 
 class TestSchedule(unittest.TestCase):
   def test_error_on_device_mismatch(self):
-    try:
-      a = Tensor.empty(10)
-      b = Tensor.empty(10, device="CPU")
-      c = a+b
-      with self.assertRaisesRegex(RuntimeError, "all buffers must be on the same device"): check_schedule(c, 1)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(10)
+    b = Tensor.empty(10, device="CPU")
+    c = a+b
+    with self.assertRaisesRegex(RuntimeError, "all buffers must be on the same device"): check_schedule(c, 1)
   def test_error_on_device_mismatch_alt(self):
-    try:
-      a = Tensor.empty(10)
-      b = Tensor.empty((1,), device="CPU").expand(10).contiguous()
-      c = a+b
-      with self.assertRaisesRegex(RuntimeError, "all buffers must be on the same device"): check_schedule(c, 2)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(10)
+    b = Tensor.empty((1,), device="CPU").expand(10).contiguous()
+    c = a+b
+    with self.assertRaisesRegex(RuntimeError, "all buffers must be on the same device"): check_schedule(c, 2)
   def test_rand(self):
     x = Tensor.rand(32)
     check_schedule(x, 1, [Tensor._device_rng_counters[x.device]])
@@ -199,16 +187,10 @@ class TestSchedule(unittest.TestCase):
     check_schedule(a, 3)
 
   def test_contiguous_assign(self):
-    try:
-      a = Tensor.ones(10) * 2
-      b = Tensor.empty(10)
-      c = b.assign(a.contiguous())
-      check_schedule(c, 1)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.ones(10) * 2
+    b = Tensor.empty(10)
+    c = b.assign(a.contiguous())
+    check_schedule(c, 1)
   def test_basic_binop_fusion(self):
     a = Tensor.empty(10)
     b = Tensor.empty(10)
@@ -522,16 +504,10 @@ class TestSchedule(unittest.TestCase):
     check_schedule(d, 0, [c])
 
   def test_multi_permute_should_collapse(self):
-    try:
-      a = Tensor.empty(4,4,4,4)
-      b = Tensor.empty(16)
-      c = a.sum((0,1)).cast(dtypes.float16).permute(1,0).reshape(4,4,1).permute(1,0,2).reshape(16) + b
-      check_schedule(c, 1)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(4,4,4,4)
+    b = Tensor.empty(16)
+    c = a.sum((0,1)).cast(dtypes.float16).permute(1,0).reshape(4,4,1).permute(1,0,2).reshape(16) + b
+    check_schedule(c, 1)
   def test_fancy_reshape_fusion(self):
     a = Tensor.empty(10)
     b = Tensor.empty(10)
@@ -550,20 +526,14 @@ class TestSchedule(unittest.TestCase):
 
   # failing in new lazy
   def test_dont_fuse_binops_with_children(self):
-    try:
-      a = Tensor.empty(10)
-      b = Tensor.empty(10)
-      c = Tensor.empty(10)
-      keep_me = a+b
-      e = keep_me.sum() # noqa: F841 give keep_me a child (NOTE: BinaryOps won't be a child since it will instant fuse)
-      d = keep_me+c
-      check_schedule(d, 2)
-      check_schedule(keep_me, 0, [d])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(10)
+    b = Tensor.empty(10)
+    c = Tensor.empty(10)
+    keep_me = a+b
+    e = keep_me.sum() # noqa: F841 give keep_me a child (NOTE: BinaryOps won't be a child since it will instant fuse)
+    d = keep_me+c
+    check_schedule(d, 2)
+    check_schedule(keep_me, 0, [d])
   #@unittest.skip("failing in old lazy")
   def test_permute_breaks_fusion(self):
     a = Tensor.empty(10, 10, 10)
@@ -701,16 +671,10 @@ class TestSchedule(unittest.TestCase):
 
   @unittest.skip("const folding is removed")
   def test_pow_const_tensor_to_zero(self):
-    try:
-      x = Tensor([1,2,3,4])
-      out = x ** Tensor(0.0)
-      # NOTE: this is UOp.const(0) + UOp.const(1)
-      check_schedule(out, 0)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor([1,2,3,4])
+    out = x ** Tensor(0.0)
+    # NOTE: this is UOp.const(0) + UOp.const(1)
+    check_schedule(out, 0)
   def test_zero_size(self):
     x = Tensor.empty(2, 3, 0)
     out = x + 1
@@ -800,6 +764,13 @@ class TestSchedule(unittest.TestCase):
     self.assertEqual(sched[1].bufs[0].dtype, dtypes.float)
     self.assertEqual(sched[2].bufs[0].dtype, dtypes.float)
 
+    # input float, softmax in float
+    Tensor.manual_seed(0)
+    x = ((Tensor.arange(4*12*64*64) % 10) * 0.1).reshape(4, 12, 64, 64).cast(dtypes.float).realize()
+    out = x.softmax(dtype=dtypes.float)
+    sched = out.schedule()
+    self.assertEqual(len(sched), 3)
+    self.assertEqual(sched[0].bufs[0].dtype, dtypes.float)
   def test_softmax_backward(self):
     Tensor.manual_seed(0)
     x = ((Tensor.arange(4*12*64*64) % 10) * 0.1).reshape(4, 12, 64, 64).requires_grad_(True).realize()
@@ -1061,17 +1032,11 @@ class TestUOpBecome(unittest.TestCase):
   # sometimes we prefer to perform an op before movement ops, in this case we should stack the mops on top of the new buffer
 
   def test_reorder_expand(self):
-    try:
-      a = Tensor.empty(4, 1)
-      b = a.expand(4, 4).reciprocal()
-      check_schedule(b, 1)
-      self.assertEqual(b.uop.base.buffer.size, 4)
-      self.assertEqual(b.uop.shape, (4, 4))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(4, 1)
+    b = a.expand(4, 4).reciprocal()
+    check_schedule(b, 1)
+    self.assertEqual(b.uop.base.buffer.size, 4)
+    self.assertEqual(b.uop.shape, (4, 4))
   def test_reorder_expand_alt(self):
     x = Tensor.empty(4, 1)
     y = Tensor.empty(4, 1)
@@ -1101,28 +1066,16 @@ class TestUOpBecome(unittest.TestCase):
     late_add.realize()
 
   def test_become_const_in_base(self):
-    try:
-      a = Tensor.empty(4)
-      b = a*0
-      assert UPat(Ops.MUL).match(b.uop, {}) # before scheduling it's a mul
-      check_schedule(b, 0)
-      assert UPat(Ops.CONST, arg=0).match(b.uop.base, {}) # scheduling replaces the tensor uop with a VIEW(BUFFER)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(4)
+    b = a*0
+    assert UPat(Ops.MUL).match(b.uop, {}) # before scheduling it's a mul
+    check_schedule(b, 0)
+    assert UPat(Ops.CONST, arg=0).match(b.uop.base, {}) # scheduling replaces the tensor uop with a VIEW(BUFFER)
   def test_become_const_from_const(self):
-    try:
-      const_add = Tensor(1)+Tensor(2)
-      assert UPat(Ops.ADD).match(const_add.uop, {})
-      check_schedule(const_add, 0)
-      assert UPat(Ops.CONST, arg=3).match(const_add.uop.base, {})
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    const_add = Tensor(1)+Tensor(2)
+    assert UPat(Ops.ADD).match(const_add.uop, {})
+    check_schedule(const_add, 0)
+    assert UPat(Ops.CONST, arg=3).match(const_add.uop.base, {})
   # tensors can become another realized tensor source
   @unittest.expectedFailure
   def test_become_existing_buf_simple(self):
@@ -1166,19 +1119,13 @@ class TestUOpBecome(unittest.TestCase):
     assert all_same([x.uop.base.realized for x in [a,b,c]])
 
   def test_setitem_becomes_subbuffer(self):
-    try:
-      a = Tensor.full((4,), 2.).contiguous().realize()
-      b = a.shrink(((0, 2),)).assign(Tensor.full((2,), 1.0))
-      b.realize()
-      assert a.uop.is_realized
-      assert a.uop.buffer._base is None
-      assert b.uop.op_in_backward_slice_with_self(Ops.SHRINK)
-      assert b.uop.base is a.uop.base
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.full((4,), 2.).contiguous().realize()
+    b = a.shrink(((0, 2),)).assign(Tensor.full((2,), 1.0))
+    b.realize()
+    assert a.uop.is_realized
+    assert a.uop.buffer._base is None
+    assert b.uop.op_in_backward_slice_with_self(Ops.SHRINK)
+    assert b.uop.base is a.uop.base
 class TestFusionOp(unittest.TestCase):
   def test_recursive_add(self):
     st = time.perf_counter()

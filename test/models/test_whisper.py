@@ -66,146 +66,74 @@ class TestWhisper(unittest.TestCase):
     del cls.enc
 
   def assertWER(self, actual: str, expected: str, threshold: float):
-    try:
-      __tracebackhide__ = True  # Hide traceback for py.test
-      wer = wer_helper(actual, expected)
-      if wer > threshold:
-        err = f"WER={wer:.3f} > {threshold}"
-        raise AssertionError(
-          err
-        )
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    __tracebackhide__ = True  # Hide traceback for py.test
+    wer = wer_helper(actual, expected)
+    if wer > threshold:
+      err = f"WER={wer:.3f} > {threshold}"
+      raise AssertionError(
+        err
+      )
   def test_transcribe_file1(self):
-    try:
-      self.assertEqual(transcribe_file(self.model, self.enc, TEST_FILE_1),  TRANSCRIPTION_1)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self.assertEqual(transcribe_file(self.model, self.enc, TEST_FILE_1),  TRANSCRIPTION_1)
   @slow
   def test_transcribe_file2(self):
-    try:
-      self.assertEqual(transcribe_file(self.model, self.enc, TEST_FILE_2),  TRANSCRIPTION_2)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self.assertEqual(transcribe_file(self.model, self.enc, TEST_FILE_2),  TRANSCRIPTION_2)
   @slow
   def test_transcribe_batch12(self):
-    try:
-      waveforms = [load_file_waveform(TEST_FILE_1), load_file_waveform(TEST_FILE_2)]
-      transcriptions = transcribe_waveform(self.model, self.enc, waveforms)
-      self.assertEqual(2, len(transcriptions))
-      self.assertEqual(TRANSCRIPTION_1,  transcriptions[0])
-      self.assertEqual(TRANSCRIPTION_2,  transcriptions[1])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    waveforms = [load_file_waveform(TEST_FILE_1), load_file_waveform(TEST_FILE_2)]
+    transcriptions = transcribe_waveform(self.model, self.enc, waveforms)
+    self.assertEqual(2, len(transcriptions))
+    self.assertEqual(TRANSCRIPTION_1,  transcriptions[0])
+    self.assertEqual(TRANSCRIPTION_2,  transcriptions[1])
   def test_transcribe_batch21(self):
-    try:
-      waveforms = [load_file_waveform(TEST_FILE_2), load_file_waveform(TEST_FILE_1)]
-      transcriptions = transcribe_waveform(self.model, self.enc, waveforms)
-      self.assertEqual(2, len(transcriptions))
-      self.assertEqual(TRANSCRIPTION_2,  transcriptions[0])
-      self.assertEqual(TRANSCRIPTION_1,  transcriptions[1])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    waveforms = [load_file_waveform(TEST_FILE_2), load_file_waveform(TEST_FILE_1)]
+    transcriptions = transcribe_waveform(self.model, self.enc, waveforms)
+    self.assertEqual(2, len(transcriptions))
+    self.assertEqual(TRANSCRIPTION_2,  transcriptions[0])
+    self.assertEqual(TRANSCRIPTION_1,  transcriptions[1])
   @slow
   def test_transcribe_long(self):
-    try:
-      waveform = [load_file_waveform(fetch(TEST_FILE_3_URL))]
-      transcription = transcribe_waveform(self.model, self.enc, waveform)
-      self.assertWER(transcription, TRANSCRIPTION_3, 0.085)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    waveform = [load_file_waveform(fetch(TEST_FILE_3_URL))]
+    transcription = transcribe_waveform(self.model, self.enc, waveform)
+    self.assertWER(transcription, TRANSCRIPTION_3, 0.085)
   @slow
   def test_transcribe_long_no_batch(self):
-    try:
-      waveforms = [load_file_waveform(fetch(TEST_FILE_3_URL)), load_file_waveform(TEST_FILE_1)]
+    waveforms = [load_file_waveform(fetch(TEST_FILE_3_URL)), load_file_waveform(TEST_FILE_1)]
 
-      trancriptions = transcribe_waveform(self.model, self.enc, waveforms)
-      self.assertEqual(2, len(trancriptions))
-      self.assertWER(trancriptions[0], TRANSCRIPTION_3, 0.085)
-      self.assertEqual(TRANSCRIPTION_1, trancriptions[1])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    trancriptions = transcribe_waveform(self.model, self.enc, waveforms)
+    self.assertEqual(2, len(trancriptions))
+    self.assertWER(trancriptions[0], TRANSCRIPTION_3, 0.085)
+    self.assertEqual(TRANSCRIPTION_1, trancriptions[1])
   def test_wer_same(self):
-    try:
-      reference = TRANSCRIPTION_3
-      self.assertWER(TRANSCRIPTION_3_ALT, reference, 0.079)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    reference = TRANSCRIPTION_3
+    self.assertWER(TRANSCRIPTION_3_ALT, reference, 0.079)
   def test_wer_different(self):
-    try:
-      reference = TRANSCRIPTION_3
-      self.assertWER("[no speech]", reference, 1.0)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    reference = TRANSCRIPTION_3
+    self.assertWER("[no speech]", reference, 1.0)
   def test_wer_different_2(self):
-    try:
-      reference = TRANSCRIPTION_3
-      self.assertWER("", reference, 1.0)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    reference = TRANSCRIPTION_3
+    self.assertWER("", reference, 1.0)
   def test_wer_different_3(self):
-    try:
-      reference = TRANSCRIPTION_3
-      self.assertWER(reference[:len(reference)//2], reference, 0.524)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    reference = TRANSCRIPTION_3
+    self.assertWER(reference[:len(reference)//2], reference, 0.524)
   def test_mel_filters(self):
     # reference = librosa.filters.mel(sr=16000, n_fft=16, n_mels=16)
-    try:
-      reference = Tensor([[-0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0021111054811626673, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.003133024089038372, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0017568661132827401, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0009823603322729468, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0007768510840833187, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0010490329004824162, 0.0, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.0011341988574713469, 0.0, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.000231665835599415, 0.0006950111710466444, 0.0, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.0, 0.00040073052514344454, 0.0005822855746373534, 0.0, 0.0],
-                          [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.00033081238507293165, 0.0006097797304391861, 0.0]])
-      np.testing.assert_allclose(mel(sr=16000, n_fft=16, n_mels=16, dtype=dtypes.float32).numpy(), reference.numpy(), atol=1e-6)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    reference = Tensor([[-0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0021111054811626673, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.003133024089038372, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0017568661132827401, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0009823603322729468, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0007768510840833187, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0010490329004824162, 0.0, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0011341988574713469, 0.0, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.000231665835599415, 0.0006950111710466444, 0.0, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.00040073052514344454, 0.0005822855746373534, 0.0, 0.0],
+                        [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.00033081238507293165, 0.0006097797304391861, 0.0]])
+    np.testing.assert_allclose(mel(sr=16000, n_fft=16, n_mels=16, dtype=dtypes.float32).numpy(), reference.numpy(), atol=1e-6)
 if __name__ == '__main__':
   unittest.main()

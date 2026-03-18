@@ -14,121 +14,74 @@ class TestTensorMetadata(unittest.TestCase):
     self._ctx.__exit__(None, None, None)
 
   def test_exclude_noop_metadata(self):
-    try:
-      a = Tensor.rand(4, 4)*1
-      self.assertEqual(a.uop.metadata[0].name, "__mul__")
-      k = a.schedule()[-1]
-      self.assertEqual([m.name for m in k.metadata], ["rand"])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.rand(4, 4)*1
+    self.assertEqual(a.uop.metadata[0].name, "__mul__")
+    k = a.schedule()[-1]
+    self.assertEqual([m.name for m in k.metadata], ["rand"])
   def test_exclude_const_metadata(self):
-    try:
-      a = Tensor.arange(4)
-      b = Tensor.full((4,), -1, dtype=dtypes.int).contiguous()
-      sched = Tensor.schedule(a, b)
-      self.assertEqual([m.name for m in sched[0].metadata], ["arange"])
-      self.assertEqual([m.name for m in sched[1].metadata], ["contiguous"])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.arange(4)
+    b = Tensor.full((4,), -1, dtype=dtypes.int).contiguous()
+    sched = Tensor.schedule(a, b)
+    self.assertEqual([m.name for m in sched[0].metadata], ["arange"])
+    self.assertEqual([m.name for m in sched[1].metadata], ["contiguous"])
   def test_matmul(self):
-    try:
-      x = Tensor.rand(3, requires_grad=True)
-      W = Tensor.rand(3, 3, requires_grad=True)
-      out = x.matmul(W)
-      self.assertEqual(out.uop.metadata[0].name, "matmul")
-      si = out.schedule()[-1]
-      self.assertEqual(len(si.metadata), 1)
-      self.assertEqual(si.metadata[0].name, "matmul")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor.rand(3, requires_grad=True)
+    W = Tensor.rand(3, 3, requires_grad=True)
+    out = x.matmul(W)
+    self.assertEqual(out.uop.metadata[0].name, "matmul")
+    si = out.schedule()[-1]
+    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(si.metadata[0].name, "matmul")
   def test_relu(self):
-    try:
-      x = Tensor.rand(3, requires_grad=True)
-      out = x.relu()
-      self.assertEqual(out.uop.metadata[0].name, "relu")
-      si = out.schedule()[-1]
-      self.assertEqual(len(si.metadata), 1)
-      self.assertEqual(si.metadata[0].name, "relu")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor.rand(3, requires_grad=True)
+    out = x.relu()
+    self.assertEqual(out.uop.metadata[0].name, "relu")
+    si = out.schedule()[-1]
+    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(si.metadata[0].name, "relu")
   def test_assign(self):
-    try:
-      x = Tensor.empty(10, 10).realize()
-      x.assign(Tensor.ones(10, 10).contiguous())
-      si = x.schedule()[-1]
-      self.assertEqual(len(si.metadata), 1)
-      self.assertEqual(si.metadata[0].name, "assign")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor.empty(10, 10).realize()
+    x.assign(Tensor.ones(10, 10).contiguous())
+    si = x.schedule()[-1]
+    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(si.metadata[0].name, "assign")
   def test_complex(self):
-    try:
-      x = Tensor.rand(3, requires_grad=True)
-      y = Tensor.rand(3, requires_grad=True)
-      out = x.relu() * y.sigmoid()
-      self.assertEqual(out.uop.metadata[0].name, "__mul__")
-      self.assertEqual(out.uop.src[0].metadata[0].name, "relu")
-      self.assertEqual(out.uop.src[1].metadata[0].name, "sigmoid")
-      si = out.schedule()[-1]
-      self.assertEqual(len(si.metadata), 3)
-      self.assertEqual(set(m.name for m in si.metadata), {"relu", "sigmoid", "__mul__"})
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    x = Tensor.rand(3, requires_grad=True)
+    y = Tensor.rand(3, requires_grad=True)
+    out = x.relu() * y.sigmoid()
+    self.assertEqual(out.uop.metadata[0].name, "__mul__")
+    self.assertEqual(out.uop.src[0].metadata[0].name, "relu")
+    self.assertEqual(out.uop.src[1].metadata[0].name, "sigmoid")
+    si = out.schedule()[-1]
+    self.assertEqual(len(si.metadata), 3)
+    self.assertEqual(set(m.name for m in si.metadata), {"relu", "sigmoid", "__mul__"})
   def test_complex_backward(self):
-    try:
-      x = Tensor.rand(3, requires_grad=True).realize()
-      y = Tensor.rand(3, requires_grad=True).realize()
-      out = (x.relu() * y.sigmoid()).sum()
-      self.assertEqual(out.uop.metadata[0].name, "sum")
-      out.backward()
-      self.assertEqual(x.grad.uop.metadata[0].name, "relu")
-      #self.assertTrue(x.grad.uop.metadata[0].backward)  # TODO: backward flag is False
-      self.assertEqual(y.grad.uop.metadata[0].name, "sigmoid")
-      #self.assertTrue(y.grad.uop.metadata[0].backward)  # TODO: backward flag is False
-      si = Tensor.schedule(out, x.grad, y.grad)[-1]
-      #self.assertEqual(len(si.metadata), 3, f"failed with {si.metadata}")
-      # skip numpy, this is schedule cache
-      self.assertSetEqual(set(m.name for m in si.metadata if m.name != "numpy"), {"sigmoid", "relu"})
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    x = Tensor.rand(3, requires_grad=True).realize()
+    y = Tensor.rand(3, requires_grad=True).realize()
+    out = (x.relu() * y.sigmoid()).sum()
+    self.assertEqual(out.uop.metadata[0].name, "sum")
+    out.backward()
+    self.assertEqual(x.grad.uop.metadata[0].name, "relu")
+    #self.assertTrue(x.grad.uop.metadata[0].backward)  # TODO: backward flag is False
+    self.assertEqual(y.grad.uop.metadata[0].name, "sigmoid")
+    #self.assertTrue(y.grad.uop.metadata[0].backward)  # TODO: backward flag is False
+    si = Tensor.schedule(out, x.grad, y.grad)[-1]
+    #self.assertEqual(len(si.metadata), 3, f"failed with {si.metadata}")
+    # skip numpy, this is schedule cache
+    self.assertSetEqual(set(m.name for m in si.metadata if m.name != "numpy"), {"sigmoid", "relu"})
     #bw = [m for m in si.metadata if m.backward]
     #self.assertEqual(len(bw), 1)
     #self.assertEqual(bw[0].name, "sigmoid")
 
   def test_tracemeta_0(self):
-    try:
-      with Context(TRACEMETA=0):
-        x = Tensor.rand(3, requires_grad=True)
-        y = Tensor.rand(3, requires_grad=True)
-        out = (x.relu() * y.sigmoid()).sum()
-        self.assertIsNone(out.uop.metadata)
-        self.assertIsNone(out.uop.src[0].metadata)
-        si = out.schedule()[-1]
-        self.assertEqual(si.metadata, ())
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with Context(TRACEMETA=0):
+      x = Tensor.rand(3, requires_grad=True)
+      y = Tensor.rand(3, requires_grad=True)
+      out = (x.relu() * y.sigmoid()).sum()
+      self.assertIsNone(out.uop.metadata)
+      self.assertIsNone(out.uop.src[0].metadata)
+      si = out.schedule()[-1]
+      self.assertEqual(si.metadata, ())
   def _has_metadata(self, h, name):
     linears = []
     capturing.append(type("", (), {"add_linear": lambda _, linear, var_vals: linears.append(linear)})())
@@ -138,27 +91,15 @@ class TestTensorMetadata(unittest.TestCase):
     return any(m.name == name for ei in items for m in ei.metadata)
 
   def test_metadata_survives_realize_pending_assign(self):
-    try:
-      shared = Tensor.rand(4)
-      c = Tensor.zeros(8).contiguous().realize()
-      c[:4].assign(shared)
-      self.assertTrue(self._has_metadata(c[:4].relu(), "relu"))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    shared = Tensor.rand(4)
+    c = Tensor.zeros(8).contiguous().realize()
+    c[:4].assign(shared)
+    self.assertTrue(self._has_metadata(c[:4].relu(), "relu"))
   @unittest.expectedFailure
   def test_metadata_lost_realize_pending_assign(self):
-    try:
-      shared = Tensor.rand(4)
-      c = Tensor.zeros(8).contiguous().realize()
-      c[:4].assign(shared)
-      self.assertTrue(self._has_metadata((c[:4] + shared).relu(), "relu"))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    shared = Tensor.rand(4)
+    c = Tensor.zeros(8).contiguous().realize()
+    c[:4].assign(shared)
+    self.assertTrue(self._has_metadata((c[:4] + shared).relu(), "relu"))
 if __name__ == '__main__':
   unittest.main()

@@ -34,17 +34,11 @@ class TestArange(unittest.TestCase):
       self.assertLessEqual(self._get_flops(Tensor.eye(2560).contiguous(), np.eye(2560)), 2*2560*2560)
 
   def test_tri_complexity(self):
-    try:
-      with Context(NOOPT=1):
-        t = Tensor.ones(256, 256).contiguous().realize()
-        sched = t.triu().schedule()
-        p = get_program(sched[-1].ast, renderer=Device[Device.DEFAULT].renderer)
-        self.assertLessEqual(Estimates.from_uops(p.uops).ops, 4 * 256 * 256)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    with Context(NOOPT=1):
+      t = Tensor.ones(256, 256).contiguous().realize()
+      sched = t.triu().schedule()
+      p = get_program(sched[-1].ast, renderer=Device[Device.DEFAULT].renderer)
+      self.assertLessEqual(Estimates.from_uops(p.uops).ops, 4 * 256 * 256)
 DSET, DDIM = 2048, 32
 
 class TestIndexing(unittest.TestCase):
@@ -225,35 +219,29 @@ class TestIndexing(unittest.TestCase):
 
   @unittest.skipUnless(Device.DEFAULT == "AMD" or (Device.DEFAULT == "NULL" and EMULATE.value.startswith("AMD")), "tests AMD bf16 cast overhead")
   def base_test_llama_8b_rope_backward(self, dtype):
-    try:
-      from extra.models.llama import precompute_freqs_cis, apply_rotary_emb
-      bs, seqlen, dim, n_heads = 1, 512, 256, 4
-      head_dim = dim // n_heads
-      x = ((Tensor.arange(bs*seqlen*dim) % 10) * 0.1).reshape(bs, seqlen, dim).cast(dtype)
-      wq = ((Tensor.arange(dim*dim) % 10) * 0.1).reshape(dim, dim).cast(dtype).requires_grad_(True)
-      freqs_cis = precompute_freqs_cis(head_dim, seqlen).cast(dtype)
-      Tensor.realize(x, wq, freqs_cis)
-      xq = (x @ wq.T)
-      # main llama does not fuse it
-      #xq = xq.contiguous_backward()
-      xq = xq.reshape(bs, seqlen, n_heads, head_dim)
-      xq_rope, _ = apply_rotary_emb(xq, xq, freqs_cis)
-      xq_rope.sum().backward()
-      sched = wq.grad.schedule()
-      assert len(sched) == 1, f"expected one kernel for backward, got: {len(sched)}"
-      prg = sched[0].lower().prg.p
-      bwd_ops = prg.estimates.ops
-      # bfloat16 on non CDNA4 has ~10x ops overhead because of the software emulation
-      if dtype == dtypes.bfloat16 and not Device[Device.DEFAULT].renderer.arch.startswith("gfx950"): ops_scale = 10
-      else: ops_scale = 1
-      expected_ops = bs*seqlen*dim*dim*ops_scale
-      print(f"rope matmul bwd ({dtype}): {GlobalCounters.kernel_count} kernels, {bwd_ops:,} ops")
-      self.assertLess(bwd_ops, expected_ops, f"rope bwd ops {bwd_ops:,} should be < {ops_scale} per (got {bwd_ops/(bs*seqlen*dim*dim):.1f})")
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    from extra.models.llama import precompute_freqs_cis, apply_rotary_emb
+    bs, seqlen, dim, n_heads = 1, 512, 256, 4
+    head_dim = dim // n_heads
+    x = ((Tensor.arange(bs*seqlen*dim) % 10) * 0.1).reshape(bs, seqlen, dim).cast(dtype)
+    wq = ((Tensor.arange(dim*dim) % 10) * 0.1).reshape(dim, dim).cast(dtype).requires_grad_(True)
+    freqs_cis = precompute_freqs_cis(head_dim, seqlen).cast(dtype)
+    Tensor.realize(x, wq, freqs_cis)
+    xq = (x @ wq.T)
+    # main llama does not fuse it
+    #xq = xq.contiguous_backward()
+    xq = xq.reshape(bs, seqlen, n_heads, head_dim)
+    xq_rope, _ = apply_rotary_emb(xq, xq, freqs_cis)
+    xq_rope.sum().backward()
+    sched = wq.grad.schedule()
+    assert len(sched) == 1, f"expected one kernel for backward, got: {len(sched)}"
+    prg = sched[0].lower().prg.p
+    bwd_ops = prg.estimates.ops
+    # bfloat16 on non CDNA4 has ~10x ops overhead because of the software emulation
+    if dtype == dtypes.bfloat16 and not Device[Device.DEFAULT].renderer.arch.startswith("gfx950"): ops_scale = 10
+    else: ops_scale = 1
+    expected_ops = bs*seqlen*dim*dim*ops_scale
+    print(f"rope matmul bwd ({dtype}): {GlobalCounters.kernel_count} kernels, {bwd_ops:,} ops")
+    self.assertLess(bwd_ops, expected_ops, f"rope bwd ops {bwd_ops:,} should be < {ops_scale} per (got {bwd_ops/(bs*seqlen*dim*dim):.1f})")
   def test_llama_8b_rope_backward_f16(self): self.base_test_llama_8b_rope_backward(dtypes.float16)
   def test_llama_8b_rope_backward_bf16(self): self.base_test_llama_8b_rope_backward(dtypes.bfloat16)
 

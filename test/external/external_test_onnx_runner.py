@@ -58,21 +58,10 @@ class TestOnnxRunner(unittest.TestCase):
     _check_ast_count(0, output)
 
   def test_const_fold_from_disk(self):
-    try:
-      self._test_const_fold_unary_op(True)
-      self._test_const_fold_binary_op(True)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self._test_const_fold_unary_op(True)
+    self._test_const_fold_binary_op(True)
   def test_const_fold_from_memory(self):
-    try:
-      self._test_const_fold_unary_op(False)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    self._test_const_fold_unary_op(False)
     # TODO: understand this and fix this, bitcast related
     # self._test_const_fold_binary_op(False)
 

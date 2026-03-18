@@ -252,65 +252,53 @@ class TestUOpGraph(unittest.TestCase):
     self.assertEqual(len(uops), 2)  # +1 for SINK
 
   def test_noop_vectorize_fold(self):
-    try:
-      d0 = UOp(Ops.PARAM, dtypes.float.ptr(), arg=0)
-      idx = UOp.const(dtypes.int, 0)
-      ld = UOp(Ops.LOAD, dtypes.float.vec(2), (d0, idx))
-      vec = UOp(Ops.VECTORIZE, dtypes.float.vec(2), (ld,))
-      x = UOp(Ops.GEP, dtypes.float, (vec, ), arg=0)
-      alu = UOp(Ops.SQRT, dtypes.float, (x, ))
-      out = UOp(Ops.STORE, dtypes.void, (d0, idx, alu))
-      uops = to_uops_list([out])
-      self.assertEqual(len([x for x in uops if x.op is Ops.VECTORIZE]), 0)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    d0 = UOp(Ops.PARAM, dtypes.float.ptr(), arg=0)
+    idx = UOp.const(dtypes.int, 0)
+    ld = UOp(Ops.LOAD, dtypes.float.vec(2), (d0, idx))
+    vec = UOp(Ops.VECTORIZE, dtypes.float.vec(2), (ld,))
+    x = UOp(Ops.GEP, dtypes.float, (vec, ), arg=0)
+    alu = UOp(Ops.SQRT, dtypes.float, (x, ))
+    out = UOp(Ops.STORE, dtypes.void, (d0, idx, alu))
+    uops = to_uops_list([out])
+    self.assertEqual(len([x for x in uops if x.op is Ops.VECTORIZE]), 0)
   def test_gep_vec_fold(self):
-    try:
-      d0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
-      d1 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
-      d2 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 2)
-      idx = UOp.const(dtypes.int, 0)
-      def _test_vec(geps, count=4):
-        vec = UOp(Ops.VECTORIZE, dtypes.float.vec(count), geps)
-        out = UOp(Ops.STORE, dtypes.void, (d0.index(idx), vec))
-        uops = to_uops_list([out])
-        if DEBUG >= 4:
-          from tinygrad import Device
-          print(Device[Device.DEFAULT].renderer.render(uops))
-        return uops[-2].src[-1]  # -2 to skip SINK
+    d0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
+    d1 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
+    d2 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 2)
+    idx = UOp.const(dtypes.int, 0)
+    def _test_vec(geps, count=4):
+      vec = UOp(Ops.VECTORIZE, dtypes.float.vec(count), geps)
+      out = UOp(Ops.STORE, dtypes.void, (d0.index(idx), vec))
+      uops = to_uops_list([out])
+      if DEBUG >= 4:
+        from tinygrad import Device
+        print(Device[Device.DEFAULT].renderer.render(uops))
+      return uops[-2].src[-1]  # -2 to skip SINK
 
-      # possible
-      val = UOp(Ops.LOAD, dtypes.float.vec(4), (d1.index(idx),))
-      xyzw = tuple(UOp(Ops.GEP, dtypes.float, (val,), (i,)) for i in range(4))
-      self.assertIs(_test_vec(xyzw).op, Ops.LOAD)
+    # possible
+    val = UOp(Ops.LOAD, dtypes.float.vec(4), (d1.index(idx),))
+    xyzw = tuple(UOp(Ops.GEP, dtypes.float, (val,), (i,)) for i in range(4))
+    self.assertIs(_test_vec(xyzw).op, Ops.LOAD)
 
-      # unaligned
-      val = UOp(Ops.LOAD, dtypes.float.vec(4), (d1.index(idx),))
-      wzyx = tuple(UOp(Ops.GEP, dtypes.float, (val,), (i,)) for i in reversed(range(4)))
-      self.assertIs(_test_vec(wzyx).op, Ops.VECTORIZE)
+    # unaligned
+    val = UOp(Ops.LOAD, dtypes.float.vec(4), (d1.index(idx),))
+    wzyx = tuple(UOp(Ops.GEP, dtypes.float, (val,), (i,)) for i in reversed(range(4)))
+    self.assertIs(_test_vec(wzyx).op, Ops.VECTORIZE)
 
-      # different_size
-      val = UOp(Ops.LOAD, dtypes.float.vec(2), (d1.index(idx),))
-      xy = tuple(UOp(Ops.GEP, dtypes.float, (val, ), (i,)) for i in range(2))
-      self.assertIs(_test_vec(xy+xy).op, Ops.VECTORIZE)
-      val = UOp(Ops.LOAD, dtypes.float.vec(4), (d1.index(idx),))
-      xy = tuple(UOp(Ops.GEP, dtypes.float, (val, ), (i,)) for i in range(2))
-      self.assertIs(_test_vec(xy, count=2).op, Ops.VECTORIZE)
+    # different_size
+    val = UOp(Ops.LOAD, dtypes.float.vec(2), (d1.index(idx),))
+    xy = tuple(UOp(Ops.GEP, dtypes.float, (val, ), (i,)) for i in range(2))
+    self.assertIs(_test_vec(xy+xy).op, Ops.VECTORIZE)
+    val = UOp(Ops.LOAD, dtypes.float.vec(4), (d1.index(idx),))
+    xy = tuple(UOp(Ops.GEP, dtypes.float, (val, ), (i,)) for i in range(2))
+    self.assertIs(_test_vec(xy, count=2).op, Ops.VECTORIZE)
 
-      # different vals
-      val1 = UOp(Ops.LOAD, dtypes.float.vec(2), (d1.index(idx),))
-      val2 = UOp(Ops.LOAD, dtypes.float.vec(2), (d2.index(idx),))
-      xy1 = tuple(UOp(Ops.GEP, dtypes.float, (val1, ), (i,)) for i in range(2))
-      xy2 = tuple(UOp(Ops.GEP, dtypes.float, (val2, ), (i,)) for i in range(2))
-      self.assertIs(_test_vec(xy1+xy2).op, Ops.VECTORIZE)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    # different vals
+    val1 = UOp(Ops.LOAD, dtypes.float.vec(2), (d1.index(idx),))
+    val2 = UOp(Ops.LOAD, dtypes.float.vec(2), (d2.index(idx),))
+    xy1 = tuple(UOp(Ops.GEP, dtypes.float, (val1, ), (i,)) for i in range(2))
+    xy2 = tuple(UOp(Ops.GEP, dtypes.float, (val2, ), (i,)) for i in range(2))
+    self.assertIs(_test_vec(xy1+xy2).op, Ops.VECTORIZE)
   def test_gep_vec_const_fold(self):
     for vec_size in [2, 4, 8]:
       consts = [UOp.const(dtypes.float, float(i)) for i in range(vec_size)]
@@ -321,73 +309,61 @@ class TestUOpGraph(unittest.TestCase):
           self.assertEqual(uop, const)
 
   def test_wmma_vectorize_fold(self):
-    try:
-      for i in [2, 4, 8]:
-        vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i), tuple(UOp.const(dtypes.half, 0.0) for _ in range(i)))
-        var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i))
-        acc = UOp.variable('acc', 0, 1, dtypes.half.vec(i))
-        wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
-        uops = to_uops_list([wmma])
-        self.assertEqual(uops[0], acc)
-        self.assertEqual(len(uops), 2)  # +1 for SINK
+    for i in [2, 4, 8]:
+      vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i), tuple(UOp.const(dtypes.half, 0.0) for _ in range(i)))
+      var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i))
+      acc = UOp.variable('acc', 0, 1, dtypes.half.vec(i))
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
+      uops = to_uops_list([wmma])
+      self.assertEqual(uops[0], acc)
+      self.assertEqual(len(uops), 2)  # +1 for SINK
 
-      for i in [2, 4, 8]:
-        var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i))
-        vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i), tuple(UOp.const(dtypes.half, 0.0) for _ in range(i)))
-        acc = UOp.variable('acc', 0, 1, dtypes.half.vec(i))
-        wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
-        uops = to_uops_list([wmma])
-        self.assertEqual(uops[0], acc)
-        self.assertEqual(len(uops), 2)  # +1 for SINK
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    for i in [2, 4, 8]:
+      var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i))
+      vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i), tuple(UOp.const(dtypes.half, 0.0) for _ in range(i)))
+      acc = UOp.variable('acc', 0, 1, dtypes.half.vec(i))
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
+      uops = to_uops_list([wmma])
+      self.assertEqual(uops[0], acc)
+      self.assertEqual(len(uops), 2)  # +1 for SINK
   def test_wmma_vectorize_no_fold(self):
-    try:
-      for i in [4, 8]:
-        vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
-                  tuple(UOp.const(dtypes.half, 0.0) for _ in range(i//2)) +
-                  tuple(UOp(Ops.DEFINE_VAR, dtypes.half, arg=(f'tmp{j}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1))) for j in range(i//2)))
-        var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
-        acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
-        wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
-        uops = to_uops_list([wmma])
-        self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
+    for i in [4, 8]:
+      vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
+                tuple(UOp.const(dtypes.half, 0.0) for _ in range(i//2)) +
+                tuple(UOp(Ops.DEFINE_VAR, dtypes.half, arg=(f'tmp{j}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1))) for j in range(i//2)))
+      var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
+      acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
+      uops = to_uops_list([wmma])
+      self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
 
-      for i in [4, 8]:
-        var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
-        vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
-                  tuple(UOp.const(dtypes.half, 0.0) for _ in range(i//2)) +
-                  tuple(UOp(Ops.DEFINE_VAR, dtypes.half, arg=(f'tmp{j}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1))) for j in range(i//2)))
-        acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
-        wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
-        uops = to_uops_list([wmma])
-        self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
+    for i in [4, 8]:
+      var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
+      vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
+                tuple(UOp.const(dtypes.half, 0.0) for _ in range(i//2)) +
+                tuple(UOp(Ops.DEFINE_VAR, dtypes.half, arg=(f'tmp{j}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1))) for j in range(i//2)))
+      acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
+      uops = to_uops_list([wmma])
+      self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
 
-      for i in [2, 4, 8]:
-        vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
-                  tuple(UOp.const(dtypes.half, 1.0 if j == 0 else 0.0) for j in range(i)))
-        var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
-        acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
-        wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
-        uops = to_uops_list([wmma])
-        self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
+    for i in [2, 4, 8]:
+      vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
+                tuple(UOp.const(dtypes.half, 1.0 if j == 0 else 0.0) for j in range(i)))
+      var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
+      acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
+      uops = to_uops_list([wmma])
+      self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
 
-      for i in [2, 4, 8]:
-        var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
-        vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
-                  tuple(UOp.const(dtypes.half, 1.0 if j == 0 else 0.0) for j in range(i)))
-        acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
-        wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
-        uops = to_uops_list([wmma])
-        self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    for i in [2, 4, 8]:
+      var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
+      vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
+                tuple(UOp.const(dtypes.half, 1.0 if j == 0 else 0.0) for j in range(i)))
+      acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', UOp.const(dtypes.half, 0), UOp.const(dtypes.half, 1)))
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
+      uops = to_uops_list([wmma])
+      self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
   def test_cast_alu_fold(self):
     d0 = UOp(Ops.PARAM, dtypes.bool.ptr(), arg=0)
     d1 = UOp(Ops.PARAM, dtypes.int.ptr(), arg=1)
@@ -580,16 +556,10 @@ class TestUOpGraph(unittest.TestCase):
     self.assertEqual(uops[-2], glbl.index(idx1, ptr=True).store(val))  # -2 to skip SINK
 
   def test_asserts_bad_gate(self):
-    try:
-      glbl0 = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
-      idx = UOp.const(dtypes.int, 0)
-      bad_gate = UOp.const(dtypes.int, 1)
-      with self.assertRaises(AssertionError): to_uops_list([UOp(Ops.STORE, dtypes.void, (glbl0, idx, UOp.const(dtypes.int, 42), bad_gate))])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    glbl0 = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
+    idx = UOp.const(dtypes.int, 0)
+    bad_gate = UOp.const(dtypes.int, 1)
+    with self.assertRaises(AssertionError): to_uops_list([UOp(Ops.STORE, dtypes.void, (glbl0, idx, UOp.const(dtypes.int, 42), bad_gate))])
   def test_after_end(self):
     r = UOp.range(10, 0)
 
@@ -697,85 +667,49 @@ class TestExpander(unittest.TestCase):
   def test_expand_different_axis_flip(self): self.test_expand_different_axis(True)
 
   def test_reduce_known_axis(self):
-    try:
-      e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,4),))
-      sink = UOp(Ops.REDUCE, dtypes.int, (3*e1,e1), Ops.ADD)
-      sink = expander_rewrite(sink)
-      assert sink.op is Ops.CONST
-      self.assertEqual(sink.arg, 3*(0+1+2+3))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,4),))
+    sink = UOp(Ops.REDUCE, dtypes.int, (3*e1,e1), Ops.ADD)
+    sink = expander_rewrite(sink)
+    assert sink.op is Ops.CONST
+    self.assertEqual(sink.arg, 3*(0+1+2+3))
   def test_reduce_const(self):
-    try:
-      e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,4),))
-      sink = UOp(Ops.REDUCE, dtypes.int, (UOp.const(dtypes.int, 3), e1), Ops.ADD)
-      sink = expander_rewrite(sink)
-      assert sink.op is Ops.CONST
-      self.assertEqual(sink.arg, 3*4)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,4),))
+    sink = UOp(Ops.REDUCE, dtypes.int, (UOp.const(dtypes.int, 3), e1), Ops.ADD)
+    sink = expander_rewrite(sink)
+    assert sink.op is Ops.CONST
+    self.assertEqual(sink.arg, 3*4)
   def test_double_expand(self):
-    try:
-      e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((2,4),))
-      e2 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, 4+x) for x in range(4)), ((2,4),))
-      e = UOp(Ops.UNROLL, dtypes.int, (e1, e2), ((1,2),))
-      sink = expander_rewrite(e)
-      assert sink.op is Ops.UNROLL and len(sink.src) == 8
-      assert sink.arg == ((1, 2), (2, 4))
-      self.assertListEqual([x.arg for x in sink.src], [0,1,2,3,4,5,6,7])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((2,4),))
+    e2 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, 4+x) for x in range(4)), ((2,4),))
+    e = UOp(Ops.UNROLL, dtypes.int, (e1, e2), ((1,2),))
+    sink = expander_rewrite(e)
+    assert sink.op is Ops.UNROLL and len(sink.src) == 8
+    assert sink.arg == ((1, 2), (2, 4))
+    self.assertListEqual([x.arg for x in sink.src], [0,1,2,3,4,5,6,7])
   def test_double_expand_reverse(self):
-    try:
-      e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,4),))
-      e2 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, 4+x) for x in range(4)), ((1,4),))
-      e = UOp(Ops.UNROLL, dtypes.int, (e1, e2), ((2,2),))
-      sink = expander_rewrite(e)
-      assert sink.op is Ops.UNROLL and len(sink.src) == 8
-      assert sink.arg == ((1, 4), (2, 2))
-      self.assertListEqual([x.arg for x in sink.src], [0, 4, 1, 5, 2, 6, 3, 7])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,4),))
+    e2 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, 4+x) for x in range(4)), ((1,4),))
+    e = UOp(Ops.UNROLL, dtypes.int, (e1, e2), ((2,2),))
+    sink = expander_rewrite(e)
+    assert sink.op is Ops.UNROLL and len(sink.src) == 8
+    assert sink.arg == ((1, 4), (2, 2))
+    self.assertListEqual([x.arg for x in sink.src], [0, 4, 1, 5, 2, 6, 3, 7])
   def test_double_expand_middle(self):
-    try:
-      e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,2),(3,2)))
-      e2 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, 4+x) for x in range(4)), ((1,2),(3,2)))
-      e = UOp(Ops.UNROLL, dtypes.int, (e1, e2), ((2,2),))
-      sink = expander_rewrite(e)
-      assert sink.op is Ops.UNROLL and len(sink.src) == 8
-      assert sink.arg == ((1, 2), (2, 2), (3, 2))
-      self.assertListEqual([x.arg for x in sink.src], [0, 1, 4, 5, 2, 3, 6, 7])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,2),(3,2)))
+    e2 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, 4+x) for x in range(4)), ((1,2),(3,2)))
+    e = UOp(Ops.UNROLL, dtypes.int, (e1, e2), ((2,2),))
+    sink = expander_rewrite(e)
+    assert sink.op is Ops.UNROLL and len(sink.src) == 8
+    assert sink.arg == ((1, 2), (2, 2), (3, 2))
+    self.assertListEqual([x.arg for x in sink.src], [0, 1, 4, 5, 2, 3, 6, 7])
   # does this need to work?
   @unittest.expectedFailure
   def test_reduce_different_axis(self):
-    try:
-      e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,4),))
-      e2 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((2,4),))
-      sink = UOp(Ops.REDUCE, dtypes.int, (e1,e2), Ops.ADD)
-      sink = expander_rewrite(sink)
-      print(sink)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    e1 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((1,4),))
+    e2 = UOp(Ops.UNROLL, dtypes.int, tuple(UOp.const(dtypes.int, x) for x in range(4)), ((2,4),))
+    sink = UOp(Ops.REDUCE, dtypes.int, (e1,e2), Ops.ADD)
+    sink = expander_rewrite(sink)
+    print(sink)
 class TestReduceCollapse(unittest.TestCase):
   def test_multi_range_reduce_add(self):
     """Test that (x + y).reduce(r1, r2) distributes over multiple ranges"""

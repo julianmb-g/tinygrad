@@ -112,47 +112,35 @@ class TestTiny(unittest.TestCase):
 
   # TODO: this is failing because of how swizzling rewrites the ShapeTracker of the final STORE
   def test_mnist(self):
-    try:
-      layers = [
-        nn.Conv2d(1, 32, 5), Tensor.relu,
-        nn.Conv2d(32, 32, 5), Tensor.relu,
-        nn.BatchNorm(32), Tensor.max_pool2d,
-        nn.Conv2d(32, 64, 3), Tensor.relu,
-        nn.Conv2d(64, 64, 3), Tensor.relu,
-        nn.BatchNorm(64), Tensor.max_pool2d,
-        lambda x: x.flatten(1), nn.Linear(576, 10)]
+    layers = [
+      nn.Conv2d(1, 32, 5), Tensor.relu,
+      nn.Conv2d(32, 32, 5), Tensor.relu,
+      nn.BatchNorm(32), Tensor.max_pool2d,
+      nn.Conv2d(32, 64, 3), Tensor.relu,
+      nn.Conv2d(64, 64, 3), Tensor.relu,
+      nn.BatchNorm(64), Tensor.max_pool2d,
+      lambda x: x.flatten(1), nn.Linear(576, 10)]
 
-      # replace random weights with ones
-      Tensor.realize(*[p.replace(Tensor.ones_like(p).contiguous()) for p in nn.state.get_parameters(layers)])
+    # replace random weights with ones
+    Tensor.realize(*[p.replace(Tensor.ones_like(p).contiguous()) for p in nn.state.get_parameters(layers)])
 
-      # run model inference
-      probs = Tensor.rand(1, 1, 28, 28).sequential(layers).tolist()
-      self.assertEqual(len(probs[0]), 10)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    # run model inference
+    probs = Tensor.rand(1, 1, 28, 28).sequential(layers).tolist()
+    self.assertEqual(len(probs[0]), 10)
   # TODO: this is failing because of how swizzling rewrites the ShapeTracker of the final STORE
   def test_mnist_backward(self):
     # NOTE: we don't have the whole model here for speed
-    try:
-      layers = [
-        nn.Conv2d(1, 8, 5), Tensor.relu,
-        nn.Conv2d(8, 8, 5), Tensor.relu]
+    layers = [
+      nn.Conv2d(1, 8, 5), Tensor.relu,
+      nn.Conv2d(8, 8, 5), Tensor.relu]
 
-      # replace random weights with ones
-      Tensor.realize(*[p.replace(Tensor.ones_like(p).contiguous()) for p in nn.state.get_parameters(layers)])
+    # replace random weights with ones
+    Tensor.realize(*[p.replace(Tensor.ones_like(p).contiguous()) for p in nn.state.get_parameters(layers)])
 
-      # realize gradients
-      for x in nn.state.get_parameters(layers): x.requires_grad_()
-      Tensor.empty(4, 1, 14, 14).sequential(layers).sum().backward()
-      Tensor.realize(*[x.grad for x in nn.state.get_parameters(layers) if x.grad is not None])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    # realize gradients
+    for x in nn.state.get_parameters(layers): x.requires_grad_()
+    Tensor.empty(4, 1, 14, 14).sequential(layers).sum().backward()
+    Tensor.realize(*[x.grad for x in nn.state.get_parameters(layers) if x.grad is not None])
   # *** image ***
 
   def test_image(self):

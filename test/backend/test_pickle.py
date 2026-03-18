@@ -166,12 +166,6 @@ class TestPickleJIT(unittest.TestCase):
 
   def test_size(self):
     # confirm no intermediate buffers are saved
-    try:
-      self.assertLess(len(self.st), 1_000_000)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self.assertLess(len(self.st), 1_000_000)
 if __name__ == '__main__':
   unittest.main()

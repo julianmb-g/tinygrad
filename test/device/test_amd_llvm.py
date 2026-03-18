@@ -7,25 +7,18 @@ if Device.DEFAULT == "AMD":
 
 class TestAMDLLVM(unittest.TestCase):
   def test_compiler(self):
-    try:
-      src = '''
+    src = '''
   ; https://github.com/llvm/llvm-project/blob/main/llvm/test/CodeGen/AMDGPU/imm.ll
   define amdgpu_kernel void @i64_imm_inline_lo(ptr addrspace(1) %out) {
   entry:
     store i64 1311768464867721221, ptr addrspace(1) %out ; 0x1234567800000005
     ret void
   }
-      '''
-      compiler = AMDLLVMCompiler("gfx1100")
-      compiler.compile(src)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    '''
+    compiler = AMDLLVMCompiler("gfx1100")
+    compiler.compile(src)
   def test_compiler_diag_error(self):
-    try:
-      src = """
+    src = """
   @local_temp0 = internal unnamed_addr addrspace(3) global [{N} x float*] undef, align 16
   define amdgpu_kernel void @test(float* noalias align 32 %data0, half* noalias align 32 %data1, float* noalias align 32 %data2) #0
   {{
@@ -37,15 +30,10 @@ class TestAMDLLVM(unittest.TestCase):
     ret void
   }}
   """
-      compiler = AMDLLVMCompiler("gfx1100")
-      compiler.compile(src.format(N=65536//8))
-      with self.assertRaises(CompileError):
-        # llvm diagnostic: <unknown>:0:0: local memory (65544) exceeds limit (65536) in function 'test'
-        compiler.compile(src.format(N=65536//8+1))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    compiler = AMDLLVMCompiler("gfx1100")
+    compiler.compile(src.format(N=65536//8))
+    with self.assertRaises(CompileError):
+      # llvm diagnostic: <unknown>:0:0: local memory (65544) exceeds limit (65536) in function 'test'
+      compiler.compile(src.format(N=65536//8+1))
 if __name__ == '__main__':
   unittest.main()

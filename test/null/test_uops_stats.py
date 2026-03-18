@@ -22,103 +22,49 @@ def get_stats(x:Tensor):
 
 class TestMemoryCount(unittest.TestCase):
   def test_add(self):
-    try:
-      a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
-      b = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
-      _, mem = get_stats(a+b)
-      self.assertEqual(mem, 1024*1024*3)  # 2 reads + 1 write
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
+    b = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
+    _, mem = get_stats(a+b)
+    self.assertEqual(mem, 1024*1024*3)  # 2 reads + 1 write
   def test_add_const(self):
-    try:
-      a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
-      _, mem = get_stats(a+3)
-      self.assertEqual(mem, 1024*1024*2)  # 1 read + 1 write
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
+    _, mem = get_stats(a+3)
+    self.assertEqual(mem, 1024*1024*2)  # 1 read + 1 write
   def test_add_slice(self):
-    try:
-      a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)[:512]
-      _, mem = get_stats(a+3)
-      self.assertEqual(mem, 512*1024*2)  # 1 read + 1 write
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)[:512]
+    _, mem = get_stats(a+3)
+    self.assertEqual(mem, 512*1024*2)  # 1 read + 1 write
   def test_expanded(self):
-    try:
-      a = Tensor.empty(1024, 1, dtype=dtypes.uint8).expand(1024, 1024)
-      b = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
-      _, mem = get_stats(a+b)
-      self.assertEqual(mem, 1024*1024*2 + 1024)  # 1 full read + 1 lil read + 1 write
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1024, 1, dtype=dtypes.uint8).expand(1024, 1024)
+    b = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
+    _, mem = get_stats(a+b)
+    self.assertEqual(mem, 1024*1024*2 + 1024)  # 1 full read + 1 lil read + 1 write
   def test_both_expanded(self):
     # TODO: this probably should be a full write
-    try:
-      a = Tensor.empty(1024, 1, dtype=dtypes.uint8).expand(1024, 1024)
-      b = Tensor.empty(1024, 1, dtype=dtypes.uint8).expand(1024, 1024)
-      _, mem = get_stats(a+b)
-      # rangeify is smart!
-      self.assertEqual(mem, 1024 + 2*1024)  # 2 lil reads + 1 lil write
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1024, 1, dtype=dtypes.uint8).expand(1024, 1024)
+    b = Tensor.empty(1024, 1, dtype=dtypes.uint8).expand(1024, 1024)
+    _, mem = get_stats(a+b)
+    # rangeify is smart!
+    self.assertEqual(mem, 1024 + 2*1024)  # 2 lil reads + 1 lil write
   def test_self_add(self):
-    try:
-      a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
-      _, mem = get_stats(a+a)
-      self.assertEqual(mem, 1024*1024*2)  # 1 read + 1 write
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
+    _, mem = get_stats(a+a)
+    self.assertEqual(mem, 1024*1024*2)  # 1 read + 1 write
   def test_self_add_transposed(self):
-    try:
-      a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
-      _, mem = get_stats(a+a.T)
-      self.assertEqual(mem, 1024*1024*2)  # 1 read + 1 write
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1024, 1024, dtype=dtypes.uint8)
+    _, mem = get_stats(a+a.T)
+    self.assertEqual(mem, 1024*1024*2)  # 1 read + 1 write
   def test_self_add_assign(self):
-    try:
-      a = Tensor.empty(1024, 1024, dtype=dtypes.uint8).realize()
-      _, mem = get_stats(a.assign(a+a))
-      self.assertEqual(mem, 1024*1024*2)  # 1 read + 1 write
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(1024, 1024, dtype=dtypes.uint8).realize()
+    _, mem = get_stats(a.assign(a+a))
+    self.assertEqual(mem, 1024*1024*2)  # 1 read + 1 write
   def test_copyout(self):
-    try:
-      a = Tensor.empty(32, dtype=dtypes.uint8).to("CPU")
-      _, mem = get_stats(a)
-      self.assertEqual(mem, 32*1)
-      a = Tensor.empty(32, dtype=dtypes.uint32).to("CPU")
-      _, mem = get_stats(a)
-      self.assertEqual(mem, 32*4)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    a = Tensor.empty(32, dtype=dtypes.uint8).to("CPU")
+    _, mem = get_stats(a)
+    self.assertEqual(mem, 32*1)
+    a = Tensor.empty(32, dtype=dtypes.uint32).to("CPU")
+    _, mem = get_stats(a)
+    self.assertEqual(mem, 32*4)
 # NOTE: this still isn't testing unroll using the acc
 @unittest.skipUnless(Device.DEFAULT == "PYTHON", "only run test on emulated tensor cores")
 class TestUOpsStatsMatmulHalf(unittest.TestCase):
@@ -210,113 +156,59 @@ class TestStatsOptimized(unittest.TestCase):
   def check_gemm(self, p:ProgramSpec, extra_flops=0):
     #p.uops.print()
     #print(p.src)
-    try:
-      print(p.name, p.estimates.ops, p.estimates.mem, p.estimates.lds)
-      self.assertEqual(p.estimates.ops, 2*N*N*N + extra_flops)  # N**3 mulaccs
-      self.assertEqual(p.estimates.mem, 3*N*N*4) # 3 NxN mats with floats
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    print(p.name, p.estimates.ops, p.estimates.mem, p.estimates.lds)
+    self.assertEqual(p.estimates.ops, 2*N*N*N + extra_flops)  # N**3 mulaccs
+    self.assertEqual(p.estimates.mem, 3*N*N*4) # 3 NxN mats with floats
   def test_gemm(self):
-    try:
-      p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[])
-      self.check_gemm(p)
-      self.assertEqual(p.estimates.lds, 2*N*N*N*4 + 4*N*N)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[])
+    self.check_gemm(p)
+    self.assertEqual(p.estimates.lds, 2*N*N*N*4 + 4*N*N)
   def test_gemm_tc_unroll(self):
     try:
-      try:
-        p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.TC, 0, (-1, 0, 1)), Opt(OptOps.UNROLL, 0, 2)])
-      except KernelOptError:
-        raise unittest.SkipTest("no tensor cores")
-      print(p.src)
-      self.check_gemm(p)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+      p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.TC, 0, (-1, 0, 1)), Opt(OptOps.UNROLL, 0, 2)])
+    except KernelOptError:
+      raise unittest.SkipTest("no tensor cores")
+    print(p.src)
+    self.check_gemm(p)
   # this is a good lesson about why UPCASTing is a good idea
 
   def test_gemm_one_upcasted(self):
-    try:
-      p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.UPCAST, 0, 4)])
-      self.check_gemm(p)
-      self.assertEqual(p.estimates.lds, N*N*N*4 + N*N*N*4//4 + 4*N*N)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.UPCAST, 0, 4)])
+    self.check_gemm(p)
+    self.assertEqual(p.estimates.lds, N*N*N*4 + N*N*N*4//4 + 4*N*N)
   def test_gemm_upcasted(self):
-    try:
-      p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer,
-                      opts=[Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4)])
-      self.check_gemm(p)
-      self.assertEqual(p.estimates.lds, 2*N*N*N*4//4 + 4*N*N)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer,
+                    opts=[Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4)])
+    self.check_gemm(p)
+    self.assertEqual(p.estimates.lds, 2*N*N*N*4//4 + 4*N*N)
   def test_gemm_upcasted_locals(self):
     try:
-      try:
-        p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4),
-                                             Opt(OptOps.LOCAL, 0, 4),  Opt(OptOps.LOCAL, 1, 4)])
-      except KernelOptError:
-        raise unittest.SkipTest("no locals")
-      self.check_gemm(p)
-      self.assertEqual(p.estimates.lds, 2*N*N*N*4//4 + 4*N*N)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+      p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4),
+                                           Opt(OptOps.LOCAL, 0, 4),  Opt(OptOps.LOCAL, 1, 4)])
+    except KernelOptError:
+      raise unittest.SkipTest("no locals")
+    self.check_gemm(p)
+    self.assertEqual(p.estimates.lds, 2*N*N*N*4//4 + 4*N*N)
   def test_gemm_group(self):
     try:
-      try:
-        p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.GROUP, 0, 4)])
-      except KernelOptError:
-        raise unittest.SkipTest("no locals")
-      SZ = N*N*4
-      # NOTE: these are sort of wrong. they aren't honoring the IF statement
-      self.check_gemm(p, extra_flops=SZ*4)
-      self.assertEqual(p.estimates.lds, 2*N*N*N*4 + SZ*4 + (SZ*4 + 4*N*N)*4)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+      p = get_program(self.ast_gemm, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.GROUP, 0, 4)])
+    except KernelOptError:
+      raise unittest.SkipTest("no locals")
+    SZ = N*N*4
+    # NOTE: these are sort of wrong. they aren't honoring the IF statement
+    self.check_gemm(p, extra_flops=SZ*4)
+    self.assertEqual(p.estimates.lds, 2*N*N*N*4 + SZ*4 + (SZ*4 + 4*N*N)*4)
   def test_reduce(self):
-    try:
-      p = get_program(self.ast_reduce, renderer=Device[Device.DEFAULT].renderer, opts=[])
-      print(p.name, p.estimates.ops, p.estimates.mem, p.estimates.lds)
-      self.assertEqual(p.estimates.ops, N*N)
-      self.assertEqual(p.estimates.mem, N*N*4 + 4)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    p = get_program(self.ast_reduce, renderer=Device[Device.DEFAULT].renderer, opts=[])
+    print(p.name, p.estimates.ops, p.estimates.mem, p.estimates.lds)
+    self.assertEqual(p.estimates.ops, N*N)
+    self.assertEqual(p.estimates.mem, N*N*4 + 4)
   def test_reduce_group(self):
     try:
-      try:
-        p = get_program(self.ast_reduce, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.GROUP, 0, 50)])
-      except KernelOptError:
-        raise unittest.SkipTest("no locals")
-      # NOTE: these are wrong, they don't respect the if statement
-      print(p.name, p.estimates.ops, p.estimates.mem, p.estimates.lds)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+      p = get_program(self.ast_reduce, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(OptOps.GROUP, 0, 50)])
+    except KernelOptError:
+      raise unittest.SkipTest("no locals")
+    # NOTE: these are wrong, they don't respect the if statement
+    print(p.name, p.estimates.ops, p.estimates.mem, p.estimates.lds)
 if __name__ == '__main__':
   unittest.main(verbosity=2)

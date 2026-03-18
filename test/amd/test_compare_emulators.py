@@ -416,15 +416,9 @@ class TestTinygradKernels(unittest.TestCase):
   """Compare emulators on real tinygrad-compiled kernels."""
 
   def _test_kernel(self, op_fn, max_steps=10000):
-    try:
-      kernels, buf_pool, buf_data = get_kernels_from_tinygrad(op_fn)
-      ok, msg = compare_emulators_multi_kernel(kernels, buf_pool, max_steps=max_steps, buf_data=buf_data)
-      self.assertTrue(ok, msg)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    kernels, buf_pool, buf_data = get_kernels_from_tinygrad(op_fn)
+    ok, msg = compare_emulators_multi_kernel(kernels, buf_pool, max_steps=max_steps, buf_data=buf_data)
+    self.assertTrue(ok, msg)
   # Basic ops - consolidated tests covering key instruction patterns
   def test_unary_ops(self): self._test_kernel(lambda T: T([-1.0, 0.0, 1.0, 2.0]).relu().exp().log().sqrt().reciprocal())
   def test_binary_ops(self): self._test_kernel(lambda T: (T([1.0, 2.0]) + T([3.0, 4.0])) * T([0.5, 0.5]) - T([1.0, 1.0]))
@@ -453,13 +447,7 @@ class TestTinygradKernels(unittest.TestCase):
 
   # Pooling - regression for VCC wave32 mode
   def test_pool2d(self):
-    try:
-      self._test_kernel(lambda T: T.empty(1, 1, 8, 8).avg_pool2d(kernel_size=(4,4)) + T.empty(1, 1, 8, 8).max_pool2d(kernel_size=(4,4)))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    self._test_kernel(lambda T: T.empty(1, 1, 8, 8).avg_pool2d(kernel_size=(4,4)) + T.empty(1, 1, 8, 8).max_pool2d(kernel_size=(4,4)))
   # Convolution
   def test_conv2d(self): self._test_kernel(lambda T: T.empty(1, 2, 8, 8).conv2d(T.empty(2, 2, 3, 3)), max_steps=50000)
 
@@ -467,114 +455,54 @@ class TestTinygradKernels(unittest.TestCase):
   def test_topk(self): self._test_kernel(lambda T: T.empty(64).topk(3)[0])
   def test_interpolate(self): self._test_kernel(lambda T: T.empty(1,2,16,16).relu().cast('uint8').interpolate((8,8), mode="linear"))
   def test_index_int64(self):
-    try:
-      from tinygrad import dtypes
-      self._test_kernel(lambda T: T.empty(4, 4)[T.arange(4).cast(dtypes.int64), :])
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    from tinygrad import dtypes
+    self._test_kernel(lambda T: T.empty(4, 4)[T.arange(4).cast(dtypes.int64), :])
   def test_gelu(self): self._test_kernel(lambda T: T.empty(32, 32).gelu())
   def test_exp(self): self._test_kernel(lambda T: T.empty(1024).exp())
   def test_cross_entropy(self):
-    try:
-      import numpy as np
-      np.random.seed(0)
-      classes = np.random.randint(0, 10, (16,), dtype=np.int32).tolist()
-      x_np = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(16, 10).astype(np.float32)
-      self._test_kernel(lambda T: (T(x_np.tolist()).reshape(16,10) + 0).cross_entropy((T(classes).int().reshape(16) + 0)))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    import numpy as np
+    np.random.seed(0)
+    classes = np.random.randint(0, 10, (16,), dtype=np.int32).tolist()
+    x_np = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(16, 10).astype(np.float32)
+    self._test_kernel(lambda T: (T(x_np.tolist()).reshape(16,10) + 0).cross_entropy((T(classes).int().reshape(16) + 0)))
   def test_isinf(self): self._test_kernel(lambda T: T([float('-inf'), 0., float('inf'), 1.1]*8).isinf())
   def test_sin_f64(self):
-    try:
-      from tinygrad import dtypes
-      self._test_kernel(lambda T: T([2.0], dtype=dtypes.float64).sin())
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    from tinygrad import dtypes
+    self._test_kernel(lambda T: T([2.0], dtype=dtypes.float64).sin())
   def test_sin_large_f32(self):
-    try:
-      """Test sin with large values that trigger Payne-Hanek range reduction."""
-      # Values around 859240 trigger the Payne-Hanek algorithm
-      # This tests the integer multiply-high instructions used in range reduction
-      self._test_kernel(lambda T: T([859240.0, 1000000.0, 100594688.0]).sin())
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    """Test sin with large values that trigger Payne-Hanek range reduction."""
+    # Values around 859240 trigger the Payne-Hanek algorithm
+    # This tests the integer multiply-high instructions used in range reduction
+    self._test_kernel(lambda T: T([859240.0, 1000000.0, 100594688.0]).sin())
   def test_clip_zero_one(self):
-    try:
-      """Test clip(0, 1) - regression for binary_crossentropy failure."""
-      import numpy as np
-      np.random.seed(0)
-      x_np = np.random.uniform(-2, 2, (32, 10)).astype(np.float32).tolist()
-      self._test_kernel(lambda T: T(x_np).clip(0, 1))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    """Test clip(0, 1) - regression for binary_crossentropy failure."""
+    import numpy as np
+    np.random.seed(0)
+    x_np = np.random.uniform(-2, 2, (32, 10)).astype(np.float32).tolist()
+    self._test_kernel(lambda T: T(x_np).clip(0, 1))
   def test_mod_int64(self):
-    try:
-      """Test int64 modulo, especially edge cases like 1 % -1."""
-      from tinygrad import dtypes
-      self._test_kernel(lambda T: T([1, 10, -10, 7], dtype=dtypes.int64) % T([-1, 3, 3, -3], dtype=dtypes.int64))
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    """Test int64 modulo, especially edge cases like 1 % -1."""
+    from tinygrad import dtypes
+    self._test_kernel(lambda T: T([1, 10, -10, 7], dtype=dtypes.int64) % T([-1, 3, 3, -3], dtype=dtypes.int64))
   def test_expand_flatten_sum(self):
-    try:
-      """Test flatten of expanded tensor followed by sum.
-
-      Bug: flatten() of an expanded tensor produces wrong results for certain sizes.
-      Sizes that are multiples of 32 work (32, 48, 64), but sizes like 33, 49, 50 fail.
-      This breaks masked_select and nonzero operations.
-      """
-      import numpy as np
-      np.random.seed(0)
-      x_np = np.random.uniform(-2, 2, (33,)).astype(np.float32)
-      self._test_kernel(lambda T: (T(x_np.tolist()) > 0.5).unsqueeze(-1).expand(33, 3).flatten().sum())
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    """Test flatten of expanded tensor followed by sum.
 
   @unittest.skip("slow and broken with AMD:LLVM")
   def test_nonzero(self):
-    try:
-      """Test nonzero operation - counts and gathers indices of non-zero elements."""
-      import numpy as np
-      np.random.seed(42)
-      x_np = np.random.rand(10, 5, 3).astype(np.float32)
-      self._test_kernel(lambda T: (T(x_np.tolist()) > 0.5).nonzero())
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    """Test nonzero operation - counts and gathers indices of non-zero elements."""
+    import numpy as np
+    np.random.seed(42)
+    x_np = np.random.rand(10, 5, 3).astype(np.float32)
+    self._test_kernel(lambda T: (T(x_np.tolist()) > 0.5).nonzero())
   def test_softmax_argmax_fused(self):
-    try:
-      """Test fused softmax+argmax - tracks exp2 precision issue.
+    """Test fused softmax+argmax - tracks exp2 precision issue.
 
-      The fused kernel recomputes softmax inline and Python emulator's exp2 polynomial
-      has up to 1 ULP error vs native exp2f, causing accumulated differences.
-      """
-      import torch
-      torch.manual_seed(0)
-      x_np = torch.rand(4, 10).numpy()
-      self._test_kernel(lambda T: T(x_np.tolist()).softmax(1).argmax())
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    The fused kernel recomputes softmax inline and Python emulator's exp2 polynomial
+    has up to 1 ULP error vs native exp2f, causing accumulated differences.
+    """
+    import torch
+    torch.manual_seed(0)
+    x_np = torch.rand(4, 10).numpy()
+    self._test_kernel(lambda T: T(x_np.tolist()).softmax(1).argmax())
 if __name__ == "__main__":
   unittest.main()

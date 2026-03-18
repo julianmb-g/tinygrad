@@ -155,16 +155,10 @@ class TestSpeed(unittest.TestCase):
     helper_test_generic_square('partial_sum', 4096, f, f, onearg=True)
 
   def test_cumsum(self):
-    try:
-      def f0(a, b): return a.cumsum(axis=0)
-      def f1(a, b): return a.cumsum(axis=1)
-      helper_test_generic_square('cumsum_0', 256, f0, f0, onearg=True)
-      helper_test_generic_square('cumsum_1', 256, f1, f1, onearg=True)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
-
+    def f0(a, b): return a.cumsum(axis=0)
+    def f1(a, b): return a.cumsum(axis=1)
+    helper_test_generic_square('cumsum_0', 256, f0, f0, onearg=True)
+    helper_test_generic_square('cumsum_1', 256, f1, f1, onearg=True)
   def test_cat(self):
     helper_test_generic_square('cat_0', 2048, lambda x,y: torch.cat((x,y),dim=0), lambda x,y: x.cat(y,dim=0))
     helper_test_generic_square('cat_1', 2048, lambda x,y: torch.cat((x,y),dim=1), lambda x,y: x.cat(y,dim=1))
