@@ -1037,7 +1037,13 @@ class CoralNPURenderer(CStyleLanguage):
     threshold_check = f"if (({size}) > 28672) {{ WAIT_DMA_READY(); }}" if isinstance(size, int) else f"if (({ctx[size] if hasattr(size, 'op') else str(size)}) > 28672) {{ WAIT_DMA_READY(); }}"
     
     size_str = ctx[size] if hasattr(size, "op") else str(size)
-    return f"{threshold_check} for (int _dma_off = 0; _dma_off < ({size_str}); ) {{ int _dma_chunk = 4096 - ((((uintptr_t)({src})) + _dma_off) & 0xFFF); if (_dma_chunk > ({size_str}) - _dma_off) _dma_chunk = ({size_str}) - _dma_off; CORAL_DMA_ASYNC(((uint8_t*)({dest})) + _dma_off, ((uint8_t*)({src})) + _dma_off, _dma_chunk); _dma_off += _dma_chunk; }}"
+    return f"""{threshold_check}
+for (int _dma_off = 0; _dma_off < ({size_str}); ) {{
+  int _dma_chunk = 4096 - ((((uintptr_t)({src})) + _dma_off) & 0xFFF);
+  if (_dma_chunk > ({size_str}) - _dma_off) _dma_chunk = ({size_str}) - _dma_off;
+  CORAL_DMA_ASYNC(((uint8_t*)({dest})) + _dma_off, ((uint8_t*)({src})) + _dma_off, _dma_chunk);
+  _dma_off += _dma_chunk;
+}}"""
 
   string_rewrite = PatternMatcher([
     (UPat(Ops.DEFINE_LOCAL, name="x"), _define_local_rewrite),
