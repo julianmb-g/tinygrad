@@ -8,6 +8,7 @@ from hypothesis import given, settings
 from hypothesis import strategies as strat
 
 from test.helpers import needs_second_gpu
+from tinygrad.device import is_dtype_supported
 from tinygrad import Device, Tensor, TinyJit, Variable, dtypes, nn
 from tinygrad.engine.realize import CompiledRunner
 from tinygrad.helpers import getenv
@@ -273,14 +274,12 @@ class TestRandomness(unittest.TestCase):
     self.assertTrue(equal_distribution(Tensor.randn, torch.randn, lambda x: np.random.randn(*x)))
 
   def test_randn_device(self):
-    self.assertEqual(((Tensor.arange(9) % 10) * 0.1).reshape(3,3,device="CPU").device, "CPU")
+    self.assertEqual(Tensor.randn(3, 3, device="CPU").device, "CPU")
 
   @given(strat.sampled_from([dtypes.float, dtypes.float16, dtypes.bfloat16]))
   def test_randn_finite(self, default_float):
-    try:
-      Tensor.randn(10, 10, dtype=default_float).realize()
-    except (RuntimeError, NotImplementedError):
-      raise unittest.SkipTest("Unsupported hardware path or environment")
+    if not is_dtype_supported(default_float): raise unittest.SkipTest(f"dtype {default_float} is not supported")
+    Tensor.randn(10, 10, dtype=default_float).realize()
     old_default_float = dtypes.default_float
     # low precision can result in inf from randn
     dtypes.default_float = default_float

@@ -1,3 +1,4 @@
+import math
 import unittest
 from dataclasses import replace
 
@@ -29,7 +30,8 @@ from tinygrad.uop.ops import Ops
 
 def helper_tc_ensure_uops_and_opts_count(N: int, M:int, K:int, dtype_in:DType, dtype_out:DType, axis:int=0, tc_select:int=-1, tc_opt:int=0,
                                          ensure_triggered:bool=True):
-  a, b = Tensor.rand(M, K, dtype=dtype_in), Tensor.rand(K, N, dtype=dtype_in)
+  a = ((Tensor.arange(math.prod((M, K)), dtype=dtype_in) % 10) * 0.1).reshape(M, K)
+  b = ((Tensor.arange(math.prod((K, N)), dtype=dtype_in) % 10) * 0.1).reshape(K, N)
   r = a.matmul(b, dtype=dtype_out)
   sched = r.schedule()
   realized_ast = sched[-1].ast
@@ -48,7 +50,8 @@ def helper_tc_ensure_uops_and_opts_count(N: int, M:int, K:int, dtype_in:DType, d
     except KernelOptError: pass
 
 def helper_tc_allclose(N:int, M:int, K:int, dtype_in:DType, dtype_out:DType, axis:int=0, tc_select:int=-1, tc_opt:int=0, use_tensor_cores:int=1):
-  a, b = Tensor.rand(M, K, dtype=dtype_in), Tensor.rand(K, N, dtype=dtype_in)
+  a = ((Tensor.arange(math.prod((M, K)), dtype=dtype_in) % 10) * 0.1).reshape(M, K)
+  b = ((Tensor.arange(math.prod((K, N)), dtype=dtype_in) % 10) * 0.1).reshape(K, N)
   np_a, np_b = a.numpy(), b.numpy()
   r = a.matmul(b, dtype=dtype_out)
   if dtype_in == dtypes.bfloat16: r = r.float()
@@ -80,7 +83,8 @@ class TestTensorCores(unittest.TestCase):
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       n, m, k = tc.dims[0], tc.dims[1], 2 if AMX else tc.dims[2]
-      a, b = Tensor.rand(m, k, dtype=tc.dtype_in), Tensor.rand(k, n, dtype=tc.dtype_in)
+      a = ((Tensor.arange(math.prod((m, k)), dtype=tc.dtype_in) % 10) * 0.1).reshape(m, k)
+      b = ((Tensor.arange(math.prod((k, n)), dtype=tc.dtype_in) % 10) * 0.1).reshape(k, n)
       r = a.matmul(b, dtype=tc.dtype_out)
       prg = get_program(r.schedule()[-1].ast, Device[Device.DEFAULT].renderer, opts=[Opt(op=OptOps.TC, axis=0, arg=(-1, 2, 1))])
       if Device.DEFAULT == "CPU" and DEV.renderer == "LLVM":
@@ -139,8 +143,8 @@ class TestTensorCores(unittest.TestCase):
       # this will be a M=G16, N=G32, M=G16, M=G16, K=R16, K=R16, K=R16 with 9 choices of TC MNK axes
       golden_result = None
       for axis in range(9):
-        a = Tensor.rand(16, 16, 29, 29, dtype=tc.dtype_in).realize()
-        b = Tensor.rand(32, 16, 16, 16, dtype=tc.dtype_in).realize()
+        a = ((Tensor.arange(math.prod((16, 16, 29, 29)), dtype=tc.dtype_in) % 10) * 0.1).reshape(16, 16, 29, 29).realize()
+        b = ((Tensor.arange(math.prod((32, 16, 16, 16)), dtype=tc.dtype_in) % 10) * 0.1).reshape(32, 16, 16, 16).realize()
         c = a.conv2d(b, padding=1, dtype=tc.dtype_out)
         realized_ast, real_bufs = helper_realized_ast(c)
 
@@ -163,7 +167,8 @@ class TestTensorCores(unittest.TestCase):
   def test_tensor_cores_unroll_phi(self):
     if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     tc = Device[Device.DEFAULT].renderer.tensor_cores[0]
-    x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
+    x = ((Tensor.arange(math.prod((128, 64)), dtype=tc.dtype_in) % 10) * 0.1).reshape(128, 64)
+    y = ((Tensor.arange(math.prod((64, 128)), dtype=tc.dtype_in) % 10) * 0.1).reshape(64, 128)
     r = x.matmul(y, dtype=tc.dtype_out)
     opts = [Opt(OptOps.UNROLL, 0, 4)]
     ast = helper_linearizer_opt(r, [opts], apply_tc=True, atol=3e-2, rtol=1e-3)
@@ -175,7 +180,8 @@ class TestTensorCores(unittest.TestCase):
   def test_tensor_cores_unroll_casted_phi(self):
     if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     tc = [tc for tc in Device[Device.DEFAULT].renderer.tensor_cores if tc.dtype_in != tc.dtype_out][0]
-    x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
+    x = ((Tensor.arange(math.prod((128, 64)), dtype=tc.dtype_in) % 10) * 0.1).reshape(128, 64)
+    y = ((Tensor.arange(math.prod((64, 128)), dtype=tc.dtype_in) % 10) * 0.1).reshape(64, 128)
     r = x.matmul(y, dtype=tc.dtype_out)
     opts = [Opt(OptOps.UNROLL, 0, 4)]
     ast = helper_linearizer_opt(r, [opts], apply_tc=True, atol=3e-2, rtol=1e-3)
@@ -189,7 +195,8 @@ class TestTensorCores(unittest.TestCase):
     if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     # all STORE children are outside the loop
     tc = [tc for tc in Device[Device.DEFAULT].renderer.tensor_cores if tc.dtype_in != tc.dtype_out][0]
-    x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
+    x = ((Tensor.arange(math.prod((128, 64)), dtype=tc.dtype_in) % 10) * 0.1).reshape(128, 64)
+    y = ((Tensor.arange(math.prod((64, 128)), dtype=tc.dtype_in) % 10) * 0.1).reshape(64, 128)
     r = x.matmul(y, dtype=tc.dtype_out).relu()
     opts = [Opt(OptOps.UNROLL, 0, 4)]
     ast = helper_linearizer_opt(r, [opts], apply_tc=True, atol=3e-2, rtol=1e-3)
