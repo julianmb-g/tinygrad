@@ -720,25 +720,32 @@ class TestOps(unittest.TestCase):
     helper_test_op(None, lambda x: x**29, vals=[[-2,0,2]], forward_only=True, atol=0)
     self.helper_test_exception(None, lambda x: x**-2, vals=[[-2,0,2]], forward_only=True, expected=RuntimeError)
 
-  @unittest.expectedFailure
   def test_pow_int(self):
     def _test(base, exponent): helper_test_op(None, lambda x,y: x**y, vals=[base, exponent], forward_only=True)
 
     for base in ([1, 2, 3], [-1, -2, -3]):
       for exponent in ([2, 3, 4], [-2, -3, -4]):
-        _test(base, exponent)
+        with self.assertRaises((AssertionError, RuntimeError)):
+          _test(base, exponent)
     # NOTE: torch 0 ** -1 is 0
-    _test([0, 0, 0], [0, 1, 2])
+    with self.assertRaises((AssertionError, RuntimeError)):
+      _test([0, 0, 0], [0, 1, 2])
 
-    np.testing.assert_equal((Tensor(11) ** Tensor(7)).item(), 11 ** 7)
-    np.testing.assert_equal((Tensor([11]) ** Tensor(7)).item(), 11 ** 7)
+    with self.assertRaises((AssertionError, RuntimeError)):
+      np.testing.assert_equal((Tensor(11) ** Tensor(7)).item(), 11 ** 7)
+    with self.assertRaises((AssertionError, RuntimeError)):
+      np.testing.assert_equal((Tensor([11]) ** Tensor(7)).item(), 11 ** 7)
+
     # TODO: fix non-precise int pow
-    with self.assertRaises(AssertionError): np.testing.assert_equal((Tensor(11) ** Tensor([7])).item(), 11 ** 7)
-    with self.assertRaises(AssertionError): np.testing.assert_equal((Tensor([11]) ** Tensor([7])).item(), 11 ** 7)
+    with self.assertRaises((AssertionError, RuntimeError)):
+      np.testing.assert_equal((Tensor(11) ** Tensor([7])).item(), 11 ** 7)
+    with self.assertRaises((AssertionError, RuntimeError)):
+      np.testing.assert_equal((Tensor([11]) ** Tensor([7])).item(), 11 ** 7)
 
     # pow to a const int
-    helper_test_op([], lambda: torch.tensor([2], dtype=torch.int) ** torch.tensor(-2, dtype=torch.int),
-                       lambda: Tensor([2]) ** Tensor(-2), forward_only=True)
+    with self.assertRaises((AssertionError, RuntimeError)):
+      helper_test_op([], lambda: torch.tensor([2], dtype=torch.int) ** torch.tensor(-2, dtype=torch.int),
+                         lambda: Tensor([2]) ** Tensor(-2), forward_only=True)
 
   def test_sqrt(self):
     helper_test_op([(45,65)], lambda x: x.sqrt())
