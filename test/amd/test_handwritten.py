@@ -140,6 +140,8 @@ class TestIntegrationCDNA(IntegrationTestBase):
     import subprocess, unittest
     try:
       out = subprocess.check_output(["clang", "--print-supported-cpus", "--target=amdgcn-amd-amdhsa"], stderr=subprocess.STDOUT)
+    except FileNotFoundError:
+      raise unittest.SkipTest("clang not found")
     except subprocess.CalledProcessError as e:
       if b"cannot find ROCm device library" in e.output:
         raise unittest.SkipTest("ROCm device library not found")

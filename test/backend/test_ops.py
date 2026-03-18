@@ -1375,27 +1375,27 @@ class TestOps(unittest.TestCase):
   def test_matmul_batched_vector(self):
     helper_test_op([(4,3), (1,3,3,5)], lambda x,y: x.matmul(y), Tensor.dot)
   def test_small_gemm(self):
-    helper_test_op([(8,8), (8,8)], lambda x,y: x.matmul(y), lambda x,y: x@y)
+    helper_test_op([(8,12), (12,16)], lambda x,y: x.matmul(y), lambda x,y: x@y)
   def test_9_gemm(self):
-    helper_test_op([(9,9), (9,9)], lambda x,y: x.matmul(y), lambda x,y: x@y)
+    helper_test_op([(9,11), (11,13)], lambda x,y: x.matmul(y), lambda x,y: x@y)
   def test_small_gemm_padded(self):
-    helper_test_op([(9,9), (9,9)],
+    helper_test_op([(9,11), (11,13)],
                    lambda x,y: torch.nn.functional.pad(x, (0,7,0,7)).matmul(torch.nn.functional.pad(y, (0,7,0,7))),
                    lambda x,y: x.pad(((0,7),(0,7)))@y.pad(((0,7),(0,7))))
   def test_small_gemm_range(self):
-    helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[np.arange(0,64,dtype=np.float32).reshape(8,8),
-                                                                         np.arange(64,128,dtype=np.float32).reshape(8,8)])
+    helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[np.arange(0,8*12,dtype=np.float32).reshape(8,12),
+                                                                         np.arange(8*12,8*12+12*16,dtype=np.float32).reshape(12,16)])
   def test_small_gemm_eye(self):
-    helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[(np.arange(0,64,dtype=np.float32).reshape(8,8) * 0.1).astype(np.float32), (np.arange(0,64,dtype=np.float32).reshape(8,8) * 0.2).astype(np.float32)])
+    helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[(np.arange(0,8*12,dtype=np.float32).reshape(8,12) * 0.1).astype(np.float32), (np.arange(0,12*16,dtype=np.float32).reshape(12,16) * 0.2).astype(np.float32)])
   def test_gemm_fp16(self):
     val1 = ((np.arange(64*32, dtype=np.float32).reshape(64,32) % 10) * 0.1).astype(np.float32)
     val2 = ((np.arange(32*16, dtype=np.float32).reshape(32,16) % 12) * 0.2).astype(np.float32)
     helper_test_op(None, lambda x,y: x.half().matmul(y.half()), vals=[val1, val2], atol=5e-3, rtol=5e-3, grad_atol=5e-3, grad_rtol=5e-3)
   def test_gemm(self):
-    helper_test_op([(64,64), (64,64)], lambda x,y: x.matmul(y))
+    helper_test_op([(64,32), (32,16)], lambda x,y: x.matmul(y))
   @slow_test
   def test_big_gemm(self):
-    helper_test_op([(256,256), (256,256)], lambda x,y: x.matmul(y), atol=1e-4)
+    helper_test_op([(256,128), (128,64)], lambda x,y: x.matmul(y), atol=1e-4)
   def test_gemm_with_zeros_shape(self):
     helper_test_op([(8,8), (8,0)], lambda x,y: x.matmul(y), Tensor.dot, atol=1e-7)
     helper_test_op([(0,8), (8,8)], lambda x,y: x.matmul(y), Tensor.dot, atol=1e-7)
