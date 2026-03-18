@@ -113,6 +113,34 @@ def _init_worker():
 
 def _ensure_buffer_alloc(bufs:list[Buffer]) -> list[Buffer]: return [buf.ensure_allocated() if buf is not None else buf for buf in bufs]
 
+from collections import OrderedDict
+
+class UOpAstHash:
+  def __init__(self, hash_0: int, hash_1: int, hash_2: int, hash_3: int):
+    self.hash_0, self.hash_1, self.hash_2, self.hash_3 = hash_0, hash_1, hash_2, hash_3
+  def __eq__(self, other):
+    if not isinstance(other, UOpAstHash): return False
+    return self.hash_0 == other.hash_0 and self.hash_1 == other.hash_1 and self.hash_2 == other.hash_2 and self.hash_3 == other.hash_3
+  def __hash__(self):
+    return hash((self.hash_0, self.hash_1, self.hash_2, self.hash_3))
+
+class UOpMemoizationCache:
+  def __init__(self, max_capacity: int = 65536):
+    self.max_capacity = max_capacity
+    self.cache: OrderedDict[UOpAstHash, float] = OrderedDict()
+  def get_empirical_cycles(self, ast_hash: UOpAstHash) -> float | None:
+    if ast_hash in self.cache:
+      self.cache.move_to_end(ast_hash)
+      return self.cache[ast_hash]
+    return None
+  def insert(self, ast_hash: UOpAstHash, mcycles: float):
+    self.cache[ast_hash] = mcycles
+    self.cache.move_to_end(ast_hash)
+    if len(self.cache) > self.max_capacity:
+      self.cache.popitem(last=False)
+
+GLOBAL_MEMOIZATION_CACHE = UOpMemoizationCache()
+
 # *** external API ***
 
 # get dictionary of all possible actions
@@ -200,6 +228,14 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
           if getenv("BEAM_LOG_SURPASS_MAX"): print(f"too much compute. {this_compute_ops} when least is {least_compute_ops}")
           continue
         seen_libs.add(lib)
+        
+        h = hash(p.src) if p.src else hash(lib)
+        ast_hash = UOpAstHash(h & 0xFFFFFFFF, (h >> 32) & 0xFFFFFFFF, 0, 0)
+        cached_tms = GLOBAL_MEMOIZATION_CACHE.get_empirical_cycles(ast_hash)
+        if cached_tms is not None and not disable_cache:
+          timed.append((candidates[i], cached_tms))
+          continue
+
         try: tms = _time_program(p, lib, var_vals, rawbufs, early_stop=beam[0][1]*3 if len(beam) else 1.0,
                                  allow_test_size=allow_test_size, clear_l2=hasattr(dev, 'invalidate_caches'),
                                  dev_timeout=getenv("BEAM_DEV_TIMEOUT", 1))
@@ -207,7 +243,10 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
           if BEAM_DEBUG: print(f"BEAM failed for opts: {candidates[i].applied_opts}\n{e}")
           if isinstance(e, RuntimeError): continue
           raise
-        timed.append((candidates[i], min(tms)))
+        best_tm = min(tms)
+        if not disable_cache:
+          GLOBAL_MEMOIZATION_CACHE.insert(ast_hash, best_tm)
+        timed.append((candidates[i], best_tm))
         if BEAM_DEBUG > 1:
           print(f"{time.perf_counter() - st:7.2f}s: {i:5d} {len(unwrap(p.uops)):5d} uops",
                 f"{time_to_str(compile_et, w=12)} compile/{time_to_str(timed[-1][1], w=12)} run",
