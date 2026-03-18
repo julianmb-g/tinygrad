@@ -106,49 +106,19 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
-        import os
-        import tempfile
-        from unittest.mock import patch
+        from tinygrad.device import BufferSpec
         
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
-            with tempfile.TemporaryDirectory() as tmp_bin:
-                gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
-                sim_path = os.path.join(tmp_bin, "coralnpu_v2_sim")
-                
-                with open(gcc_path, 'w') as f:
-                    f.write("#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[-1], 'w') as out: out.write('dummy elf')\n")
-                
-                with open(sim_path, 'w') as f:
-                    f.write("#!/usr/bin/env python3\n"
-                            "import sys\n"
-                            "import multiprocessing.shared_memory\n"
-                            "from multiprocessing.resource_tracker import unregister\n"
-                            "shms = []\n"
-                            "vals = []\n"
-                            "for i, arg in enumerate(sys.argv):\n"
-                            "    if arg == '--shm': shms.append(sys.argv[i+1])\n"
-                            "    elif arg == '--val': vals.append(int(sys.argv[i+1]))\n"
-                            "if shms and len(vals) >= 2:\n"
-                            "    shm = multiprocessing.shared_memory.SharedMemory(name=shms[0])\n"
-                            "    val, size = vals[0], vals[1]\n"
-                            "    shm.buf[:size] = bytes([val] * size)\n"
-                            "    unregister(shm._name, 'shared_memory')\n"
-                            "    shm.close()\n"
-                            "sys.exit(0)\n")
-                
-                os.chmod(gcc_path, 0o755)
-                os.chmod(sim_path, 0o755)
-                old_path = os.environ.get("PATH", "")
-                
-                with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{old_path}"}):
-                    src = b"void write_success(void* ptr, int val, int size) { for(int i=0; i<size; i++) ((char*)ptr)[i] = val; }"
-                    program = CoralNPUProgram(self.device, "write_success", src)
-                    program(handle, vals=(65, 3), timeout=5.0)
-                    out = bytearray(3)
-                    self.allocator._copyout(memoryview(out).cast('B'), handle)
-                    self.assertEqual(bytes(out), b"AAA")
+            src = b"void write_success(void* ptr, int val, int size) { volatile char* vptr = (volatile char*)ptr; for(int i=0; i<size; i++) vptr[i] = val; }"
+            program = CoralNPUProgram(self.device, "write_success", src)
+            program(handle, vals=(65, 3), timeout=15.0)
+            out = bytearray(3)
+            self.allocator._copyout(memoryview(out).cast('B'), handle)
+            self.assertEqual(bytes(out), b"AAA")
+        except FileNotFoundError:
+            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
         finally:
             self.allocator._free(handle, dummy_options)
 
