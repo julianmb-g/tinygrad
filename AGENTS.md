@@ -52,3 +52,4 @@
 
 - **Global State Race Conditions**: In pytest environments running with parallel workers (`-n auto`), manual mutation of `os.environ` (e.g. `os.environ["PATH"] = ...`) causes severe race conditions between tests. Always use `unittest.mock.patch.dict("os.environ", {...})` to isolate environment changes to the specific test scope.
 - **Global Exception Swallowing (Test Evisceration)**: Wrapping entire test files or functions in `except (RuntimeError, Exception):` completely masks legitimate failures and deadlocks. Tests must organically evaluate and fail, or specifically catch expected exceptions.
+- **DTCM Decoupling & Max Upcast**: `max_upcast` must be decoupled from the raw 28KB DTCM bounds to allow `max_upcast=32` while ensuring `dtcm_peak` bounds tracking natively prevents overflows. Do not artificially clamp `max_upcast=28`.
