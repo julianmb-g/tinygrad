@@ -56,3 +56,4 @@
 ### Pytest Xdist IPC Deadlocks and Node Down Constraints
 - **OOM `node down` Crash vs IPC Deadlock**: The use of `pytest -n auto` on high-core count environments (e.g. 128 logical cores) can exhaust container memory leading to OOM-killer SIGKILLs that manifest identically to IPC deadlocks ("node down: Not properly terminated"). 
 - **Process Group Severing with pytest**: When implementing `os.setpgrp()` in test workers (`conftest.py`), use explicit `atexit` hooks to kill children of the severed group, and ALWAYS use `prctl(1, signal.SIGKILL)` in out-of-band simulators (`ops_coralnpu.py`) so they receive `SIGKILL` if the python orchestrator crashes unexpectedly.
+- **Global State Race Conditions via manual os.environ**: Never mutate `os.environ['PATH']` manually. This explicitly violates the `unittest.mock.patch.dict` constraint and causes race conditions during `pytest -n auto` worker execution.
