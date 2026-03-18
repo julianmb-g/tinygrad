@@ -1,13 +1,12 @@
 import math
 import os
 import struct
-import subprocess
 import tempfile
 import unittest
 from unittest.mock import MagicMock, patch
 
 from tinygrad.device import BufferSpec
-from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice, CoralNPUProgram
+from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUProgram
 
 
 def create_dummy_elf(path, padding=0x2000):

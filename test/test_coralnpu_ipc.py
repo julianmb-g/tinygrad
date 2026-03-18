@@ -1,16 +1,8 @@
-import hashlib
-import multiprocessing
-import multiprocessing.shared_memory
 import os
-import shutil
 import struct
-import subprocess
 import tempfile
-import time
 import unittest
 from unittest.mock import patch
-
-import numpy as np
 
 from tinygrad.device import BufferSpec
 from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice, CoralNPUProgram
@@ -117,9 +109,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
-        import os
-        import tempfile
-        import unittest.mock
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:

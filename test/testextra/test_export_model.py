@@ -6,9 +6,9 @@ from tinygrad import dtypes
 import json
 import unittest
 
-from extra.export_model import EXPORT_SUPPORTED_DEVICE, export_model
+from extra.export_model import export_model
 from tinygrad import dtypes
-from tinygrad.tensor import Device, Tensor
+from tinygrad.tensor import Tensor
 
 
 class MockMultiInputModel:

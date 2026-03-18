@@ -1,16 +1,15 @@
 import ctypes
 import functools
+import multiprocessing
+import multiprocessing.shared_memory
 import os
-import signal
+import re
+import struct
 import subprocess
 import tempfile
 import unittest
-import re
-import struct
-import multiprocessing
-import multiprocessing.shared_memory
 
-from tinygrad.device import Allocator, BufferSpec, Compiled, Compiler, CompilerSet
+from tinygrad.device import Allocator, BufferSpec, Compiled, CompilerSet
 from tinygrad.helpers import init_c_process_group
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 

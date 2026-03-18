@@ -1,6 +1,6 @@
 import unittest
 
-from tinygrad import Device, dtypes
+from tinygrad import dtypes
 from tinygrad.device import is_dtype_supported
 
 

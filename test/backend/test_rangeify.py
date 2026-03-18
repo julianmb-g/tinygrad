@@ -1,10 +1,8 @@
 import unittest
 
-from tinygrad import Device, Tensor, nn
+from tinygrad import Tensor, nn
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.helpers import DEBUG, PCONTIG, Context, GlobalCounters, getenv
-from tinygrad.renderer.nir import NIRRenderer
-from tinygrad.renderer.ptx import PTXRenderer
 from tinygrad.uop.ops import Ops, PatternMatcher, UPat, graph_rewrite
 
 

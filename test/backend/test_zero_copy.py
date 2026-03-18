@@ -1,7 +1,7 @@
 import time
 import unittest
 
-from tinygrad import Device, Tensor
+from tinygrad import Tensor
 
 
 def time_tensor_numpy(out:Tensor):

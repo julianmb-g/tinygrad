@@ -13,7 +13,7 @@ from tinygrad.device import Buffer, BufferSpec
 from tinygrad.engine.realize import CompiledRunner, get_program, get_runner
 from tinygrad.helpers import DEBUG, getenv, mv_address
 from tinygrad.runtime.autogen import libc
-from tinygrad.runtime.support.hcq import HCQBuffer, HCQCompiled
+from tinygrad.runtime.support.hcq import HCQBuffer
 from tinygrad.runtime.support.system import PCIIfaceBase
 
 MOCKGPU = getenv("MOCKGPU")

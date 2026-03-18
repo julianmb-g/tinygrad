@@ -7,7 +7,6 @@ import unittest
 
 from test.amd.disasm import disasm
 from test.amd.helpers import get_mattr, get_target, llvm_assemble, llvm_disasm
-from tinygrad import Device
 from tinygrad.renderer.amd import detect_format
 
 

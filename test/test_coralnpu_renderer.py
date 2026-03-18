@@ -29,7 +29,6 @@ from tinygrad.renderer.coralnpu import (
   extract_features,
   is_non_pow2,
   pm_scalarize_non_pow2,
-  scalarize_alu,
 )
 from tinygrad.tensor import Tensor
 from tinygrad.uop.ops import Ops, UOp

@@ -28,9 +28,7 @@ import numpy as np
 import torch
 
 from tinygrad import Tensor, dtypes, nn
-from tinygrad.device import Device
 from tinygrad.helpers import getenv
-from tinygrad.renderer.nir import NIRRenderer
 
 MOCKGPU = getenv("MOCKGPU")
 

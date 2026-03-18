@@ -7,13 +7,10 @@ import torch
 from hypothesis import given, settings
 from hypothesis import strategies as strat
 
-from test.helpers import needs_second_gpu, not_support_multi_device
+from test.helpers import needs_second_gpu
 from tinygrad import Device, Tensor, TinyJit, Variable, dtypes, nn
-from tinygrad.device import is_dtype_supported
 from tinygrad.engine.realize import CompiledRunner
-from tinygrad.helpers import CI, OSX, getenv
-from tinygrad.renderer.nir import NIRRenderer
-from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.helpers import getenv
 
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")

@@ -5,8 +5,7 @@ import unittest
 from typing_extensions import Callable
 
 from test.helpers import slow
-from tinygrad import Device, Tensor, dtypes, getenv
-from tinygrad.device import is_dtype_supported
+from tinygrad import Tensor, dtypes
 from tinygrad.engine.jit import TinyJit
 from tinygrad.uop.ops import UOp
 
