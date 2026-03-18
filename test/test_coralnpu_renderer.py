@@ -204,12 +204,11 @@ class TestCoralNPURenderer(unittest.TestCase):
     src = renderer.render(uops)
     src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
 
-    # We expect multiple CORAL_DMA_ASYNC calls for segmented AXI fetches
+    # We expect a runtime chunking loop for segmented AXI fetches
     self.assertIn("CORAL_DMA_ASYNC", src)
     self.assertIn("4096", src)
-    self.assertIn("904", src) # 5000 - 4096 = 904
-    dma_calls = src.count("CORAL_DMA_ASYNC")
-    self.assertGreaterEqual(dma_calls, 2, "DMA must be segmented into multiple AXI compliant bursts")
+    self.assertIn("& 0xFFF", src, "Must calculate offset to next physical 4KB boundary")
+    self.assertIn("for (int _dma_off = 0", src)
 
     # Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
