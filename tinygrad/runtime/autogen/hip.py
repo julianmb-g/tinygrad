@@ -1,10 +1,13 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
-from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
-from tinygrad.runtime.support import c
 import os
+from typing import Annotated, Literal, TypeAlias
+
+from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 dll = c.DLL('hip', os.getenv('ROCM_PATH', '/opt/rocm')+'/lib/libamdhip64.so')
 class ihipModuleSymbol_t(ctypes.Structure): pass
 hipFunction_t: TypeAlias = c.POINTER[ihipModuleSymbol_t]

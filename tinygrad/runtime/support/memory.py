@@ -1,6 +1,11 @@
-import collections, functools, dataclasses, enum
+import collections
+import dataclasses
+import enum
+import functools
 from typing import Any, ClassVar
-from tinygrad.helpers import round_up, getenv
+
+from tinygrad.helpers import getenv, round_up
+
 
 class BumpAllocator:
   def __init__(self, size:int, base:int=0, wrap:bool=True): self.size, self.ptr, self.base, self.wrap = size, 0, base, wrap

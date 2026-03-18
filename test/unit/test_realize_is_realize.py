@@ -1,6 +1,10 @@
-import tempfile, unittest
+import tempfile
+import unittest
+
 import numpy as np
-from tinygrad import Tensor, Device, dtypes, Variable
+
+from tinygrad import Device, Tensor, Variable, dtypes
+
 
 class TestRealizeIsRealized(unittest.TestCase):
   def test_list(self):

@@ -3,7 +3,9 @@
 Includes: v_pk_add_f16, v_pk_mul_f16, v_pk_fma_f16, v_pack_b32_f16, v_wmma_*, v_dot2_*
 """
 import unittest
+
 from test.amd.hw.helpers import *
+
 
 class TestPackInstructions(unittest.TestCase):
   """Tests for pack instructions."""

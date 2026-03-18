@@ -1,7 +1,9 @@
-import sys, pickle
+import pickle
+import sys
+
+from examples.test_onnx_imagenet import imagenet_dataloader
 from tinygrad import GlobalCounters
 from tinygrad.helpers import fetch, getenv
-from examples.test_onnx_imagenet import imagenet_dataloader
 
 if __name__ == "__main__":
   with open(fetch(sys.argv[1]), "rb") as f:

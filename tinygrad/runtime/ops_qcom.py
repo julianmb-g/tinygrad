@@ -1,5 +1,16 @@
 from __future__ import annotations
-import os, ctypes, functools, mmap, struct, array, math, sys, weakref, contextlib
+
+import array
+import contextlib
+import ctypes
+import functools
+import math
+import mmap
+import os
+import struct
+import sys
+import weakref
+
 assert sys.platform != 'win32'
 from typing import Any, cast
 from tinygrad.device import BufferSpec, Device
@@ -12,14 +23,15 @@ from tinygrad.helpers import getenv, mv_address, to_mv, round_up, data64_le, cei
 from tinygrad.helpers import next_power2, flatten, PROFILE
 from tinygrad.dtype import ImageDType, dtypes
 from tinygrad.runtime.support.system import System
+
 if getenv("IOCTL"): import extra.qcom_gpu_driver.opencl_ioctl  # noqa: F401  # pylint: disable=unused-import
 
 BUFTYPE_BUF, BUFTYPE_TEX, BUFTYPE_IBO = 0, 1, 2
 
 @functools.cache
 def dcache_flush():
-  from tinygrad.uop.ops import UOp, Ops, KernelInfo
   from tinygrad.codegen import get_program
+  from tinygrad.uop.ops import KernelInfo, Ops, UOp
   buf, n = UOp(Ops.PARAM, dtypes.uint8.ptr(), arg=0), UOp(Ops.PARAM, dtypes.uint8.ptr(), arg=1)
   i = UOp.range(n.cast(dtypes.int), 0, dtype=dtypes.int)
   flush = UOp(Ops.CUSTOM, dtypes.void, (buf.cast(dtypes.ulong) + i.cast(dtypes.ulong) * UOp.const(dtypes.ulong, 64),),

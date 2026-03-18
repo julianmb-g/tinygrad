@@ -1,10 +1,15 @@
+import hashlib
+import random
+import unittest
+
 from typing_extensions import Callable
-import hashlib, random, unittest
-from tinygrad import Tensor, Device, getenv, dtypes
+
 from test.helpers import slow
+from tinygrad import Device, Tensor, dtypes, getenv
 from tinygrad.device import is_dtype_supported
-from tinygrad.uop.ops import UOp
 from tinygrad.engine.jit import TinyJit
+from tinygrad.uop.ops import UOp
+
 
 class TestHashing(unittest.TestCase):
   def _python_hash_1mb(self, data:bytes):

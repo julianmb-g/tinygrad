@@ -1,10 +1,14 @@
+import math
+import unittest
 from typing import Callable
-import unittest, math
+
 import torch
+
 from tinygrad import Tensor
 from tinygrad.dtype import dtypes
-from tinygrad.uop.ops import UOp
 from tinygrad.gradient import compute_gradient
+from tinygrad.uop.ops import UOp
+
 
 class TestGradient(unittest.TestCase):
   def _cmp_nan_okay(self, x, y):

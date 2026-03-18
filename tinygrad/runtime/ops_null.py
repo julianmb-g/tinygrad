@@ -5,6 +5,8 @@ from tinygrad.renderer.cstyle import Renderer, CStyleLanguage, AMDHIPRenderer, Q
 from tinygrad.uop.ops import Ops
 from tinygrad.helpers import cpu_profile, EMULATE, NULL_ALLOW_COPYOUT
 from tinygrad.renderer.nir import IR3Renderer, NAKRenderer
+from tinygrad.uop.ops import Ops
+
 
 class NullRenderer(CStyleLanguage):
   device = "NULL"

@@ -1,4 +1,7 @@
-import os, sys, time, multiprocessing
+import multiprocessing
+import os
+import sys
+import time
 
 N = int(os.environ.get("NPROC", str(os.cpu_count())))
 DEVICE = os.environ.get("DEV", "AMD")

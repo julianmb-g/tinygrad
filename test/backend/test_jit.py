@@ -1,16 +1,20 @@
 #!/usr/bin/env python
-import unittest, functools
-import numpy as np
+import functools
+import unittest
 
-from hypothesis import given, settings, strategies as strat
-from test.helpers import assert_jit_cache_len, not_support_multi_device, needs_second_gpu
-from tinygrad.tensor import Tensor
-from tinygrad.engine.jit import TinyJit, JitError, GraphRunner, MultiGraphRunner, graph_class
-from tinygrad.engine.realize import CompiledRunner, BufferCopy, BufferXfer
-from tinygrad.device import Device
-from tinygrad.helpers import Context, JIT, GlobalCounters, getenv
-from tinygrad.dtype import dtypes
+import numpy as np
+from hypothesis import given, settings
+from hypothesis import strategies as strat
+
 from extra.models.unet import ResBlock
+from test.helpers import assert_jit_cache_len, needs_second_gpu, not_support_multi_device
+from tinygrad.device import Device
+from tinygrad.dtype import dtypes
+from tinygrad.engine.jit import GraphRunner, JitError, MultiGraphRunner, TinyJit, graph_class
+from tinygrad.engine.realize import BufferCopy, BufferXfer, CompiledRunner
+from tinygrad.helpers import JIT, Context, GlobalCounters, getenv
+from tinygrad.tensor import Tensor
+
 
 def _simple_test(add, extract=lambda x: x, N=10):
   for _ in range(5):

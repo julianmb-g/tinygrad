@@ -4,6 +4,7 @@ import unittest
 
 from tinygrad import Tensor
 
+
 class TestIndexing(unittest.TestCase):
   def test_single_int(self):
     v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)

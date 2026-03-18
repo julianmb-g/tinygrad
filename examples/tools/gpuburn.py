@@ -1,4 +1,4 @@
-from tinygrad import Tensor, Device, TinyJit, dtypes
+from tinygrad import Device, Tensor, TinyJit, dtypes
 from tinygrad.helpers import getenv
 
 GPUS = getenv("GPUS", 4) # TODO: expose a way in tinygrad to access this

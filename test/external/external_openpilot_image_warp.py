@@ -1,5 +1,6 @@
 import time
-from tinygrad.tensor import Tensor, Device
+
+from tinygrad.tensor import Device, Tensor
 
 MODEL_WIDTH = 512
 MODEL_HEIGHT = 256

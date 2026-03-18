@@ -1,9 +1,10 @@
 import unittest
 
-from tinygrad import Tensor, Device, dtypes
-from tinygrad.helpers import fetch, round_up
-from extra.hevc.hevc import parse_hevc_file_headers, nv_gpu
 from extra.hevc.decode import hevc_decode
+from extra.hevc.hevc import nv_gpu, parse_hevc_file_headers
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.helpers import fetch, round_up
+
 
 class TestHevc(unittest.TestCase):
   def test_hevc_parser(self):

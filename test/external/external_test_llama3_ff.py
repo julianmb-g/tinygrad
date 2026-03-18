@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from tinygrad import Tensor, TinyJit, nn
 from extra.models.llama import FeedForward
+from tinygrad import Tensor, TinyJit, nn
 
 if __name__ == "__main__":
   model = FeedForward(4096, 14336)

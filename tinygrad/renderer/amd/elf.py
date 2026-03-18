@@ -1,14 +1,15 @@
 # minimal amdgpu elf packer
 import ctypes
+
 from tinygrad.helpers import ceildiv, round_up
-from tinygrad.uop.ops import UOp, Ops
+from tinygrad.renderer.amd.dsl import FixedBitField, Reg
 from tinygrad.runtime.autogen import amdgpu_kd, hsa, libc
-from tinygrad.renderer.amd.dsl import Reg, FixedBitField
+from tinygrad.runtime.autogen.amd.cdna.ins import s_nop as s_nop_cdna
 from tinygrad.runtime.autogen.amd.common import OpType
 
 # instructions used for padding
-from tinygrad.runtime.autogen.amd.rdna3.ins import s_code_end # same encoding as RDNA4
-from tinygrad.runtime.autogen.amd.cdna.ins import s_nop as s_nop_cdna
+from tinygrad.runtime.autogen.amd.rdna3.ins import s_code_end  # same encoding as RDNA4
+from tinygrad.uop.ops import Ops, UOp
 
 _arch_map = {"gfx9": "cdna", "gfx10": "rdna3", "gfx11": "rdna3", "gfx12": "rdna4"}
 def do_assemble_amd(ctx, prg:UOp, lin:UOp) -> UOp:

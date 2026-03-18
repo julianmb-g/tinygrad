@@ -1,17 +1,25 @@
-import ctypes, hashlib, tempfile, subprocess, pathlib, shutil
-from tinygrad.helpers import system, getenv
+import ctypes
+import hashlib
+import pathlib
+import shutil
+import subprocess
+import tempfile
+
+from tinygrad.helpers import getenv, system
 from tinygrad.runtime.autogen import comgr
+
 try:
   comgr.amd_comgr_get_version(ctypes.byref(major:=ctypes.c_uint64()), ctypes.byref(minor:=ctypes.c_uint64()))
   if major.value >= 3:
     # in comgr 3 the values of enums in headers were changed: https://github.com/ROCm/llvm-project/issues/272
-    import tinygrad.runtime.autogen.comgr_3 as comgr # type: ignore[no-redef]
+    import tinygrad.runtime.autogen.comgr_3 as comgr  # type: ignore[no-redef]
     assert comgr.AMD_COMGR_LANGUAGE_HIP == 3
 except AttributeError: pass  # ignore if ROCm isn't installed
-from tinygrad.device import Compiler, CompileError
-from tinygrad.runtime.support.compiler_cpu import LLVMCompiler
-from tinygrad.runtime.support import c
+from tinygrad.device import CompileError, Compiler
 from tinygrad.helpers import OSX, to_char_p_p
+from tinygrad.runtime.support import c
+from tinygrad.runtime.support.compiler_cpu import LLVMCompiler
+
 
 def _find_llvm_objdump():
   if OSX: return '/opt/homebrew/opt/llvm/bin/llvm-objdump'

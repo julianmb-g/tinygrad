@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 import os
+
 os.environ['USE_TF'] = '0'  # prevent transformers from importing tensorflow
 import unittest
-from tinygrad import Tensor
+
 import numpy as np
 import torch
+
+from tinygrad import Tensor
+
 
 def get_question_samp(bsz, seq_len, vocab_size, seed):
   np.random.seed(seed)
@@ -24,9 +28,10 @@ def set_equal_weights(mdl, torch_mdl):
 
 class TestBert(unittest.TestCase):
   def test_questions(self):
-    from extra.models.bert import BertForQuestionAnswering
-    from transformers import BertForQuestionAnswering as TorchBertForQuestionAnswering
     from transformers import BertConfig
+    from transformers import BertForQuestionAnswering as TorchBertForQuestionAnswering
+
+    from extra.models.bert import BertForQuestionAnswering
 
     # small
     config = {

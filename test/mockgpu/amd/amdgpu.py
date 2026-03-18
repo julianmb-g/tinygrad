@@ -1,12 +1,15 @@
-import ctypes, time
+import ctypes
+import time
+
 from test.mockgpu.gpu import VirtGPU
 from test.mockgpu.helpers import _try_dlopen_remu
-from tinygrad.helpers import getbits, to_mv, getenv
+from tinygrad.helpers import getbits, getenv, to_mv
 from tinygrad.runtime.support import c
 
 MOCKGPU_ARCH = getenv("MOCKGPU_ARCH", "rdna3")
 GFX_TARGET_VERSION = {"rdna3": 110000, "rdna4": 120000, "cdna4": 90500}[MOCKGPU_ARCH]
-import tinygrad.runtime.autogen.amd_gpu as amd_gpu, tinygrad.runtime.autogen.am.pm4_nv as pm4
+import tinygrad.runtime.autogen.am.pm4_nv as pm4
+import tinygrad.runtime.autogen.amd_gpu as amd_gpu
 
 SDMA_MAX_COPY_SIZE = 0x400000
 

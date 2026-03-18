@@ -1,21 +1,29 @@
-import os, time, struct, functools, unittest
+import functools
+import os
+import struct
+import time
+import unittest
 from typing import Any, Callable
+
 import numpy as np
-from tinygrad import Tensor, dtypes, Device
-from tinygrad.uop.ops import UOp, Ops, KernelInfo
-from tinygrad.tensor import _to_np_dtype
-from tinygrad.engine.realize import Runner, get_program
-from tinygrad.dtype import DType
-from tinygrad.nn.state import get_parameters
-from tinygrad.helpers import T, CI
-from tinygrad.renderer import Renderer
+
+from tinygrad import Device, Tensor, dtypes
 from tinygrad.codegen import full_rewrite_to_sink, line_rewrite, pm_linearize_cleanups
 from tinygrad.codegen.late.linearizer import linearize
+from tinygrad.dtype import DType
+from tinygrad.engine.realize import Runner, get_program
+from tinygrad.helpers import CI, T
+from tinygrad.nn.state import get_parameters
+from tinygrad.renderer import Renderer
+from tinygrad.tensor import _to_np_dtype
+from tinygrad.uop.ops import KernelInfo, Ops, UOp
+
 
 # decorator to skip slow tests by default, run with RUN_SLOW=1 to include them
 def slow(fn):
   return unittest.skipUnless(os.getenv("RUN_SLOW", "0") == "1", "slow test requires RUN_SLOW=1")(fn)
-from tinygrad.runtime.ops_python import PythonProgram, PythonRenderer, PythonCompiler
+from tinygrad.runtime.ops_python import PythonCompiler, PythonProgram, PythonRenderer
+
 
 def get_uops(sink:UOp, ren:Renderer|None=None) -> list[UOp]:
   """Extract linearized UOps from a sink. Test helper that only does linearization (no render)."""

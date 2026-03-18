@@ -1,9 +1,11 @@
 import unittest
 from unittest.mock import patch
+
 from tinygrad import Device
 from tinygrad.device import Buffer
 from tinygrad.dtype import dtypes
-from tinygrad.runtime.ops_cl import CLDevice, CLAllocator, CLCompiler, CLProgram
+from tinygrad.runtime.ops_cl import CLAllocator, CLCompiler, CLDevice, CLProgram
+
 
 class TestCLCompileCache(unittest.TestCase):
   def test_compile_cached(self):

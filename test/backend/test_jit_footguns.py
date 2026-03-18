@@ -22,10 +22,13 @@ ERRORS RAISED (lower priority - at least users know):
   nested_jit_fails_on_second_call    MED    could fail on first call instead of second
 """
 import unittest
+
 import numpy as np
-from tinygrad import Tensor, TinyJit, Device
+
+from tinygrad import Device, Tensor, TinyJit
 from tinygrad.engine.jit import JitError
 from tinygrad.helpers import JIT
+
 
 class TestJitFootguns(unittest.TestCase):
 

@@ -1,5 +1,7 @@
 from typing import Self
+
 from tinygrad.dtype import DType, dtypes
+
 
 class DTypeMixin:
   @property

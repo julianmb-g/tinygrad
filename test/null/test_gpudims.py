@@ -1,4 +1,6 @@
-import unittest, math
+import math
+import unittest
+
 import z3
 from tinygrad.codegen.gpudims import get_grouped_dims, add_gpudims
 from tinygrad.uop.ops import UOp, Ops, KernelInfo, AxisType

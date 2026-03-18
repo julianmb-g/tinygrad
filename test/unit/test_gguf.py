@@ -1,9 +1,13 @@
-import os, struct, unittest
-from tinygrad import dtypes, Tensor, fetch, Device
-from tinygrad.nn.state import ggml_data_to_tensor, gguf_load
-from tinygrad.device import is_dtype_supported
+import os
+import struct
+import unittest
+
 import numpy as np
-from gguf import GGUFReader, GGUFValueType, GGMLQuantizationType, GGML_QUANT_SIZES, dequantize, quantize
+from gguf import GGML_QUANT_SIZES, GGMLQuantizationType, GGUFReader, GGUFValueType, dequantize, quantize
+
+from tinygrad import Device, Tensor, dtypes, fetch
+from tinygrad.device import is_dtype_supported
+from tinygrad.nn.state import ggml_data_to_tensor, gguf_load
 
 ggml_test_block_count = 4
 

@@ -4,6 +4,9 @@ from tinygrad import nn, dtypes, Device, Tensor
 from tinygrad.uop.ops import UOp, Ops, GroupOp, UPat
 from tinygrad.helpers import DEBUG, GlobalCounters, Context
 from tinygrad.engine.realize import CompiledRunner, run_schedule
+from tinygrad.helpers import DEBUG, Context, GlobalCounters
+from tinygrad.uop.ops import GroupOp, Ops, UOp, UPat
+
 
 class KernelCountException(Exception): pass
 def check_schedule(t:Tensor|list[Tensor]|UOp, allowed:int, to_prerealize:list[Tensor]|None=None, filter_sink=True):

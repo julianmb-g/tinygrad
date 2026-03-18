@@ -1,5 +1,17 @@
 from __future__ import annotations
-from dataclasses import dataclass, replace
+
+import atexit
+import contextlib
+import decimal
+import functools
+import importlib
+import inspect
+import os
+import pathlib
+import pickle
+import platform
+import re
+import sys
 from collections import defaultdict
 from typing import Any, Generic, TypeVar, Iterator, Generator, TYPE_CHECKING
 import importlib, inspect, functools, pathlib, os, platform, contextlib, sys, re, atexit, pickle, decimal
@@ -366,7 +378,7 @@ if PROFILE:
       launch_viz("PROFILE", fn)
 
 def enumerate_devices_str() -> Generator[str, None, None]:
-  from tinygrad import Tensor, Device
+  from tinygrad import Device, Tensor
 
   for device in ALL_DEVICES:
     compilers_results, any_works = [], False

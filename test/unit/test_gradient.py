@@ -1,7 +1,10 @@
 import unittest
+
 import numpy as np
+
 from tinygrad import Tensor
 from tinygrad.dtype import dtypes
+
 
 class TestTensorGradient(unittest.TestCase):
   def test_example(self):

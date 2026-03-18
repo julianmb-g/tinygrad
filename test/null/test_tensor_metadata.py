@@ -1,9 +1,11 @@
 import unittest
+
 from tinygrad import Tensor, dtypes
-from tinygrad.tensor import _METADATA
 from tinygrad.engine.realize import capturing
 from tinygrad.engine.schedule import linear_to_schedule
 from tinygrad.helpers import Context
+from tinygrad.tensor import _METADATA
+
 
 class TestTensorMetadata(unittest.TestCase):
   def setUp(self) -> None:

@@ -144,6 +144,8 @@ class EnumBitField(BitField):
 # ══════════════════════════════════════════════════════════════
 
 import struct
+
+
 def _f32(f: float) -> int: return struct.unpack('I', struct.pack('f', f))[0]
 
 class SrcField(BitField):
@@ -236,9 +238,11 @@ class VDSTYField(BitField):
 # ══════════════════════════════════════════════════════════════
 
 import functools
+
+from tinygrad.runtime.autogen.amd.cdna.operands import OPERANDS as OPERANDS_CDNA
 from tinygrad.runtime.autogen.amd.rdna3.operands import OPERANDS as OPERANDS_RDNA3
 from tinygrad.runtime.autogen.amd.rdna4.operands import OPERANDS as OPERANDS_RDNA4
-from tinygrad.runtime.autogen.amd.cdna.operands import OPERANDS as OPERANDS_CDNA
+
 OPERANDS = {**OPERANDS_CDNA, **OPERANDS_RDNA3, **OPERANDS_RDNA4}
 
 # ══════════════════════════════════════════════════════════════

@@ -1,12 +1,14 @@
-from typing import cast, Callable
 import struct
 from collections import defaultdict
+from typing import Callable, cast
+
 from tinygrad.codegen.opt import tc
-from tinygrad.uop.ops import Ops, UOp, PatternMatcher, UPat, GroupOp
-from tinygrad.dtype import dtypes, DType, PtrDType, AddrSpace
+from tinygrad.dtype import AddrSpace, DType, PtrDType, dtypes
+from tinygrad.helpers import flatten, get_single_element, prod, unwrap
 from tinygrad.renderer import Renderer
 from tinygrad.renderer.cstyle import CUDARenderer
-from tinygrad.helpers import flatten, get_single_element, prod, unwrap
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat
+
 
 def render_val(x, dtype):
   if dtypes.is_float(dtype):

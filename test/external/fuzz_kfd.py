@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import random
-from tqdm import trange
 from typing import List
+
+from tqdm import trange
+
 from tinygrad import Device
 from tinygrad.runtime.ops_amd import AMDDevice, HWQueue
 

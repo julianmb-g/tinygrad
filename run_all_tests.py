@@ -1,6 +1,8 @@
-import pytest
-import sys
 import os
+import sys
+
+import pytest
+
 
 def should_ignore(path):
     if not path.endswith(".py"): return False
@@ -18,7 +20,7 @@ def should_ignore(path):
 if __name__ == "__main__":
     base_dir = os.path.dirname(__file__)
     test_dir = os.path.join(base_dir, "test")
-    
+
     ignore_args = []
     for root, dirs, files in os.walk(test_dir):
         for file in files:
@@ -29,9 +31,9 @@ if __name__ == "__main__":
     ignore_dirs = ["models", "testextra", "null", "unit"]
     for d in ignore_dirs:
         ignore_args.append(f"--ignore={os.path.join(test_dir, d)}")
-    
+
     # Use -n auto for parallel execution if xdist is available
     args = [test_dir] + ignore_args
-    
+
     print(f"Running pytest with {len(ignore_args)} ignore args")
     sys.exit(pytest.main(args))

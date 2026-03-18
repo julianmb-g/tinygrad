@@ -1,13 +1,16 @@
-import random, ctypes
+import ctypes
+import random
+
 import numpy as np
+
 from tinygrad.device import Buffer, Device
-from tinygrad.helpers import Context, getenv, from_mv
 from tinygrad.dtype import dtypes
-from tinygrad.tensor import Tensor, _to_np_dtype
+from tinygrad.engine.jit import apply_graph_to_jit
 from tinygrad.engine.realize import BufferXfer, get_runner
 from tinygrad.engine.schedule import ExecItem
-from tinygrad.uop.ops import UOp, Ops
-from tinygrad.engine.jit import apply_graph_to_jit
+from tinygrad.helpers import Context, from_mv, getenv
+from tinygrad.tensor import Tensor, _to_np_dtype
+from tinygrad.uop.ops import Ops, UOp
 
 BUF_LEN = getenv("BUF_LEN", 128)
 

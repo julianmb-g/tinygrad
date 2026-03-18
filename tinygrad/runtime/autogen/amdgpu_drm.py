@@ -1,9 +1,12 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
+
 from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 drm_handle_t: TypeAlias = Annotated[int, ctypes.c_uint32]
 drm_context_t: TypeAlias = Annotated[int, ctypes.c_uint32]
 drm_drawable_t: TypeAlias = Annotated[int, ctypes.c_uint32]

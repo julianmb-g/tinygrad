@@ -1,6 +1,13 @@
-import ctypes, itertools, re, functools, os, keyword
+import ctypes
+import functools
+import itertools
+import keyword
+import os
+import re
+
+import tinygrad.runtime.autogen.libclang as clang  # use REGEN=1 to regenerate libclang bindings
 from tinygrad.helpers import unwrap
-import tinygrad.runtime.autogen.libclang as clang # use REGEN=1 to regenerate libclang bindings
+
 
 def unwrap_cursor(c: clang.CXCursor) -> clang.CXCursor:
   assert c != clang.clang_getNullCursor()

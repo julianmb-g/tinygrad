@@ -1,5 +1,7 @@
 import unittest
+
 from tinygrad import Tensor
+
 
 class TestLoadStore(unittest.TestCase):
   def test_load_shape(self):

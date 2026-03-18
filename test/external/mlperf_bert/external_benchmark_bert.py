@@ -1,12 +1,12 @@
-import unittest, time
-
-from tinygrad import Tensor, TinyJit, GlobalCounters, Device
-from tinygrad.helpers import getenv, Context
-from tinygrad.nn.optim import LAMB
-from tinygrad.nn.state import get_parameters
-from tinygrad.engine.realize import run_schedule
+import time
+import unittest
 
 from extra.models import bert
+from tinygrad import Device, GlobalCounters, Tensor, TinyJit
+from tinygrad.engine.realize import run_schedule
+from tinygrad.helpers import Context, getenv
+from tinygrad.nn.optim import LAMB
+from tinygrad.nn.state import get_parameters
 
 bs = getenv("BS", 16)
 seq_len = getenv("SEQ_LEN", 512)

@@ -1,11 +1,25 @@
-from typing import Iterator
-import functools, itertools
+import functools
+import itertools
 from dataclasses import dataclass, field
-from tinygrad.dtype import dtypes, AddrSpace
-from tinygrad.uop.ops import PatternMatcher, UPat, Ops, UOp, resolve, GroupOp, graph_rewrite, sint, AxisType, profile_matches
-from tinygrad.uop.ops import consumer_map_from_toposort, gate_kernel_sink
-from tinygrad.uop.symbolic import symbolic, pm_simplify_valid, pm_drop_and_clauses
-from tinygrad.helpers import argsort, all_same, cpu_profile, PCONTIG, colored
+from typing import Iterator
+
+from tinygrad.dtype import AddrSpace, dtypes
+from tinygrad.helpers import PCONTIG, all_same, argsort, colored, cpu_profile
+from tinygrad.uop.ops import (
+  AxisType,
+  GroupOp,
+  Ops,
+  PatternMatcher,
+  UOp,
+  UPat,
+  consumer_map_from_toposort,
+  gate_kernel_sink,
+  graph_rewrite,
+  profile_matches,
+  resolve,
+  sint,
+)
+from tinygrad.uop.symbolic import pm_drop_and_clauses, pm_simplify_valid, symbolic
 
 ALWAYS_CONTIGUOUS: set[Ops] = {Ops.CONTIGUOUS, Ops.AFTER, Ops.COPY, Ops.BUFFER, Ops.BUFFER_VIEW,
                      Ops.CONST, Ops.BIND, Ops.DEVICE, Ops.MSELECT, Ops.MSTACK, Ops.PARAM,

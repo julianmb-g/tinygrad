@@ -1,6 +1,8 @@
 import unittest
-from tinygrad import dtypes, Device
+
+from tinygrad import Device, dtypes
 from tinygrad.device import is_dtype_supported
+
 
 class TestNULLSupportsDTypes(unittest.TestCase):
   def test_null_supports_ints_floats_bool(self):

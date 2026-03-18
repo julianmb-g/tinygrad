@@ -1,8 +1,14 @@
-import unittest, ctypes, struct, time, array
+import array
+import ctypes
+import struct
+import time
+import unittest
+
 from tinygrad import Device, Tensor, dtypes
-from tinygrad.helpers import to_mv, CI
 from tinygrad.device import Buffer, BufferSpec
 from tinygrad.engine.realize import get_runner
+from tinygrad.helpers import CI, to_mv
+
 
 def _time_queue(q, d):
   st = time.perf_counter()
@@ -31,11 +37,11 @@ class TestHCQ(unittest.TestCase):
     ctypes.memmove(TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size+TestHCQ.kernargs_off, TestHCQ.addr2, len(TestHCQ.addr2))
 
     if Device.DEFAULT == "AMD":
-      from tinygrad.runtime.ops_amd import HWQueue, HWPM4Queue
+      from tinygrad.runtime.ops_amd import HWPM4Queue, HWQueue
       TestHCQ.compute_queue = HWPM4Queue
       TestHCQ.copy_queue = HWQueue
     elif Device.DEFAULT == "NV":
-      from tinygrad.runtime.ops_nv import HWQueue, HWQueue
+      from tinygrad.runtime.ops_nv import HWQueue
       # nv need to copy constbuffer there as well
       to_mv(TestHCQ.d0.kernargs_ptr, 0x160).cast('I')[:] = array.array('I', TestHCQ.runner._prg.constbuffer_0)
       to_mv(TestHCQ.d0.kernargs_ptr+TestHCQ.kernargs_size, 0x160).cast('I')[:] = array.array('I', TestHCQ.runner._prg.constbuffer_0)

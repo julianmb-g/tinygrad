@@ -1,7 +1,10 @@
-import unittest, contextlib
-from tinygrad import Device, Tensor, Context, TinyJit
-from tinygrad.device import Compiled, ProfileProgramEvent, ProfileDeviceEvent
+import contextlib
+import unittest
+
+from tinygrad import Context, Device, Tensor, TinyJit
+from tinygrad.device import Compiled, ProfileDeviceEvent, ProfileProgramEvent
 from tinygrad.viz.serve import load_amd_counters
+
 
 @contextlib.contextmanager
 def save_sqtt():

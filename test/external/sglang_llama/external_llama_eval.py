@@ -1,13 +1,16 @@
+import argparse
+import json
+from pathlib import Path
+
 from lm_eval import simple_evaluate
 from lm_eval.api.instance import Instance
 from lm_eval.api.model import LM
 from lm_eval.tasks import TaskManager
-from pathlib import Path
-import json, argparse
 
-from examples.llama3 import build_transformer, Tokenizer, MODEL_PARAMS
-from tinygrad import Tensor, Device
+from examples.llama3 import MODEL_PARAMS, Tokenizer, build_transformer
+from tinygrad import Device, Tensor
 from tinygrad.helpers import tqdm
+
 
 class LLaMaAdaptor(LM):
   def __init__(

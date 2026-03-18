@@ -4,6 +4,7 @@ Includes: s_load_b32, s_load_b64, s_load_b128, s_load_b256, s_load_b512
 Tests both immediate and register offset addressing modes.
 """
 import unittest
+
 from test.amd.hw.helpers import *
 
 # Use offset into output buffer for test data (output buffer is 2124 bytes)

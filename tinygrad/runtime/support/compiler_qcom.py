@@ -1,4 +1,6 @@
-import ctypes, struct
+import ctypes
+import struct
+
 from tinygrad.device import Compiler
 from tinygrad.helpers import DEBUG, system
 from tinygrad.runtime.support.compiler_mesa import disas_adreno

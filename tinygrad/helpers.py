@@ -1,7 +1,34 @@
 from __future__ import annotations
+
 import time
+
 START_TIME = time.perf_counter()
-import os, functools, platform, re, contextlib, operator, hashlib, pickle, sqlite3, tempfile, pathlib, string, ctypes, sys, gzip, getpass, gc
+import contextlib
+import copyreg
+import ctypes
+import decimal
+import functools
+import gc
+import getpass
+import gzip
+import hashlib
+import importlib
+import inspect
+import itertools
+import math
+import operator
+import os
+import pathlib
+import pickle
+import platform
+import re
+import shutil
+import sqlite3
+import string
+import subprocess
+import sys
+import tempfile
+import types
 from collections import defaultdict
 import subprocess, shutil, math, types, copyreg, inspect, importlib, decimal, itertools
 from dataclasses import dataclass, field, replace

@@ -3,7 +3,9 @@
 Includes: global_load_*, global_store_*, global_atomic_*, global_load_d16_*
 """
 import unittest
+
 from test.amd.hw.helpers import *
+
 
 class TestGlobalAtomic(unittest.TestCase):
   """Tests for GLOBAL atomic instructions."""

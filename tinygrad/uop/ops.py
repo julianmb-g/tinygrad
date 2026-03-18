@@ -1,14 +1,73 @@
 from __future__ import annotations
-from typing import Any, Callable, cast, TYPE_CHECKING, Type, Sequence, Iterable, Final, Iterator
-import sys, time, functools, itertools, math, operator, hashlib, os, types, pickle, pathlib, inspect, weakref, collections, struct
+
+import collections
+import functools
+import hashlib
+import inspect
+import itertools
+import math
+import operator
+import os
+import pathlib
+import pickle
+import struct
+import sys
+import time
+import types
+import weakref
 from dataclasses import dataclass
 from enum import Enum, auto
-from tinygrad.uop import Ops, GroupOp
-from tinygrad.dtype import ConstType, ImageDType, dtypes, DType, truncate, PtrDType, least_upper_dtype, Invalid, AddrSpace, ConstFloat, PyConst
-from tinygrad.dtype import storage_fmt_for_dtype, to_storage_scalar, from_storage_scalar
-from tinygrad.helpers import ContextVar, all_int, prod, getenv, all_same, Context, partition, temp, unwrap, T, argfix, Metadata, flatten, TRACEMETA
-from tinygrad.helpers import PROFILE, dedup, cdiv, cmod, diskcache_put, to_function_name, cpu_profile, TracingKey, VIZ, SPEC, CAPTURE_PROCESS_REPLAY
-from tinygrad.helpers import strip_parens, colored, ansilen, printable
+from typing import TYPE_CHECKING, Any, Callable, Final, Iterable, Iterator, Sequence, Type, cast
+
+from tinygrad.dtype import (
+  AddrSpace,
+  ConstFloat,
+  ConstType,
+  DType,
+  ImageDType,
+  Invalid,
+  PtrDType,
+  PyConst,
+  dtypes,
+  from_storage_scalar,
+  least_upper_dtype,
+  storage_fmt_for_dtype,
+  to_storage_scalar,
+  truncate,
+)
+from tinygrad.helpers import (
+  CAPTURE_PROCESS_REPLAY,
+  PROFILE,
+  SPEC,
+  TRACEMETA,
+  VIZ,
+  Context,
+  ContextVar,
+  Metadata,
+  T,
+  TracingKey,
+  all_int,
+  all_same,
+  ansilen,
+  argfix,
+  cdiv,
+  cmod,
+  colored,
+  cpu_profile,
+  dedup,
+  diskcache_put,
+  flatten,
+  getenv,
+  partition,
+  printable,
+  prod,
+  strip_parens,
+  temp,
+  to_function_name,
+  unwrap,
+)
+from tinygrad.uop import GroupOp, Ops
+
 if TYPE_CHECKING:
   from tinygrad.device import Buffer, MultiBuffer
   from tinygrad.renderer import Estimates
@@ -122,6 +181,7 @@ class recursive_property(property):
 
 # we import this late so we can use resolve/smax in mixins
 from tinygrad.mixin import OpMixin
+
 
 # NOTE: this should be frozen, but frozen is slower
 @dataclass(eq=False, slots=True)
@@ -1223,7 +1283,8 @@ _name_cnt:dict[str, itertools.count] = {}
 
 if CAPTURE_PROCESS_REPLAY:
   replay_capture: list[bytes] = []
-  import atexit, uuid
+  import atexit
+  import uuid
   @atexit.register
   def save_to_diskcache():
     uid = uuid.uuid4() # one id per process

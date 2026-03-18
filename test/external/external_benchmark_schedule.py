@@ -1,10 +1,10 @@
 from extra.models.resnet import ResNet50
-from tinygrad import Tensor, nn, Device
-from tinygrad.helpers import Profiling, Timing, getenv
-from tinygrad.uop.ops import Ops
+from tinygrad import Device, Tensor, nn
 from tinygrad.codegen import full_rewrite_to_sink
 from tinygrad.codegen.late.linearizer import linearize
-from tinygrad.uop.spec import type_verify, program_spec
+from tinygrad.helpers import Profiling, Timing, getenv
+from tinygrad.uop.ops import Ops
+from tinygrad.uop.spec import program_spec, type_verify
 
 if __name__ == "__main__":
   mdl = ResNet50()

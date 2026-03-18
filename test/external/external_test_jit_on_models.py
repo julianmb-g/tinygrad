@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import unittest
+
 import numpy as np
+
+from examples.llama import Transformer
+from test.helpers import derandomize_model
 from tinygrad import Tensor, dtypes
 from tinygrad.engine.jit import TinyJit
 from tinygrad.helpers import CI
-from test.helpers import derandomize_model
 
-from examples.llama import Transformer
 
 def helper_test_jitted_correctness(gen, train, train_jit):
   nojit = train(*gen()).numpy()

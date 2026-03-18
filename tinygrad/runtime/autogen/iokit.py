@@ -1,9 +1,12 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
+
 from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 dll = c.DLL('iokit', 'IOKit')
 class struct_IONotificationPort(ctypes.Structure): pass
 IONotificationPortRef: TypeAlias = c.POINTER[struct_IONotificationPort]

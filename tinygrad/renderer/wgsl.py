@@ -1,7 +1,8 @@
-from tinygrad.dtype import DType, PtrDType, dtypes, truncate, AddrSpace
-from tinygrad.uop.ops import UOp, Ops, PatternMatcher, UPat
-from tinygrad.renderer.cstyle import CStyleLanguage, base_rewrite, extra_pm
+from tinygrad.dtype import AddrSpace, DType, PtrDType, dtypes, truncate
 from tinygrad.helpers import strip_parens
+from tinygrad.renderer.cstyle import CStyleLanguage, base_rewrite, extra_pm
+from tinygrad.uop.ops import Ops, PatternMatcher, UOp, UPat
+
 
 def _mask(dt:DType): return 0xFF if dt.itemsize == 1 else 0xFFFF
 

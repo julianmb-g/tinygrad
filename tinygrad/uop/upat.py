@@ -1,7 +1,12 @@
+import functools
+import inspect
+import itertools
+import types
 from typing import Any, Callable
-import itertools, inspect, functools, types
-from tinygrad.helpers import partition, dedup, Context
-from tinygrad.uop.ops import UPat, UOp, Ops, PatternMatcher, graph_rewrite, deconstruct_function
+
+from tinygrad.helpers import Context, dedup, partition
+from tinygrad.uop.ops import Ops, PatternMatcher, UOp, UPat, deconstruct_function, graph_rewrite
+
 
 class UPatCompileError(Exception): pass
 

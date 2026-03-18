@@ -1,9 +1,13 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
+
 from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
+
 class enum_kgsl_user_mem_type(Annotated[int, ctypes.c_uint32], c.Enum): pass
 KGSL_USER_MEM_TYPE_PMEM = enum_kgsl_user_mem_type.define('KGSL_USER_MEM_TYPE_PMEM', 0)
 KGSL_USER_MEM_TYPE_ASHMEM = enum_kgsl_user_mem_type.define('KGSL_USER_MEM_TYPE_ASHMEM', 1)

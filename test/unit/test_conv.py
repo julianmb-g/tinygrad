@@ -1,7 +1,10 @@
 import unittest
+
 import numpy as np
-from tinygrad.tensor import Tensor
+
 from tinygrad.helpers import Context
+from tinygrad.tensor import Tensor
+
 
 class TestConv(unittest.TestCase):
   def test_simple(self):

@@ -1,14 +1,20 @@
-import unittest, ctypes, struct, os, random, numpy as np
-from tinygrad import Device, Tensor, dtypes
-from tinygrad.helpers import getenv, mv_address, DEBUG
+import ctypes
+import os
+import random
+import struct
+import unittest
+
+import numpy as np
+
 from test.helpers import slow
-from tinygrad.device import Buffer, BufferSpec
-from tinygrad.runtime.support.hcq import HCQCompiled, HCQBuffer
-from tinygrad.runtime.autogen import libc
-from tinygrad.runtime.support.system import PCIIfaceBase
-from tinygrad.engine.realize import get_runner, CompiledRunner, get_program
+from tinygrad import Device, Tensor, Variable, dtypes
 from tinygrad.codegen.opt import Opt, OptOps
-from tinygrad import Variable
+from tinygrad.device import Buffer, BufferSpec
+from tinygrad.engine.realize import CompiledRunner, get_program, get_runner
+from tinygrad.helpers import DEBUG, getenv, mv_address
+from tinygrad.runtime.autogen import libc
+from tinygrad.runtime.support.hcq import HCQBuffer, HCQCompiled
+from tinygrad.runtime.support.system import PCIIfaceBase
 
 MOCKGPU = getenv("MOCKGPU")
 
@@ -543,7 +549,7 @@ class TestHCQ(unittest.TestCase):
     except Exception: self.skipTest("no NV device, test skipped")
 
     def _check_copy(dev1, dev2):
-      buf1 = ((Tensor.arange(10*10*device=dev1) % 10) * 0.1).reshape(10, 10, device=dev1).realize()
+      buf1 = ((Tensor.arange(10*10, device=dev1) % 10) * 0.1).reshape(10, 10, device=dev1).realize()
       buf2 = buf1.to(dev2).realize()
       np.testing.assert_equal(buf1.numpy(), buf2.numpy(), "p2p failed")
     _check_copy("AMD", "NV")

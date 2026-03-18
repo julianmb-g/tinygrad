@@ -1,10 +1,15 @@
 #!/usr/bin/env python3
 """Roundtrip tests: generate tinygrad kernels, decode instructions, re-encode, verify match."""
-import unittest, io, sys, re
+import io
+import re
+import sys
+import unittest
+
+from test.amd.disasm import disasm
+from test.amd.helpers import get_mattr, get_target, llvm_assemble, llvm_disasm
 from tinygrad import Device
 from tinygrad.renderer.amd import detect_format
-from test.amd.helpers import llvm_assemble, llvm_disasm, get_target, get_mattr
-from test.amd.disasm import disasm
+
 
 def disassemble_lib(lib: bytes, compiler) -> list[tuple[str, bytes]]:
   """Disassemble ELF binary and return list of (instruction_text, machine_code_bytes)."""

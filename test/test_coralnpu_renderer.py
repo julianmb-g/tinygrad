@@ -1,28 +1,39 @@
-import unittest
-import unittest.mock
 import os
 import re
+import struct
 import subprocess
 import tempfile
-import struct
+import unittest
+import unittest.mock
+
 import clang.cindex
 from clang.cindex import Config
+
 try: Config.set_library_file('/usr/lib/llvm-19/lib/libclang.so')
 except: pass
 
 import random
+
 import numpy as np
+
 import tinygrad.renderer.coralnpu as coralnpu
-from tinygrad.nn.state import safe_save
-from tinygrad.tensor import Tensor
 from tinygrad.device import Device
-from tinygrad.engine.realize import get_runner
-from tinygrad.uop.ops import UOp, Ops
 from tinygrad.dtype import dtypes
+from tinygrad.engine.realize import get_runner
+from tinygrad.nn.state import safe_save
 from tinygrad.renderer.coralnpu import (
-  extract_features, estimate_cost, estimate_cost_analytical,
-  is_non_pow2, scalarize_alu, pm_scalarize_non_pow2, CoralNPURenderer, CoralNPUCompiler
+  CoralNPUCompiler,
+  CoralNPURenderer,
+  estimate_cost,
+  estimate_cost_analytical,
+  extract_features,
+  is_non_pow2,
+  pm_scalarize_non_pow2,
+  scalarize_alu,
 )
+from tinygrad.tensor import Tensor
+from tinygrad.uop.ops import Ops, UOp
+
 
 class TestCoralNPURenderer(unittest.TestCase):
   def setUp(self):
@@ -37,55 +48,55 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn('alu_ratio', feats)
     self.assertIn('mem_ratio', feats)
     self.assertTrue(feats['log_total_uops'] > 0)
-    
+
   def test_max_upcast(self):
     renderer = CoralNPURenderer()
-    
+
     uops = []
     buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
     idx = UOp(Ops.CONST, dtypes.int, (), 0)
-    
+
     vec_srcs = []
     for i in range(33):
       ld = UOp(Ops.LOAD, dtypes.float, (buf0, UOp(Ops.CONST, dtypes.int, (), i)), None)
       vec_srcs.append(ld)
-    
+
     vec = UOp(Ops.VECTORIZE, dtypes.float.vec(33), tuple(vec_srcs), None)
     uops = [buf0, idx] + vec_srcs + [vec]
-    
+
     with self.assertRaisesRegex(RuntimeError, "AST upcast limit exceeded"):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_dtcm_tiling_limit(self):
     renderer = CoralNPURenderer()
     # Test organic VMM lifecycle management with overlapping and disjoint tensors
-    
+
     # 1. Disjoint lifespans: buf1 (16KB), buf2 (10KB), buf3 (16KB)
     buf1 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf1", 4096)) # 16KB
     idx1 = UOp(Ops.CONST, dtypes.int, (), 0)
     ld1 = UOp(Ops.LOAD, dtypes.float, (buf1, idx1), None)
-    
+
     buf2 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf2", 2560)) # 10KB
     idx2 = UOp(Ops.CONST, dtypes.int, (), 0)
     ld2 = UOp(Ops.LOAD, dtypes.float, (buf2, idx2), None)
-    
+
     buf3 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf3", 4096)) # 16KB
     idx3 = UOp(Ops.CONST, dtypes.int, (), 0)
     ld3 = UOp(Ops.LOAD, dtypes.float, (buf3, idx3), None)
-    
+
     # Topological order keeps lifespans disjoint: buf1 dies before buf2 starts
     uops_pass = [buf1, idx1, ld1, buf2, idx2, ld2, buf3, idx3, ld3]
     try:
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops_pass)
     except RuntimeError as e:
       self.fail(f"DTCM limit falsely triggered on disjoint lifespans (VMM leak): {e}")
-      
+
     # 2. Overlapping lifespans: bufA (16KB) and bufB (16KB)
     bufA = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufA", 4096)) # 16KB
     bufB = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufB", 4096)) # 16KB
     ldA = UOp(Ops.LOAD, dtypes.float, (bufA, UOp(Ops.CONST, dtypes.int, (), 0)), None)
     ldB = UOp(Ops.LOAD, dtypes.float, (bufB, UOp(Ops.CONST, dtypes.int, (), 0)), None)
-    
+
     # Interleaved usage forces overlap
     uops_fail = [bufA, bufB, ldA, ldB]
     with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB limit"):
@@ -97,34 +108,34 @@ class TestCoralNPURenderer(unittest.TestCase):
     buf_dest1 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf1", 128))
     buf_src1 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
     copy_uop1 = UOp(Ops.COPY, dtypes.void, (buf_dest1, buf_src1), arg=128 * 4)
-    
+
     # LOAD/STORE that accesses PARAM 1 and temp_buf2 (disjoint from copy_uop1)
     buf_dest2 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf2", 128))
     buf_src2 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
-    
+
     idx_val = UOp(Ops.CONST, dtypes.int, (), 0)
     idx2 = UOp(Ops.INDEX, dtypes.float.ptr(), (buf_dest2, idx_val), None)
     ld2 = UOp(Ops.LOAD, dtypes.float, (idx2,), None)
     st_idx2 = UOp(Ops.INDEX, dtypes.float.ptr(), (buf_src2, idx_val), None)
     st2 = UOp(Ops.STORE, dtypes.void, (st_idx2, ld2), None)
-    
+
     # Sink must include both the copy and the store to retain them
     sink = UOp(Ops.SINK, dtypes.void, (copy_uop1, st2), None)
-    
+
     uops = [buf_dest1, buf_src1, copy_uop1, buf_dest2, buf_src2, idx_val, idx2, ld2, st_idx2, st2, sink]
-    
+
     src = renderer.render(uops)
     src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
     self.assertIn("CORAL_DMA_ASYNC", src)
-    
+
     body = src.split("{", 1)[1] if "{" in src else src
-    
+
 # Organic AST Chronological Verification
     try:
       index = clang.cindex.Index.create()
     except Exception as e:
       raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
-      
+
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
       f.write((dummy_includes + src).encode())
@@ -140,13 +151,13 @@ class TestCoralNPURenderer(unittest.TestCase):
           if '=' in tokens and tokens[0] == '*': sequence.append('STORE')
         for c in node.get_children(): walk(c)
       walk(tu.cursor)
-      
+
       if 'DMA_WAIT' not in sequence or 'STORE' not in sequence:
         self.fail(f"Missing expected tokens in AST sequence: {sequence}")
       last_store = max(loc for loc, val in enumerate(sequence) if val == 'STORE')
       first_wait = min(loc for loc, val in enumerate(sequence) if val == 'DMA_WAIT')
       self.assertGreater(first_wait, last_store, "WAIT_DMA_READY must come strictly after all disjoint STOREs")
-    
+
     # Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
@@ -158,18 +169,18 @@ class TestCoralNPURenderer(unittest.TestCase):
         raise unittest.SkipTest("Toolchain missing")
       except subprocess.CalledProcessError:
         self.fail("Generated C++ code failed to compile natively via GCC.")
-        
+
       # Authentic Failure Pipeline Verification
       with tempfile.TemporaryDirectory() as temp_dir:
         dummy_gpp = os.path.join(temp_dir, "g++")
         with open(dummy_gpp, "w") as fake:
           fake.write("#!/bin/sh\nexit 1\n")
         os.chmod(dummy_gpp, 0o755)
-        
+
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
           with self.assertRaises(subprocess.CalledProcessError):
             subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-            
+
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises(FileNotFoundError):
@@ -180,9 +191,9 @@ class TestCoralNPURenderer(unittest.TestCase):
     # 5000 bytes > 4096 bytes to trigger AXI burst segmentation
     buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 1250))
     buf_src = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
-    
+
     copy_uop = UOp(Ops.COPY, dtypes.void, (buf_dest, buf_src), arg=5000)
-    
+
     idx_val = UOp(Ops.CONST, dtypes.int, (), 0)
     idx = UOp(Ops.INDEX, dtypes.float.ptr(), (buf_dest, idx_val), None)
     ld = UOp(Ops.LOAD, dtypes.float, (idx,), None)
@@ -190,10 +201,10 @@ class TestCoralNPURenderer(unittest.TestCase):
     st = UOp(Ops.STORE, dtypes.void, (st_idx, ld), None)
     sink = UOp(Ops.SINK, dtypes.void, (st, copy_uop), None)
     uops = [buf_dest, buf_src, copy_uop, idx_val, idx, ld, st_idx, st, sink]
-    
+
     src = renderer.render(uops)
     src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
-    
+
     # We expect multiple CORAL_DMA_ASYNC calls for segmented AXI fetches
     self.assertIn("CORAL_DMA_ASYNC", src)
     self.assertIn("4096", src)
@@ -212,18 +223,18 @@ class TestCoralNPURenderer(unittest.TestCase):
         raise unittest.SkipTest("Toolchain missing")
       except subprocess.CalledProcessError:
         self.fail("Generated C++ code failed to compile natively via GCC.")
-        
+
       # Authentic Failure Pipeline Verification
       with tempfile.TemporaryDirectory() as temp_dir:
         dummy_gpp = os.path.join(temp_dir, "g++")
         with open(dummy_gpp, "w") as fake:
           fake.write("#!/bin/sh\nexit 1\n")
         os.chmod(dummy_gpp, 0o755)
-        
+
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
           with self.assertRaises(subprocess.CalledProcessError):
             subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-            
+
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises(FileNotFoundError):
@@ -233,9 +244,9 @@ class TestCoralNPURenderer(unittest.TestCase):
     renderer = CoralNPURenderer()
     buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 128))
     buf_src = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
-    
+
     copy_uop = UOp(Ops.COPY, dtypes.void, (buf_dest, buf_src), arg=128 * 4)
-    
+
     idx_val = UOp(Ops.CONST, dtypes.int, (), 0)
     idx = UOp(Ops.INDEX, dtypes.float.ptr(), (buf_dest, idx_val), None)
     ld = UOp(Ops.LOAD, dtypes.float, (idx,), None)
@@ -243,7 +254,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     st = UOp(Ops.STORE, dtypes.void, (st_idx, ld), None)
     sink = UOp(Ops.SINK, dtypes.void, (st,), None)
     uops = [buf_dest, buf_src, copy_uop, idx_val, idx, ld, st_idx, st, sink]
-    
+
     src = renderer.render(uops)
     src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
     self.assertIn("CORAL_DMA_ASYNC", src)
@@ -259,18 +270,18 @@ class TestCoralNPURenderer(unittest.TestCase):
         raise unittest.SkipTest("Toolchain missing")
       except subprocess.CalledProcessError:
         self.fail("Generated C++ code failed to compile natively via GCC.")
-        
+
       # Authentic Failure Pipeline Verification
       with tempfile.TemporaryDirectory() as temp_dir:
         dummy_gpp = os.path.join(temp_dir, "g++")
         with open(dummy_gpp, "w") as fake:
           fake.write("#!/bin/sh\nexit 1\n")
         os.chmod(dummy_gpp, 0o755)
-        
+
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
           with self.assertRaises(subprocess.CalledProcessError):
             subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-            
+
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises(FileNotFoundError):
@@ -282,7 +293,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertEqual(cost, 11.0)
 
   def test_estimate_cost(self):
-    
+
     # Authentically evaluate the cost model using non-ideal deterministic arrays
     # spanning true stochastic limits (e.g., negative weights and fractional biases)
     H = 4
@@ -294,7 +305,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     b3 = np.array([2.0, 0.5], dtype=np.float32)
     mean = np.linspace(-1.0, 1.0, 27, dtype=np.float32)
     std = np.linspace(0.1, 2.0, 27, dtype=np.float32)
-    
+
     with tempfile.TemporaryDirectory() as tmpdir:
       # Save weights organically as real model loading expects
       sd = {
@@ -304,14 +315,14 @@ class TestCoralNPURenderer(unittest.TestCase):
       }
       safe_save(sd, os.path.join(tmpdir, "cost_model.safetensors"))
       np.savez(os.path.join(tmpdir, "cost_model_scaler.npz"), mean=mean, std=std)
-      
+
       with unittest.mock.patch.dict(os.environ, {"CORALNPU_COST_MODEL_DIR": tmpdir}):
         coralnpu._cost_model_loaded = False
         coralnpu._cost_model = None
-        
+
         random.seed(42)
         cost = estimate_cost(self.uops)
-        
+
         # Asserting the specific cost derived from the model weights within stochastic bounds
         self.assertAlmostEqual(cost, 6.690902261012833, places=5)
 
@@ -322,11 +333,11 @@ class TestCoralNPURenderer(unittest.TestCase):
     # obliterating the execution heap at runtime.
     renderer = CoralNPURenderer()
     buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
-    
+
     # 100 million floats -> ~400MB, definitely obliterates physical SRAM/EXTMEM limits.
     local_huge = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("massive_bss", 100000000))
     uops = [buf0, local_huge]
-    
+
     # We EXPECT this to raise an error. Currently the renderer does not strictly
     # enforce a .bss upper bound, so it fails to raise, triggering expectedFailure.
     with self.assertRaisesRegex(RuntimeError, "BSS section bounds exceeded"):
@@ -343,7 +354,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     idx = UOp(Ops.CONST, dtypes.int, (), 0)
     ld = UOp(Ops.LOAD, dtypes.float.vec(3), (buf0, idx), None)
     alu = UOp(Ops.ADD, dtypes.float.vec(3), (ld, ld), None)
-    
+
     rewritten = pm_scalarize_non_pow2.rewrite(alu)
     self.assertIsNotNone(rewritten)
     self.assertEqual(rewritten.op, Ops.VECTORIZE)
@@ -353,13 +364,13 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = []
     buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
     uops.append(buf0)
-    
+
     # 33 independent float allocations (all will have depth 1) to trigger depth counts > 32
     for i in range(35):
       idx = UOp(Ops.CONST, dtypes.int, (), i)
       ld = UOp(Ops.LOAD, dtypes.float, (buf0, idx), None)
       uops.extend([idx, ld])
-      
+
     renderer = CoralNPURenderer()
     with self.assertRaisesRegex(RuntimeError, "Active floating-point variable allocations exceeded cap"):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
@@ -379,7 +390,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], uops)
     self.assertIn('__attribute__((section(".noinit"))) float data0[32768 / sizeof(float)];', src)
     self.assertIn('extern "C" void test_kernel() {', src)
-    
+
   def test_compiler_emits_linker_script(self):
     with tempfile.TemporaryDirectory() as tmpdir:
       with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": tmpdir}):
@@ -392,7 +403,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
 
   def test_vdot_mapping(self):
-    
+
     with tempfile.NamedTemporaryFile(suffix=".elf", delete=False) as tf:
       # SHT_SYMTAB = 2, SHT_STRTAB = 3
       e_ident = b'\x7fELF\x01\x01\x01\x00' + b'\x00' * 8
@@ -410,20 +421,20 @@ class TestCoralNPURenderer(unittest.TestCase):
       sym_end = struct.pack("<IIIBBH", 1, dynamic_end_addr, 0, 0, 0, 1)
       tf.write(elf_hdr + sh_null + sh_symtab + sh_strtab + sym_null + sym_end + strtab_data)
       dummy_elf_path = tf.name
-    
+
     old_elf = os.environ.get("CORALNPU_ELF")
     os.environ["CORALNPU_ELF"] = dummy_elf_path
-    
+
     old_default = Device.DEFAULT
     Device.DEFAULT = "CORALNPU"
     try:
       x = Tensor.empty(1, 16).cast("int8")
       w = Tensor.empty(16, 16).cast("int8")
       out = x.cast("float16").matmul(w.cast("float16").T)
-      
+
       schedule = out.schedule()
       vdot_found = False
-      
+
       for si in schedule:
         if si.ast.op.name == "SINK":
           device = getattr(si.bufs[0], "device", "CORALNPU")
@@ -432,7 +443,7 @@ class TestCoralNPURenderer(unittest.TestCase):
           if "VDOT" in src and "int32_t" in src and "int64_t" not in src and ">>8ll" not in src:
             vdot_found = True
             break
-            
+
       self.assertTrue(vdot_found, "VDOT found organically, and intermediate int64_t chunked dequantization successfully eradicated.")
     finally:
       Device.DEFAULT = old_default
@@ -447,63 +458,63 @@ class TestCoralNPURenderer(unittest.TestCase):
     renderer = CoralNPURenderer()
     old_max = renderer.MAX_VR_COUNT
     renderer.MAX_VR_COUNT = 2
-    
+
     try:
       buf0 = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
       idx0 = UOp(Ops.CONST, dtypes.int, (), 0)
       ptr0 = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx0), None)
       ptr0_c = UOp(Ops.CAST, dtypes.int.vec(4).ptr(), (ptr0,), None)
       v1 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr0_c,), None)
-  
+
       idx1 = UOp(Ops.CONST, dtypes.int, (), 1)
       ptr1 = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx1), None)
       ptr1_c = UOp(Ops.CAST, dtypes.int.vec(4).ptr(), (ptr1,), None)
       v2 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr1_c,), None)
-  
+
       idx2 = UOp(Ops.CONST, dtypes.int, (), 2)
       ptr2 = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx2), None)
       ptr2_c = UOp(Ops.CAST, dtypes.int.vec(4).ptr(), (ptr2,), None)
       v3 = UOp(Ops.LOAD, dtypes.int.vec(4), (ptr2_c,), None)
-  
+
       math1 = UOp(Ops.ADD, dtypes.int.vec(4), (v2, v3), None)
       consume_v1 = UOp(Ops.ADD, dtypes.int.vec(4), (v1, math1), None)
-  
+
       st_ptr = UOp(Ops.INDEX, dtypes.int.ptr(), (buf0, idx0), None)
       st_ptr_c = UOp(Ops.CAST, dtypes.int.vec(4).ptr(), (st_ptr,), None)
       st = UOp(Ops.STORE, dtypes.void, (st_ptr_c, consume_v1), None)
       sink = UOp(Ops.SINK, dtypes.void, (st,), None)
-  
+
       uops = [buf0, idx0, ptr0, ptr0_c, v1, idx1, ptr1, ptr1_c, v2, idx2, ptr2, ptr2_c, v3, math1, consume_v1, st_ptr, st_ptr_c, st, sink]
-  
+
       src = renderer.render(uops)
-          
+
       body = src.split("{", 1)[1] if "{" in src else src
-      
+
 # Organic AST Chronological Verification
       try:
         index = clang.cindex.Index.create()
       except Exception as e:
         raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
-        
+
       with tempfile.NamedTemporaryFile(suffix=".cc") as f:
         dummy_includes = "#include <stdint.h>\ntypedef int32_t int32_t4 __attribute__((vector_size(16)));\n"
         f.write((dummy_includes + src).encode())
         f.flush()
         tu = index.parse(f.name, args=['-std=c++11'])
-        
+
         sequence = []
         spill_ptr_name = None
-        
+
         def has_integer_literal_cast(node):
           if node.kind == clang.cindex.CursorKind.CSTYLE_CAST_EXPR:
             return any(c.kind == clang.cindex.CursorKind.INTEGER_LITERAL for c in node.walk_preorder())
           return any(has_integer_literal_cast(c) for c in node.get_children())
-          
+
         def contains_decl_ref(node, name):
           if node.kind == clang.cindex.CursorKind.DECL_REF_EXPR and node.spelling == name:
             return True
           return any(contains_decl_ref(c, name) for c in node.get_children())
-          
+
         def walk(node):
           nonlocal spill_ptr_name
           if node.kind == clang.cindex.CursorKind.DECL_STMT:
@@ -525,13 +536,13 @@ class TestCoralNPURenderer(unittest.TestCase):
               sequence.append("SPILL_STORE")
           for c in node.get_children(): walk(c)
         walk(tu.cursor)
-        
+
         if "SPILL_STORE" not in sequence or "SPILL_LOAD" not in sequence:
           self.fail(f"Missing expected spill tokens in AST sequence: {sequence}")
         last_store = max(loc for loc, val in enumerate(sequence) if val == 'SPILL_STORE')
         first_load = min(loc for loc, val in enumerate(sequence) if val == 'SPILL_LOAD')
         self.assertGreater(first_load, last_store, "Spill LOAD must be strictly delayed after intermediate operations.")
-      
+
       # Native GCC Compilation Validation
       with tempfile.NamedTemporaryFile(suffix=".cc") as f:
         dummy_includes = "#include <stdint.h>\n"
@@ -543,23 +554,23 @@ class TestCoralNPURenderer(unittest.TestCase):
           raise unittest.SkipTest("Toolchain missing")
         except subprocess.CalledProcessError:
           self.fail("Generated C++ code failed to compile natively via GCC.")
-          
+
         # Authentic Failure Pipeline Verification
         with tempfile.TemporaryDirectory() as temp_dir:
           dummy_gpp = os.path.join(temp_dir, "g++")
           with open(dummy_gpp, "w") as fake:
             fake.write("#!/bin/sh\nexit 1\n")
           os.chmod(dummy_gpp, 0o755)
-          
+
           with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
             with self.assertRaises(subprocess.CalledProcessError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-              
+
           with tempfile.TemporaryDirectory() as empty_dir:
             with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
               with self.assertRaises(FileNotFoundError):
                 subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-      
+
     finally:
       renderer.MAX_VR_COUNT = old_max
 

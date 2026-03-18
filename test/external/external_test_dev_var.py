@@ -1,5 +1,10 @@
-import subprocess, unittest, os, sys
+import os
+import subprocess
+import sys
+import unittest
+
 from tinygrad.device import Device
+
 
 class TestTinygradSlow(unittest.TestCase):
   def test_env_overwrite_default_device(self):

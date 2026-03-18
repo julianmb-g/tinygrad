@@ -1,12 +1,14 @@
-import unittest
+import math
 import os
 import struct
-import tempfile
 import subprocess
-from unittest.mock import patch, MagicMock
-import math
-from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUProgram, CoralNPUDevice
+import tempfile
+import unittest
+from unittest.mock import MagicMock, patch
+
 from tinygrad.device import BufferSpec
+from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice, CoralNPUProgram
+
 
 def create_dummy_elf(path, padding=0x2000):
     import struct
@@ -19,9 +21,9 @@ def create_dummy_elf(path, padding=0x2000):
     elf += b'\x00' * 40
     elf += struct.pack("<10I", 1, 2, 0, 0, 172, 16, 2, 0, 4, 16)
     elf += struct.pack("<10I", 9, 3, 0, 0, 188, 22, 0, 0, 1, 0)
-    
+
     dynamic_base_addr = 0x80000000 + len(elf) + padding
-    
+
     elf += struct.pack("<IIIBBH", 17, dynamic_base_addr, 0, 0, 0, 0)
     elf += b'\x00.symtab\x00.strtab\x00_end\x00'
     with open(path, "wb") as f: f.write(elf)
@@ -48,8 +50,9 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
 
     def test_elf_vmm_parsing(self):
         from unittest.mock import patch
+
         from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator
-        
+
         # Test dynamically computed boundaries by varying padding offsets
         for padding in [0x1000, 0x2000, 0x3000]:
             fd, path = tempfile.mkstemp(suffix='.elf')
@@ -66,40 +69,40 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         handle = self.allocator._alloc(100, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
         self.assertIn(handle, self.allocator.mem)
         self.assertEqual(len(self.allocator.mem[handle]), 100)
-        
+
         self.allocator._free(handle, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
         self.assertNotIn(handle, self.allocator.mem)
 
     def test_copyin_copyout(self):
         handle = self.allocator._alloc(10, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
         src_data = b"0123456789"
-        
+
         self.allocator._copyin(handle, memoryview(src_data))
-        
+
         dest_data = bytearray(10)
         self.allocator._copyout(memoryview(dest_data), handle)
-        
+
         self.assertEqual(bytes(dest_data), src_data)
 
     def test_invalid_handles(self):
         with self.assertRaises(ValueError):
             self.allocator._copyin(999, memoryview(b"123"))
-            
+
         with self.assertRaises(ValueError):
             dest = bytearray(3)
             self.allocator._copyout(memoryview(dest), 999)
-            
+
     def test_invalid_tensor_extmem_boundary(self):
         # Assert that the allocator preserves EXTMEM before space and handles NaN during execution
         handle = self.allocator._alloc(4, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
-        
+
         # Pack a NaN float into 4 bytes
         nan_bytes = struct.pack('f', float('nan'))
         self.allocator._copyin(handle, memoryview(nan_bytes))
-        
+
         # Allocate adjacent tensor for the execution to write to, ensuring it doesn't overflow to handle
         handle2 = self.allocator._alloc(4, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
-        
+
         # Execute a dummy program that does nothing (or writes to handle2) to see if simulator clobbers handle's memory space
         # We need a dummy simulator!
         with tempfile.TemporaryDirectory() as tmp_bin:
@@ -111,7 +114,7 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
                 f.write("#!/usr/bin/env python3\nimport sys, multiprocessing.shared_memory\nshm_name = sys.argv[sys.argv.index('--shm')+1]\nshm = multiprocessing.shared_memory.SharedMemory(name=shm_name)\nshm.close()\n")
             os.chmod(gcc_path, 0o755)
             os.chmod(sim_path, 0o755)
-            
+
             with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{os.environ.get('PATH', '')}"}):
                 self.allocator.device.allocator = self.allocator
                 prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
@@ -138,7 +141,7 @@ class TestCoralNPUProgram(BaseCoralNPUTest):
         prog = CoralNPUProgram(None, "kernel", lib)
         self.assertTrue(prog.is_beam)
         self.assertEqual(prog.beam_cost, 142.75)
-        
+
         cost = prog(wait=True)
         self.assertEqual(cost, 142.75)
 

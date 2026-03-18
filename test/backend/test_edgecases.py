@@ -23,8 +23,10 @@
 #   repeat_interleave doesn't support a tensor as the dim. check tinygrad type signature before claiming something is a bug
 
 import unittest
+
 import numpy as np
 import torch
+
 from tinygrad import Tensor, dtypes, nn
 from tinygrad.device import Device
 from tinygrad.helpers import getenv

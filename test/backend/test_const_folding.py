@@ -1,10 +1,14 @@
-import unittest, math
-from tinygrad import Tensor, Device, dtypes
+import math
+import unittest
+
+import numpy as np
+
+from test.helpers import not_support_multi_device
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DTYPES_DICT
 from tinygrad.uop.ops import Ops
-from tinygrad.device import is_dtype_supported
-import numpy as np
-from test.helpers import not_support_multi_device
+
 
 def _check_ast_count(desired_count:int, t:Tensor):
   # NOTE: this has side effect because everything can be scheduled only once

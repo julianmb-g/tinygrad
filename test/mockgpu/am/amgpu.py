@@ -1,9 +1,16 @@
 # mypy: ignore-errors
 from __future__ import annotations
-import ctypes, ctypes.util, struct, functools, os, mmap
+
+import ctypes
+import ctypes.util
+import functools
+import mmap
+import os
+import struct
+
+from test.mockgpu.amd.amdgpu import AMDGPU
 from tinygrad.runtime.autogen.am import am
 from tinygrad.runtime.support.amd import AMDReg, import_asic_regs
-from test.mockgpu.amd.amdgpu import AMDGPU
 
 libc = ctypes.CDLL(ctypes.util.find_library("c"))
 libc.mmap.argtypes = [ctypes.c_void_p, ctypes.c_size_t, ctypes.c_int, ctypes.c_int, ctypes.c_int, ctypes.c_long]

@@ -1,17 +1,23 @@
-import contextlib, unittest, math
-import numpy as np
-import torch
+import contextlib
+import math
+import unittest
 from typing import Any, List
-from tinygrad.device import is_dtype_supported
-from tinygrad.helpers import getenv, DEBUG, CI, EMULATED_DTYPES
-from tinygrad.dtype import DType, DTYPES_DICT, least_upper_dtype, fp8_to_float, float_to_fp8, _to_np_dtype, _to_torch_dtype, truncate
-from tinygrad.renderer.ptx import PTXRenderer
-from tinygrad.renderer.nir import NIRRenderer
-from tinygrad import Context, Device, Tensor, dtypes
-from hypothesis import given, settings, strategies as strat
-from test.helpers import rand_for_dtype
-from test.unit.test_dtype_spec import _assert_eq, core_dtypes, dtype_ints, dtype_floats, FP8E4M3_MAX, FP8E5M2_MAX, FP8E4M3FNUZ_MAX, FP8E5M2FNUZ_MAX
+
+import numpy as np
 import pytest
+import torch
+from hypothesis import given, settings
+from hypothesis import strategies as strat
+
+from test.helpers import rand_for_dtype
+from test.unit.test_dtype_spec import FP8E4M3_MAX, FP8E4M3FNUZ_MAX, FP8E5M2_MAX, FP8E5M2FNUZ_MAX, _assert_eq, core_dtypes, dtype_floats, dtype_ints
+from tinygrad import Context, Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
+from tinygrad.dtype import DTYPES_DICT, DType, _to_np_dtype, _to_torch_dtype, float_to_fp8, fp8_to_float, least_upper_dtype, truncate
+from tinygrad.helpers import CI, DEBUG, EMULATED_DTYPES, getenv
+from tinygrad.renderer.nir import NIRRenderer
+from tinygrad.renderer.ptx import PTXRenderer
+
 pytestmark = pytest.mark.filterwarnings("ignore")
 
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))

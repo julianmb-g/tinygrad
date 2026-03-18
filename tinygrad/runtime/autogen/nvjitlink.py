@@ -1,10 +1,13 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
-from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
-from tinygrad.runtime.support import c
 import sysconfig
+from typing import Annotated, Literal, TypeAlias
+
+from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 dll = c.DLL('nvjitlink', 'nvJitLink', [f'/{pre}/cuda/targets/{sysconfig.get_config_vars().get("MULTIARCH", "").rsplit("-", 1)[0]}/lib' for pre in ['opt', 'usr/local']])
 class nvJitLinkResult(Annotated[int, ctypes.c_uint32], c.Enum): pass
 NVJITLINK_SUCCESS = nvJitLinkResult.define('NVJITLINK_SUCCESS', 0)

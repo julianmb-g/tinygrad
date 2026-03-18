@@ -5,12 +5,12 @@ The format is nibble-based with variable-width packets determined by a state mac
 Uses BitField infrastructure from dsl.py, similar to GPU instruction encoding.
 """
 from __future__ import annotations
+
 from dataclasses import dataclass
-from typing import Iterator
 from enum import Enum
 from tinygrad.helpers import getenv, colored
 from tinygrad.renderer.amd.dsl import BitField, FixedBitField, Inst, bits
-from tinygrad.runtime.autogen.amd.rdna3.ins import s_endpgm # same encoding as RDNA4
+from tinygrad.runtime.autogen.amd.rdna3.ins import s_endpgm  # same encoding as RDNA4
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIELD ENUMS
@@ -719,7 +719,9 @@ def print_packets(packets) -> None:
     if type(p).__name__.replace("_RDNA4", "") not in skip: print(format_packet(p), f"inst={inst.inst}" if inst is not None else '')
 
 if __name__ == "__main__":
-  import sys, pickle
+  import pickle
+  import sys
+
   from tinygrad.helpers import temp
   with open(temp("profile.pkl", append_user=True) if len(sys.argv) < 2 else sys.argv[1], "rb") as f:
     data = pickle.load(f)

@@ -1,17 +1,19 @@
-import unittest, math
+import math
+import unittest
 from functools import partial
-
-from tinygrad import nn, dtypes, Tensor, Device, TinyJit, Variable
-from tinygrad.helpers import getenv, CI, OSX
-from tinygrad.device import is_dtype_supported
-from tinygrad.engine.realize import CompiledRunner
-from tinygrad.renderer.ptx import PTXRenderer
-from tinygrad.renderer.nir import NIRRenderer
-from test.helpers import not_support_multi_device, needs_second_gpu
 
 import numpy as np
 import torch
-from hypothesis import given, settings, strategies as strat
+from hypothesis import given, settings
+from hypothesis import strategies as strat
+
+from test.helpers import needs_second_gpu, not_support_multi_device
+from tinygrad import Device, Tensor, TinyJit, Variable, dtypes, nn
+from tinygrad.device import is_dtype_supported
+from tinygrad.engine.realize import CompiledRunner
+from tinygrad.helpers import CI, OSX, getenv
+from tinygrad.renderer.nir import NIRRenderer
+from tinygrad.renderer.ptx import PTXRenderer
 
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")

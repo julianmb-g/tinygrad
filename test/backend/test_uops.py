@@ -1,5 +1,8 @@
-from typing import Optional, Any
-import unittest, math
+import math
+import unittest
+from dataclasses import replace
+from typing import Any, Optional
+
 import numpy as np
 from tinygrad.tensor import Tensor, _to_np_dtype
 from tinygrad.helpers import CI, Context
@@ -9,11 +12,12 @@ from tinygrad.uop.ops import Ops, UOp, KernelInfo, AxisType
 from tinygrad.renderer.cstyle import CStyleLanguage
 from tinygrad.engine.realize import CompiledRunner, get_program, get_runner
 from tinygrad.engine.schedule import ExecItem
-from tinygrad.device import is_dtype_supported
-from tinygrad.codegen.opt import Opt, OptOps
+from tinygrad.helpers import CI, Context, getenv
+from tinygrad.renderer.cstyle import CStyleLanguage
 from tinygrad.renderer.ptx import PTXRenderer
-from test.helpers import to_uops_list
-from dataclasses import replace
+from tinygrad.tensor import Tensor, _to_np_dtype
+from tinygrad.uop.ops import AxisType, KernelInfo, Ops, UOp
+
 
 def _uops_to_prg(uops_list):
   prg = get_program(UOp.sink(*uops_list, arg=KernelInfo()), Device[Device.DEFAULT].renderer)

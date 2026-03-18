@@ -1,7 +1,9 @@
 # benchmark speed of pyrender for all created UOps saved with TRACK_MATCH_STATS=2
-import functools, pickle
-from tinygrad.uop.ops import UOp, Ops
-from tinygrad.helpers import tqdm, temp, time_to_str, cpu_profile
+import functools
+import pickle
+
+from tinygrad.helpers import cpu_profile, temp, time_to_str, tqdm
+from tinygrad.uop.ops import Ops, UOp
 
 BENCHMARK_OPS = {Ops.INDEX, Ops.BUFFERIZE}
 

@@ -1,6 +1,8 @@
-import unittest
-from tinygrad import Tensor, Device
 import time
+import unittest
+
+from tinygrad import Device, Tensor
+
 
 def time_tensor_numpy(out:Tensor):
   times = []

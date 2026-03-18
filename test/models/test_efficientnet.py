@@ -1,14 +1,17 @@
-import ast, pathlib, unittest
+import ast
+import pathlib
+import unittest
 
 import numpy as np
 from PIL import Image
 
+from extra.models.efficientnet import EfficientNet
+from extra.models.resnet import ResNet50
+from extra.models.vit import ViT
+from test.helpers import slow
 from tinygrad import Tensor
 from tinygrad.helpers import getenv
-from test.helpers import slow
-from extra.models.efficientnet import EfficientNet
-from extra.models.vit import ViT
-from extra.models.resnet import ResNet50
+
 
 def _load_labels():
   labels_filename = pathlib.Path(__file__).parent / 'efficientnet/imagenet1000_clsidx_to_labels.txt'

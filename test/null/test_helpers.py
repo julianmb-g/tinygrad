@@ -1,10 +1,39 @@
-import ctypes, gzip, unittest, timeit, pickle
-from tinygrad import Variable
-from tinygrad.helpers import Context, ContextVar, argfix, colored, word_wrap, is_numpy_ndarray, mv_address, get_contraction, count, all_same
-from tinygrad.helpers import merge_dicts, strip_parens, prod, round_up, fetch, fully_flatten, from_mv, to_mv, polyN, time_to_str, cdiv, cmod, getbits
-from tinygrad.helpers import ceildiv
-from tinygrad.tensor import Tensor, get_shape
+import ctypes
+import gzip
+import pickle
+import timeit
+import unittest
+
 import numpy as np
+
+from tinygrad import Variable
+from tinygrad.helpers import (
+  Context,
+  ContextVar,
+  all_same,
+  argfix,
+  cdiv,
+  ceildiv,
+  cmod,
+  colored,
+  count,
+  fetch,
+  from_mv,
+  fully_flatten,
+  get_contraction,
+  getbits,
+  is_numpy_ndarray,
+  merge_dicts,
+  mv_address,
+  polyN,
+  prod,
+  round_up,
+  strip_parens,
+  time_to_str,
+  to_mv,
+  word_wrap,
+)
+from tinygrad.tensor import Tensor, get_shape
 
 VARIABLE = ContextVar("VARIABLE", 0)
 
@@ -346,9 +375,9 @@ class TestPolyN(unittest.TestCase):
     np.testing.assert_allclose(polyN(4.0, [1.0, -2.0, 1.0]), 9.0)
 
   def test_uop(self):
+    from test.helpers import eval_uop
     from tinygrad.dtype import dtypes
     from tinygrad.uop.ops import UOp
-    from test.helpers import eval_uop
     np.testing.assert_allclose(eval_uop(polyN(UOp.const(dtypes.float, 1.0), [1.0, -2.0, 1.0])), 0.0)
     np.testing.assert_allclose(eval_uop(polyN(UOp.const(dtypes.float, 2.0), [1.0, -2.0, 1.0])), 1.0)
     np.testing.assert_allclose(eval_uop(polyN(UOp.const(dtypes.float, 3.0), [1.0, -2.0, 1.0])), 4.0)

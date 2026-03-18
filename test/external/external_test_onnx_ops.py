@@ -2,16 +2,22 @@
 # https://github.com/onnx/onnx/blob/main/docs/Operators.md
 # https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md
 
+import tempfile
+import unittest
 from typing import Any
-import unittest, onnx, tempfile
-from tinygrad import dtypes, Tensor
-from tinygrad.nn.onnx import OnnxRunner
+
 import numpy as np
+import onnx
+from onnx.defs import AI_ONNX_PREVIEW_TRAINING_DOMAIN, ONNX_DOMAIN
+
 from extra.onnx_helpers import validate
-from onnx.defs import ONNX_DOMAIN, AI_ONNX_PREVIEW_TRAINING_DOMAIN
+from tinygrad import Tensor, dtypes
+from tinygrad.nn.onnx import OnnxRunner
+
 MICROSOFT_CONTRIB_OPS_DOMAIN = "com.microsoft"
 # TODO: remove this once ORT supports 1.18.0
 from onnx.helper import VERSION_TABLE
+
 VERSION_MAP = {row[0]: row[1:] for row in VERSION_TABLE}
 IR_VERSION, ai_onnx, ai_onnx_ml, ai_onnx_training = VERSION_MAP["1.17.0"]
 

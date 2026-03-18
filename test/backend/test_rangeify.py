@@ -1,10 +1,12 @@
 import unittest
-from tinygrad import Tensor, nn, Device
-from tinygrad.helpers import Context, GlobalCounters, getenv, PCONTIG, DEBUG
-from tinygrad.uop.ops import graph_rewrite, PatternMatcher, UPat, Ops
-from tinygrad.codegen.opt import OptOps, Opt
-from tinygrad.renderer.ptx import PTXRenderer
+
+from tinygrad import Device, Tensor, nn
+from tinygrad.codegen.opt import Opt, OptOps
+from tinygrad.helpers import DEBUG, PCONTIG, Context, GlobalCounters, getenv
 from tinygrad.renderer.nir import NIRRenderer
+from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.uop.ops import Ops, PatternMatcher, UPat, graph_rewrite
+
 
 class TestDoubleMatmul(unittest.TestCase):
   def setUp(self):
@@ -164,7 +166,7 @@ class TestRangeifyPM(unittest.TestCase):
   def setUp(self): self.base = Tensor.empty(10*10).reshape(10, 10).contiguous()
   def assert_same(self, a, b):
     def run_pm_rangeify(t:Tensor):
-      from tinygrad.schedule.rangeify import pm_rangeify, RangeifyContext
+      from tinygrad.schedule.rangeify import RangeifyContext, pm_rangeify
       sink = t.uop.sink()
       pm_realize = PatternMatcher([(UPat(Ops.CONTIGUOUS, name="x"), lambda x: x.replace(op=Ops.REALIZE))])
       sink = graph_rewrite(sink, pm_realize)

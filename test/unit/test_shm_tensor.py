@@ -1,8 +1,11 @@
-import unittest
 import multiprocessing.shared_memory as shared_memory
 from tinygrad.helpers import CI, WIN
 from tinygrad import Tensor, Device
 import numpy as np
+
+from tinygrad.helpers import CI, WIN
+from tinygrad.tensor import Device, Tensor
+
 
 class TestRawShmBuffer(unittest.TestCase):
   @unittest.skipIf(WIN and CI, "only fails on CI windows instance")

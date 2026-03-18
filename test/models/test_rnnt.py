@@ -1,9 +1,12 @@
 #!/usr/bin/env python
 import unittest
-from tinygrad import Tensor
-from extra.models.rnnt import LSTM
+
 import numpy as np
 import torch
+
+from extra.models.rnnt import LSTM
+from tinygrad import Tensor
+
 
 class TestRNNT(unittest.TestCase):
   def test_lstm(self):

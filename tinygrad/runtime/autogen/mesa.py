@@ -1,6 +1,9 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
+import base64
 import ctypes
+import gzip
 from typing import Annotated, Literal, TypeAlias
 from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
 from tinygrad.runtime.support import c

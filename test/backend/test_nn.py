@@ -1,15 +1,31 @@
 #!/usr/bin/env python
 import unittest
+
 import numpy as np
 import torch
-from tinygrad import Tensor, Device, TinyJit, dtypes
-from tinygrad.uop.ops import Ops
-from tinygrad.helpers import GlobalCounters, Context
-from tinygrad.nn import Conv1d, ConvTranspose1d, Conv2d, ConvTranspose2d, Linear, Embedding
-from tinygrad.nn import BatchNorm, LayerNorm, LayerNorm2d, GroupNorm, InstanceNorm, RMSNorm, LSTMCell
-from tinygrad.nn.state import load_state_dict
+
+from test.helpers import needs_second_gpu, not_support_multi_device, slow
+from tinygrad import Device, Tensor, TinyJit, dtypes
 from tinygrad.engine.realize import run_schedule
-from test.helpers import not_support_multi_device, needs_second_gpu, slow
+from tinygrad.helpers import Context, GlobalCounters
+from tinygrad.nn import (
+  BatchNorm,
+  Conv1d,
+  Conv2d,
+  ConvTranspose1d,
+  ConvTranspose2d,
+  Embedding,
+  GroupNorm,
+  InstanceNorm,
+  LayerNorm,
+  LayerNorm2d,
+  Linear,
+  LSTMCell,
+  RMSNorm,
+)
+from tinygrad.nn.state import load_state_dict
+from tinygrad.uop.ops import Ops
+
 
 @slow
 class TestNN(unittest.TestCase):

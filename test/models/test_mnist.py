@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import unittest
+
 import numpy as np
-from tinygrad import Tensor
-from test.helpers import slow
-from tinygrad.nn.state import get_parameters
-from tinygrad.nn import optim, BatchNorm2d
-from extra.training import train, evaluate
+
 from extra.datasets import fetch_mnist
+from extra.training import evaluate, train
+from test.helpers import slow
+from tinygrad import Tensor
+from tinygrad.nn import BatchNorm2d, optim
+from tinygrad.nn.state import get_parameters
 
 # load the mnist dataset
 X_train, Y_train, X_test, Y_test = fetch_mnist()

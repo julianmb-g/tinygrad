@@ -1,18 +1,20 @@
-from tinygrad.device import Compiled, Allocator, Compiler, CompilerSet, BufferSpec
-from tinygrad.renderer.coralnpu import CoralNPURenderer
-import os
-import functools
 import ctypes
+import functools
+import os
+
+from tinygrad.device import Allocator, BufferSpec, Compiled, Compiler, CompilerSet
+from tinygrad.renderer.coralnpu import CoralNPURenderer
+
 
 class CoralNPUAllocator(Allocator):
   def __init__(self, device):
     self.device = device
     self.mem = {}
     self.shms = {}
-    
+
     import multiprocessing
     self.lock = multiprocessing.Lock()
-    
+
     # Dynamically parse .elf for _end symbol (strictly NOT 0x80000000)
     self.vmm_base = None
     elf_path = os.environ.get("CORALNPU_ELF", "coralnpu.elf")
@@ -57,10 +59,10 @@ class CoralNPUAllocator(Allocator):
                 else:
                     self.free_blocks.pop(i)
                 break
-        
+
         if handle is None:
             raise RuntimeError(f"OOM: 32KB allocation limit exceeded (base={hex(self.vmm_base)}, requested={size})")
-        
+
         if handle in self.alloc_refcounts:
             self.alloc_refcounts[handle] += 1
         else:
@@ -70,13 +72,13 @@ class CoralNPUAllocator(Allocator):
     self.shms[handle] = shm
     self.mem[handle] = (ctypes.c_char * size).from_buffer(shm.buf) # type: ignore
     return handle
-    
+
   def _copyin(self, dest, src:memoryview):
     if dest in self.mem:
       ctypes.memmove(self.mem[dest], src.tobytes(), len(src))
     else:
       raise ValueError(f"Invalid handle {dest}")
-    
+
   def _copyout(self, dest:memoryview, src):
     if src in self.mem:
       data = bytes(self.mem[src])[:len(dest)]
@@ -98,7 +100,7 @@ class CoralNPUAllocator(Allocator):
                     shm.close()
                     try: shm.unlink()
                     except FileNotFoundError: pass
-                    
+
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()
                     merged = []
@@ -119,19 +121,21 @@ class CoralNPUProgram:
     self.lib = lib
     self.args = args
     self.runtimevars = runtimevars
-    
-    import os, re
+
+    import os
+    import re
     self.is_beam = int(os.environ.get("BEAM", "0")) > 0
     self.lib_so = None
     self.fxn = None
-    
+
     if self.is_beam:
       src = lib.decode()
       match = re.search(r"//\s*BEAM_COST:\s*([0-9.]+)", src)
       self.beam_cost = float(match.group(1)) if match else float(len(src))
 
   def _compile_on_host(self, src):
-    import subprocess, tempfile
+    import subprocess
+    import tempfile
     with tempfile.NamedTemporaryFile(delete=False, suffix='.c', mode='w') as f:
       f.write(src)
       src_path = f.name

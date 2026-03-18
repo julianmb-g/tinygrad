@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-import os, sys
+import itertools
+import os
+import sys
 import token
 import tokenize
-import itertools
+
 from tabulate import tabulate
-from tinygrad.uop import Ops
+
 from tinygrad.helpers import ContextVar
+from tinygrad.uop import Ops
 
 TOKEN_WHITELIST = [token.OP, token.NAME, token.NUMBER, token.STRING]
 

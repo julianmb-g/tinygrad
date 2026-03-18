@@ -1,11 +1,15 @@
 # all of symbolic lives here now
-import math, operator, struct, functools
+import functools
+import math
+import operator
+import struct
 from collections import defaultdict
-from tinygrad.uop.ops import Ops, PatternMatcher, UPat, UOp, GroupOp, exec_alu
-from tinygrad.dtype import ConstType, dtypes, PtrDType, can_lossless_cast, Invalid
-from tinygrad.helpers import partition, all_same, prod, flatten, get_single_element, unwrap, IMAGE, dedup
+
+from tinygrad.dtype import ConstType, Invalid, PtrDType, can_lossless_cast, dtypes
+from tinygrad.helpers import IMAGE, all_same, dedup, flatten, get_single_element, partition, prod, unwrap
 from tinygrad.uop.decompositions import xpow
 from tinygrad.uop.divandmod import div_and_mod_symbolic
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, exec_alu
 
 # ******** phase 1 of symbolic used to live in ops, it's the most generic folding rules ********
 

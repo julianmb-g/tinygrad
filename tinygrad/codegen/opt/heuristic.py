@@ -4,6 +4,10 @@ from tinygrad.helpers import getenv, DEBUG, prod, NOLOCALS, TC_OPT, TC_SELECT, U
 from tinygrad.dtype import PtrDType, ImageDType
 from tinygrad.uop.ops import Ops, resolve, AxisType
 from tinygrad.codegen.opt.postrange import Scheduler
+from tinygrad.dtype import ImageDType
+from tinygrad.helpers import AMX, DEBUG, NOLOCALS, TC_OPT, TC_SELECT, USE_TC, getenv, prod
+from tinygrad.uop.ops import AxisType, Ops, resolve
+
 
 def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   # first try the tensor cores

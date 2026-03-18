@@ -1,9 +1,15 @@
-import ctypes, struct, subprocess, tempfile, unittest
+import ctypes
+import struct
+import subprocess
+import tempfile
+import unittest
 from typing import Annotated
+
 from tinygrad.helpers import OSX, WIN
-from tinygrad.runtime.support.c import DLL, record, init_records
 from tinygrad.runtime.support import c
 from tinygrad.runtime.support.autogen import gen
+from tinygrad.runtime.support.c import DLL, init_records, record
+
 
 @unittest.skipIf(WIN, "doesn't compile on windows")
 class TestC(unittest.TestCase):

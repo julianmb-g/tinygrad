@@ -1,7 +1,11 @@
-import struct, ctypes, ctypes.util
+import ctypes
+import ctypes.util
+import struct
 from dataclasses import dataclass
+
 from tinygrad.helpers import getbits, i2u, unwrap
 from tinygrad.runtime.autogen import libc
+
 
 @dataclass(frozen=True)
 class ElfSection: name:str; header:libc.Elf64_Shdr; content:bytes # noqa: E702

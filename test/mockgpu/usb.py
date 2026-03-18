@@ -1,5 +1,10 @@
 from __future__ import annotations
-import ctypes, mmap, struct, sys
+
+import ctypes
+import mmap
+import struct
+import sys
+
 if sys.platform != "win32": from tinygrad.runtime.autogen import libc
 
 class MockUSB:

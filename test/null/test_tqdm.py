@@ -1,10 +1,17 @@
-import time, random, unittest, itertools
-from unittest.mock import patch
-from io import StringIO
+import itertools
+import random
+import time
+import unittest
 from collections import namedtuple
-from tqdm import tqdm
-from tinygrad.helpers import tqdm as tinytqdm, trange
+from io import StringIO
+from unittest.mock import patch
+
 import numpy as np
+from tqdm import tqdm
+
+from tinygrad.helpers import tqdm as tinytqdm
+from tinygrad.helpers import trange
+
 
 def _get_iter_per_second(raw:str) -> float:
   # raw might have unit scale

@@ -1,15 +1,20 @@
 # thanks to https://github.com/openai/whisper for a good chunk of MIT licensed code
 
-import sys, base64, multiprocessing, itertools, collections
-from typing import Optional, Union, Literal, List
+import base64
+import collections
+import itertools
+import multiprocessing
+import sys
+from typing import List, Literal, Optional, Union
 
-from tinygrad import Tensor, TinyJit, Variable, nn, dtypes
-from tinygrad.nn.state import torch_load, load_state_dict
-from tinygrad.helpers import getenv, fetch
+import librosa
+import numpy as np
 
 from examples.audio_helpers import mel
-import numpy as np
-import librosa
+from tinygrad import Tensor, TinyJit, Variable, dtypes, nn
+from tinygrad.helpers import fetch, getenv
+from tinygrad.nn.state import load_state_dict, torch_load
+
 
 class MultiHeadAttention:
   def __init__(self, n_state, n_head, kv_caching: Literal['cross', 'self']=None, max_self_attn_cache_len=None):

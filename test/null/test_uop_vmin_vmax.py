@@ -1,6 +1,9 @@
-import unittest, math
-from tinygrad.uop.ops import UOp, Ops
-from tinygrad.dtype import dtypes, Invalid
+import math
+import unittest
+
+from tinygrad.dtype import Invalid, dtypes
+from tinygrad.uop.ops import Ops, UOp
+
 
 class TestVminVmaxProperties(unittest.TestCase):
   def test_vmin_vmax_constant(self):

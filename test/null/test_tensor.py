@@ -1,13 +1,15 @@
 # tensor tests that pass on NULL backend (no copyout needed)
-import numpy as np
 import unittest
-from tinygrad import Tensor, Device, dtypes
+
+import numpy as np
+
+from tinygrad import Device, Tensor, dtypes
 from tinygrad.device import is_dtype_supported
-from tinygrad.uop.ops import Ops, UOp
-from tinygrad.renderer.ptx import PTXRenderer
-from tinygrad.renderer.nir import NIRRenderer
-from tinygrad.engine.realize import get_program
 from tinygrad.dtype import DType
+from tinygrad.engine.realize import get_program
+from tinygrad.renderer.nir import NIRRenderer
+from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.uop.ops import Ops, UOp
 
 x_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,3).astype(np.float32)
 W_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(3,3).astype(np.float32)

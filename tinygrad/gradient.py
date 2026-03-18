@@ -1,3 +1,5 @@
+import dataclasses
+import math
 from typing import cast
 import math, dataclasses, itertools
 from tinygrad.uop.ops import UOp, PatternMatcher, UPat, Ops, all_metadata, graph_rewrite

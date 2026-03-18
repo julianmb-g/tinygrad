@@ -1,9 +1,11 @@
 import unittest
+
 from tinygrad import Device, Tensor, dtypes
-from tinygrad.uop.ops import UOp, Ops
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.engine.realize import get_program
 from tinygrad.helpers import AMX
+from tinygrad.uop.ops import Ops, UOp
+
 
 class TestFloat4(unittest.TestCase):
   @staticmethod

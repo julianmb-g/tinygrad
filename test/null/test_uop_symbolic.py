@@ -1,13 +1,18 @@
 #!/usr/bin/env python
-import unittest, pickle, functools, math
+import functools
+import math
+import pickle
+import unittest
+
 import z3
 
-from tinygrad.dtype import dtypes, ConstType, DType, Invalid
-from tinygrad.helpers import Context
 from test.helpers import get_uops
-from tinygrad.uop.ops import UOp, Ops, graph_rewrite, sym_infer
-from tinygrad.uop.symbolic import sym, commutative, pm_simplify_valid
+from tinygrad.dtype import ConstType, DType, Invalid, dtypes
+from tinygrad.helpers import Context
+from tinygrad.uop.ops import Ops, UOp, graph_rewrite, sym_infer
+from tinygrad.uop.symbolic import commutative, pm_simplify_valid, sym
 from tinygrad.uop.validate import uops_to_z3
+
 
 def check_uop_against_string(self, v:UOp, s:str):
   sym_vars = {v.render():v for v in v.toposort() if v.op in (Ops.DEFINE_VAR, Ops.RANGE, Ops.SPECIAL)}
@@ -1266,7 +1271,7 @@ class TestGatedUopGivenValid(unittest.TestCase):
 class TestRangeSplitting(unittest.TestCase):
   def test_range_split_on_mod(self):
     # test that mark_range_mod splits RANGE(8) into RANGE(4)*2 + RANGE(2) when used with %2
-    from tinygrad.codegen.simplify import pm_split_ranges, pm_flatten_range
+    from tinygrad.codegen.simplify import pm_flatten_range, pm_split_ranges
     r0 = UOp.range(uconst(8), 0)
     # create a simple expression using the range with mod: store range%2 to a buffer
     buf = UOp(Ops.PARAM, dtypes.int.ptr(), arg=0)

@@ -1,6 +1,10 @@
-import ctypes, ctypes.util, functools, sys
-from tinygrad.runtime.support.c import del_an
+import ctypes
+import ctypes.util
+import functools
+import sys
 from typing import TYPE_CHECKING, Any
+
+from tinygrad.runtime.support.c import del_an
 
 if TYPE_CHECKING: id_ = ctypes.c_void_p
 else:

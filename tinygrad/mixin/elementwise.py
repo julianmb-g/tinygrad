@@ -1,10 +1,11 @@
 import math
 from typing import Self
-from tinygrad.uop import Ops
-from tinygrad.dtype import dtypes, ConstType, least_upper_dtype, least_upper_float
+
+from tinygrad.dtype import ConstType, dtypes, least_upper_dtype, least_upper_float
 from tinygrad.helpers import polyN
 from tinygrad.mixin.dtype import DTypeMixin
 from tinygrad.mixin.creation import CreationMixin
+from tinygrad.uop import Ops
 
 
 class ElementwiseMixin(DTypeMixin, CreationMixin):

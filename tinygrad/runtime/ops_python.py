@@ -8,8 +8,12 @@ from tinygrad.dtype import DType, dtypes, ImageDType, PtrDType, truncate, storag
 from tinygrad.helpers import all_same, getenv, flatten, get_single_element, EMULATE
 from tinygrad.device import Compiled, Compiler, Allocator
 from tinygrad.codegen.opt import tc
-from tinygrad.uop.ops import exec_alu, python_alu, Ops, UOp, GroupOp, bitcast
+from tinygrad.device import Allocator, Compiled, Compiler, CompilerSet
+from tinygrad.dtype import DType, ImageDType, PtrDType, dtypes, from_storage_scalar, storage_fmt_for_dtype, to_storage_scalar, truncate
+from tinygrad.helpers import EMULATE, all_same, flatten, get_single_element, getenv
 from tinygrad.renderer import Renderer
+from tinygrad.uop.ops import GroupOp, Ops, UOp, bitcast, exec_alu, python_alu
+
 
 def _load(m, i, dtype: DType):
   if i is None: return 0.0

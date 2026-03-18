@@ -3,10 +3,12 @@
 # like test_linearizer_failures, but they don't have to fail
 
 import unittest
+
 from tinygrad import Device, dtypes
-from tinygrad.uop.ops import UOp, Ops, AxisType, KernelInfo
 from tinygrad.codegen.opt.search import Opt, OptOps
 from tinygrad.engine.realize import get_program
+from tinygrad.uop.ops import AxisType, KernelInfo, Ops, UOp
+
 
 class TestLinearizerFailure(unittest.TestCase):
   def test_failure_beam_mnist(self):

@@ -1,5 +1,6 @@
 import math
-from tinygrad import Tensor, nn, Context, GlobalCounters
+
+from tinygrad import Context, GlobalCounters, Tensor, nn
 
 if __name__ == "__main__":
   conv = nn.Conv2d(64, 128, 3)

@@ -3,13 +3,29 @@ import multiprocessing, pickle, difflib, os, threading, json, time, sys, webbrow
 import pathlib, traceback, itertools, socketserver
 from contextlib import redirect_stdout, redirect_stderr, contextmanager
 from decimal import Decimal
-from urllib.parse import parse_qs, urlparse
 from http.server import BaseHTTPRequestHandler
-from typing import Any, TypedDict, TypeVar, Generator, Callable
-from tinygrad.helpers import colored, getenv, tqdm, unwrap, word_wrap, TRACEMETA, ProfileEvent, ProfileRangeEvent, TracingKey, ProfilePointEvent, temp
-from tinygrad.helpers import printable, Context, START_TIME
-from tinygrad.renderer.amd.dsl import Inst
+from typing import Any, Callable, Generator, TypedDict, TypeVar
+from urllib.parse import parse_qs, urlparse
+
+from tinygrad.helpers import (
+  START_TIME,
+  TRACEMETA,
+  Context,
+  ProfileEvent,
+  ProfilePointEvent,
+  ProfileRangeEvent,
+  TracingKey,
+  colored,
+  getenv,
+  printable,
+  temp,
+  tqdm,
+  unwrap,
+  word_wrap,
+)
 from tinygrad.renderer.amd import detect_format
+from tinygrad.renderer.amd.dsl import Inst
+
 
 # NOTE: using HTTPServer forces a potentially slow socket.getfqdn
 class TCPServerWithReuse(socketserver.TCPServer):
@@ -38,10 +54,23 @@ class HTTPRequestHandler(BaseHTTPRequestHandler):
     # pass if client closed connection
     except (BrokenPipeError, ConnectionResetError): return
 
-from tinygrad.uop.ops import TrackedGraphRewrite, RewriteTrace, UOp, Ops, GroupOp, srender, sint, sym_infer, range_str, pyrender
-from tinygrad.uop.ops import print_uops, range_start, multirange_str
-from tinygrad.device import ProfileDeviceEvent, ProfileGraphEvent, ProfileGraphEntry, ProfileProgramEvent
+from tinygrad.device import ProfileDeviceEvent, ProfileGraphEntry, ProfileGraphEvent, ProfileProgramEvent
 from tinygrad.dtype import dtypes
+from tinygrad.uop.ops import (
+  GroupOp,
+  Ops,
+  RewriteTrace,
+  TrackedGraphRewrite,
+  UOp,
+  multirange_str,
+  print_uops,
+  pyrender,
+  range_start,
+  range_str,
+  sint,
+  srender,
+  sym_infer,
+)
 
 uops_colors = {Ops.LOAD: "#ffc0c0", Ops.STORE: "#87CEEB", Ops.CONST: "#e0e0e0", Ops.VCONST: "#e0e0e0", Ops.REDUCE: "#FF5B5B",
                **{x:"#f2cb91" for x in {Ops.DEFINE_LOCAL, Ops.DEFINE_REG}}, Ops.REDUCE_AXIS: "#FF6B6B", Ops.SHAPED_WMMA: "#FF5B5B",
@@ -309,7 +338,7 @@ def unpack_pmc(e) -> dict:
 # ** on startup, list all the performance counter traces
 
 def load_amd_counters(ctxs:list[dict], profile:list[ProfileEvent]) -> None:
-  from tinygrad.runtime.ops_amd import ProfileSQTTEvent, ProfilePMCEvent
+  from tinygrad.runtime.ops_amd import ProfilePMCEvent, ProfileSQTTEvent
   counter_events:dict[tuple[int, int], dict] = {}
   durations:dict[str, list[float]] = {}
   prg_events:dict[int, ProfileProgramEvent] = {}

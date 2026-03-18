@@ -1,16 +1,19 @@
-import unittest, time
+import time
+import unittest
+
 import numpy as np
-from tinygrad import Device
-from tinygrad.nn.state import get_parameters
-from tinygrad.nn import optim
-from tinygrad.helpers import getenv
-from test.helpers import slow
-from extra.training import train
+
 from extra.models.convnext import ConvNeXt
 from extra.models.efficientnet import EfficientNet
+from extra.models.resnet import ResNet18
 from extra.models.transformer import Transformer
 from extra.models.vit import ViT
-from extra.models.resnet import ResNet18
+from extra.training import train
+from test.helpers import slow
+from tinygrad import Device
+from tinygrad.helpers import getenv
+from tinygrad.nn import optim
+from tinygrad.nn.state import get_parameters
 
 BS = getenv("BS", 2)
 

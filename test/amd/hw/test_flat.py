@@ -3,7 +3,9 @@
 Includes: flat_load_*, flat_store_*, flat_atomic_*
 """
 import unittest
+
 from test.amd.hw.helpers import *
+
 
 class TestFlatAtomic(unittest.TestCase):
   """Tests for FLAT atomic instructions."""

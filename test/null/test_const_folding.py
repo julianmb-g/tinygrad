@@ -1,9 +1,14 @@
-import unittest, itertools, math
-from tinygrad import Tensor, dtypes, Context
-from tinygrad.dtype import DType, ConstType
-from tinygrad.uop.ops import Ops, UOp
-from tinygrad.codegen import full_rewrite_to_sink
+import itertools
+import math
+import unittest
+
 import numpy as np
+
+from tinygrad import Context, Tensor, dtypes
+from tinygrad.codegen import full_rewrite_to_sink
+from tinygrad.dtype import ConstType, DType
+from tinygrad.uop.ops import Ops, UOp
+
 
 def _check_ast_count(desired_count:int, t:Tensor):
   # NOTE: this has side effect because everything can be scheduled only once

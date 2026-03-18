@@ -1,8 +1,10 @@
 import math
-from typing import cast, Any
-from tinygrad.uop.ops import PatternMatcher, UPat, GroupOp, Ops, UOp, print_uops, AxisType, KernelInfo, pyrender
-from tinygrad.dtype import DType, ImageDType, dtypes, PtrDType, AddrSpace, Invalid, ConstFloat
-from tinygrad.helpers import DEBUG, Context, prod, SPEC, Metadata, panic, CHECK_OOB
+from typing import Any, cast
+
+from tinygrad.dtype import AddrSpace, ConstFloat, DType, ImageDType, Invalid, PtrDType, dtypes
+from tinygrad.helpers import CHECK_OOB, DEBUG, SPEC, Context, Metadata, panic, prod
+from tinygrad.uop.ops import AxisType, GroupOp, KernelInfo, Ops, PatternMatcher, UOp, UPat, print_uops, pyrender
+
 
 def validate_index(buf:UOp, idx:UOp, gate:UOp|None=None):
   if idx.op is Ops.CONST and idx.arg is Invalid: return True
@@ -316,6 +318,7 @@ def type_verify(ast:UOp|list[UOp], check_spec:PatternMatcher):
 # late imports to avoid circular import
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.schedule.rangeify import BufferizeOpts
+
 glbls:dict[str, Any] = {"inf": math.inf, "nan": math.nan, "KernelInfo": KernelInfo, "Metadata": Metadata,
                         "UOp": UOp, "dtypes": dtypes, "Ops": Ops, "AxisType": AxisType, "Invalid": Invalid,
                         "Opt": Opt, "OptOps": OptOps, "BufferizeOpts": BufferizeOpts, "AddrSpace": AddrSpace, "panic": panic,

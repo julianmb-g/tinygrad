@@ -1,7 +1,9 @@
 import itertools
 from typing import Callable
-from tinygrad import nn, Tensor, dtypes, Device, TinyJit
-from tinygrad.helpers import getenv, trange, partition
+
+from tinygrad import Device, Tensor, TinyJit, dtypes, nn
+from tinygrad.helpers import getenv, partition, trange
+
 
 class Model:
   def __init__(self):

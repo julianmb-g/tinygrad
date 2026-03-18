@@ -1,7 +1,8 @@
 import unittest
+
 from tinygrad import Tensor, UOp
 from tinygrad.dtype import AddrSpace, dtypes
-from tinygrad.uop.ops import KernelInfo, AxisType
+from tinygrad.uop.ops import AxisType, KernelInfo
 
 # **** kernels ****
 

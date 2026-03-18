@@ -1,5 +1,6 @@
-from tinygrad import Tensor, Device, GlobalCounters, TinyJit, dtypes
-from tinygrad.helpers import getenv, Context, DEBUG
+from tinygrad import Device, GlobalCounters, Tensor, TinyJit, dtypes
+from tinygrad.helpers import DEBUG, Context, getenv
+
 
 def test(devs: list[str], N: int, iters:int = 10, name:str = "allreduce"):
   @TinyJit

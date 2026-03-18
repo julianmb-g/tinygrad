@@ -1,5 +1,7 @@
-import unittest, time
-from tinygrad import dtypes, Tensor, UOp, getenv
+import time
+import unittest
+
+from tinygrad import Tensor, UOp, dtypes, getenv
 from tinygrad.helpers import Profiling
 
 PYPROFILE = getenv("PYPROFILE")

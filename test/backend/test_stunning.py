@@ -1,6 +1,8 @@
 import unittest
-from tinygrad import nn, Tensor, Variable, Context, Device
+
+from tinygrad import Context, Device, Tensor, Variable, nn
 from tinygrad.helpers import trange
+
 
 class Model:
   def __init__(self): self.layer = nn.Linear(28*28, 10)

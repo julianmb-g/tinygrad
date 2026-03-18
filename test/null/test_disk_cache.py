@@ -1,6 +1,8 @@
-import unittest
 import pickle
-from tinygrad.helpers import diskcache_get, diskcache_put, diskcache, diskcache_clear
+import unittest
+
+from tinygrad.helpers import diskcache, diskcache_clear, diskcache_get, diskcache_put
+
 
 def remote_get(table,q,k): q.put(diskcache_get(table, k))
 def remote_put(table,k,v): diskcache_put(table, k, v)

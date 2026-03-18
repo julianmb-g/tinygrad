@@ -1,6 +1,8 @@
 import random
+
 from tinygrad import Device
-from tinygrad.helpers import getenv, DEBUG
+from tinygrad.helpers import DEBUG, getenv
+
 
 def main():
   seed = getenv("SEED", 1337)

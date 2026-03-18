@@ -1,9 +1,14 @@
-import ctypes, time, contextlib, functools
-from typing import cast, Literal
-from tinygrad.helpers import to_mv, data64, lo32, hi32, DEBUG, wait_cond, pad_bytes, getbits
+import contextlib
+import ctypes
+import functools
+import time
+from typing import Literal, cast
+
+from tinygrad.helpers import DEBUG, data64, getbits, hi32, lo32, pad_bytes, to_mv, wait_cond
 from tinygrad.runtime.autogen.am import am
 from tinygrad.runtime.support.amd import import_soc
 from tinygrad.runtime.support.memory import AddrSpace
+
 
 class AM_IP:
   def __init__(self, adev): self.adev = adev

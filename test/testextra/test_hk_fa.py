@@ -1,10 +1,12 @@
-import unittest, time
+import time
+import unittest
 
-from tinygrad import Tensor, Device, dtypes, Context
-from tinygrad.engine.jit import TinyJit
 import numpy as np
 
 from extra.thunder.amd.fa import flash_attention
+from tinygrad import Context, Device, Tensor, dtypes
+from tinygrad.engine.jit import TinyJit
+
 
 def assert_allclose(cmp:Tensor, ref:Tensor, **kwargs) -> None:
   if Device.DEFAULT == "NULL": Tensor.realize(cmp, ref)

@@ -1,10 +1,14 @@
 # https://arxiv.org/pdf/2409.02060
-import time, functools
+import functools
+import time
+
 import numpy as np
+
 np.set_printoptions(suppress=True, linewidth=1000)
-from tinygrad import Tensor, nn, Device, GlobalCounters
-from tinygrad.helpers import Timing, getenv
 from extra.models.llama import Transformer, convert_from_huggingface
+from tinygrad import Device, GlobalCounters, Tensor, nn
+from tinygrad.helpers import Timing, getenv
+
 
 class MixtureFeedForward:
   def __init__(self, num_experts:int, activated_experts:int, dim:int, hidden_dim:int, linear=nn.Linear):
@@ -38,7 +42,7 @@ def fetch_weights() -> dict[str, Tensor]:
 
 if __name__ == "__main__":
   if getenv("TORCH"):
-    from transformers import OlmoeForCausalLM, AutoTokenizer
+    from transformers import AutoTokenizer, OlmoeForCausalLM
     model = OlmoeForCausalLM.from_pretrained("allenai/OLMoE-1B-7B-0924")
     tokenizer = AutoTokenizer.from_pretrained("allenai/OLMoE-1B-7B-0924")
     inputs = tokenizer("Hello", return_tensors="pt")

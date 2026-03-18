@@ -1,7 +1,10 @@
-import unittest, numpy as np
-from tinygrad import Tensor, Device, TinyJit
-from tinygrad.helpers import Timing, CI, OSX, getenv
 import multiprocessing.shared_memory as shared_memory
+import unittest
+
+import numpy as np
+
+from tinygrad import Device, Tensor, TinyJit
+from tinygrad.helpers import CI, OSX, Timing, getenv
 
 N = getenv("NSZ", 256)
 class TestCopySpeed(unittest.TestCase):
@@ -69,7 +72,7 @@ class TestCopySpeed(unittest.TestCase):
     def _do_copy(x): return x.to(Device.DEFAULT).realize()
 
     for _ in range(5):
-      t = ((Tensor.arange(N*N*device="CPU") % 10) * 0.1).reshape(N, N, device="CPU").contiguous().realize()
+      t = ((Tensor.arange(N*N, device="CPU") % 10) * 0.1).reshape(N, N, device="CPU").contiguous().realize()
       Device["CPU"].synchronize()
       with Timing(f"copy CPU -> {Device.DEFAULT} {t.nbytes()/(1024**2)}M:  ", on_exit=lambda ns: f" @ {t.nbytes()/ns:.2f} GB/s"):
         x = _do_copy(t)

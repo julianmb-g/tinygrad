@@ -1,5 +1,3 @@
-from typing import cast
-from dataclasses import replace
 import itertools
 from tinygrad.helpers import DISABLE_FAST_IDIV, DEVECTORIZE, TRANSCENDENTAL, SPEC, DEBUG, VIZ, IMAGE, TracingKey, Context
 from tinygrad.uop.ops import PatternMatcher, graph_rewrite, UOp, pm_lower_index_dtype, Ops, UPat, track_rewrites, KernelInfo, pyrender
@@ -21,6 +19,12 @@ from tinygrad.codegen.simplify import pm_simplify_ranges, pm_flatten_range, pm_s
 from tinygrad.schedule.rangeify import pm_add_buffers_local, rangeify_codegen, pm_mops, pm_syntactic_sugar, pm_store_ranges
 from tinygrad.codegen.late.linearizer import CFGContext, pm_split_ends, pm_add_control_flow, linearize
 from tinygrad.renderer.amd.elf import do_assemble_amd
+from tinygrad.schedule.rangeify import pm_add_buffers_local, pm_mops, pm_store_ranges, pm_syntactic_sugar, rangeify_codegen
+from tinygrad.uop.decompositions import get_late_rewrite_patterns, get_transcendental_patterns, pm_float_decomp, pm_long_decomp
+from tinygrad.uop.ops import KernelInfo, Ops, PatternMatcher, UOp, UPat, graph_rewrite, pm_lower_index_dtype, pyrender, track_rewrites
+from tinygrad.uop.spec import kernel_spec, program_spec, type_verify
+from tinygrad.uop.symbolic import gep_pushing, pm_move_where_on_load, sym, symbolic, symbolic_simple
+
 
 def full_rewrite_to_sink(sink:UOp, ren:Renderer|None=None, optimize:bool=True) -> UOp:
   if ren is None: ren = Renderer()

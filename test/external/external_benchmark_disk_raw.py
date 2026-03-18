@@ -1,5 +1,6 @@
 import pathlib
-from tinygrad import Tensor, Device, Context
+
+from tinygrad import Context, Device, Tensor
 from tinygrad.helpers import getenv
 
 if __name__ == "__main__":

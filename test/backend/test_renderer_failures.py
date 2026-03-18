@@ -1,16 +1,19 @@
 import unittest
-import numpy as np
 from dataclasses import replace
+
+import numpy as np
+
 from tinygrad.device import Buffer, Device, is_dtype_supported
-from tinygrad.dtype import dtypes, ConstType
+from tinygrad.dtype import ConstType, dtypes
 from tinygrad.engine.realize import CompiledRunner, get_program
 from tinygrad.helpers import prod
 from tinygrad.renderer.cstyle import CStyleLanguage
 from tinygrad.renderer.ptx import PTXRenderer
 from tinygrad.renderer.wgsl import WGSLRenderer
 from tinygrad.runtime.ops_python import PythonRenderer
-from tinygrad.uop.ops import UOp, Ops, KernelInfo, python_alu
 from tinygrad.tensor import Tensor, _to_np_dtype
+from tinygrad.uop.ops import KernelInfo, Ops, UOp, python_alu
+
 
 def _test_uop_result(inputs:list[Tensor], prg, local_size=None):
   for x in inputs: x.realize()

@@ -3,15 +3,14 @@
 
 import unittest
 
-from tinygrad import Device, Tensor
-from tinygrad.uop.ops import UOp, Ops, KernelInfo
-from tinygrad.viz.serve import amdgpu_cfg
-
-from tinygrad.runtime.autogen.amd.rdna3.ins import *
-from tinygrad.renderer.amd.dsl import s
-
 # TODO: this belongs to the dsl infrastructure
 from extra.gemm.amd_asm_matmul import Kernel
+from tinygrad import Device, Tensor
+from tinygrad.renderer.amd.dsl import s
+from tinygrad.runtime.autogen.amd.rdna3.ins import *
+from tinygrad.uop.ops import KernelInfo, Ops, UOp
+from tinygrad.viz.serve import amdgpu_cfg
+
 
 def run_asm(name:str, k:Kernel):
   insts = k.finalize()

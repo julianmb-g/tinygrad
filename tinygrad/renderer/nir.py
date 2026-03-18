@@ -1,12 +1,22 @@
-from typing import Callable, cast, Any
-from tinygrad.dtype import AddrSpace, DType, PtrDType, ImageDType, dtypes, truncate
-from tinygrad.helpers import DEBUG, OSX, unwrap, fromimport
+import base64
+import contextlib
+import ctypes
+import ctypes.util
+import functools
+import inspect
+import itertools
+import struct
+from typing import Any, Callable, cast
+
+from tinygrad.dtype import AddrSpace, DType, ImageDType, PtrDType, dtypes, truncate
+from tinygrad.helpers import DEBUG, OSX, fromimport, unwrap
 from tinygrad.renderer import Renderer
 from tinygrad.renderer.cstyle import CUDARenderer, OpenCLRenderer
 from tinygrad.uop.ops import GroupOp, Ops, UOp, PatternMatcher, UPat, range_str
 from tinygrad.runtime.autogen import mesa
 from tinygrad.runtime.support.c import POINTER
-import base64, ctypes, ctypes.util, struct, functools, inspect, contextlib, itertools
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, range_str
+
 
 def g(s:str): return getattr(mesa, s)
 def nsrc(d:mesa.nir_def) -> mesa.nir_src: return mesa.nir_src(ssa=ctypes.pointer(d))

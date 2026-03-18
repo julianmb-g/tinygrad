@@ -1,11 +1,14 @@
 # do not change these tests. we need to fix bugs to make them pass
 # the Inst constructor should be looking at the types of the fields to correctly set the value
 
-import unittest, struct
-from tinygrad.runtime.autogen.amd.rdna3.ins import *
-from tinygrad.renderer.amd.dsl import Inst
-from test.amd.test_roundtrip import compile_asm
+import struct
+import unittest
+
 from test.amd.disasm import disasm
+from test.amd.test_roundtrip import compile_asm
+from tinygrad.renderer.amd.dsl import Inst
+from tinygrad.runtime.autogen.amd.rdna3.ins import *
+
 
 class IntegrationTestBase(unittest.TestCase):
   inst: Inst
@@ -137,7 +140,8 @@ class TestIntegrationCDNA(IntegrationTestBase):
     self.inst = v_mfma_f32_16x16x16_f16(v[0:3], v[0:1], v[0:1], 0)
 
   def test_mfma_fp8(self):
-    import subprocess, unittest
+    import subprocess
+    import unittest
     try:
       out = subprocess.check_output(["clang", "--print-supported-cpus", "--target=amdgcn-amd-amdhsa"], stderr=subprocess.STDOUT)
     except FileNotFoundError:

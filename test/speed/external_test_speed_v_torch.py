@@ -1,18 +1,23 @@
 import os
+
 os.environ["NVIDIA_TF32_OVERRIDE"] = "0"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 import unittest
+
 import torch
+
 torch.set_num_threads(1)
 import time
+
 import numpy as np
+
 np.set_printoptions(linewidth=160)
-from tinygrad import Tensor, Device, GlobalCounters, TinyJit
+from tinygrad import Device, GlobalCounters, Tensor, TinyJit
+from tinygrad.helpers import CI, colorize_float, getenv
 from tinygrad.nn import Conv2d
-from tinygrad.helpers import colorize_float, getenv, CI
 
 IN_CHANS = [int(x) for x in getenv("IN_CHANS", "4,16,64").split(",")]
 

@@ -1,9 +1,14 @@
-import unittest, struct, contextlib, statistics, gc
-from tinygrad import Device, Tensor, dtypes, TinyJit
-from tinygrad.helpers import CI, getenv, Context, ProfileRangeEvent, cpu_profile, cpu_events, ProfilePointEvent, dedup
+import contextlib
+import gc
+import statistics
+import struct
+import unittest
+
+from tinygrad import Device, Tensor, TinyJit, dtypes
 from tinygrad.device import Buffer, BufferSpec, Compiled, ProfileDeviceEvent, ProfileGraphEvent
-from tinygrad.runtime.support.hcq import HCQCompiled
 from tinygrad.engine.realize import get_runner
+from tinygrad.helpers import CI, Context, ProfilePointEvent, ProfileRangeEvent, cpu_events, cpu_profile, dedup, getenv
+from tinygrad.runtime.support.hcq import HCQCompiled
 
 MOCKGPU = getenv("MOCKGPU")
 def _dev_base(d):

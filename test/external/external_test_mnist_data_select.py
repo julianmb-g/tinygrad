@@ -1,6 +1,6 @@
 #!/bin/bash
-from tinygrad import Tensor
 from extra.datasets import fetch_mnist
+from tinygrad import Tensor
 
 if __name__ == "__main__":
   X_train, Y_train, X_test, Y_test = fetch_mnist(tensors=True)

@@ -2,17 +2,24 @@
 # schedule confirms the right things are capable of fusing
 # NOTE: this has overlap with external_test_opt.py
 
-import gc, unittest, functools
-import numpy as np
+import functools
+import gc
+import unittest
 from typing import cast
-from hypothesis import assume, given, settings, strategies as strat
 
-from tinygrad import nn, dtypes, Device, Tensor, Variable
+import numpy as np
+from hypothesis import assume, given, settings
+from hypothesis import strategies as strat
+
+from tinygrad import Device, Tensor, Variable, dtypes, nn
 from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DType
 from tinygrad.uop.ops import UOp, Ops, UPat
 from tinygrad.helpers import CI, DEBUG, OSX, GlobalCounters, Context, getenv, all_same, temp
 from tinygrad.engine.realize import CompiledRunner, run_schedule
+from tinygrad.helpers import CI, DEBUG, OSX, Context, GlobalCounters, all_same, getenv, temp
+from tinygrad.uop.ops import Ops, UOp, UPat
+
 
 class KernelCountException(Exception): pass
 def check_schedule(t:Tensor|list[Tensor]|UOp, allowed:int, to_prerealize:list[Tensor]|None=None, filter_sink=True):
@@ -1092,8 +1099,9 @@ class TestSchedule(unittest.TestCase):
 
   @unittest.skipIf(Device.DEFAULT == "WEBGPU", "Validation error on WebGPU")
   def test_mnist_val(self):
-    from tinygrad.nn.datasets import mnist
     import torch
+
+    from tinygrad.nn.datasets import mnist
     _, Y_train, _, _ = mnist()
     samples = Tensor.randint(BS:=getenv("BS", 512), high=cast(int,Y_train.shape[-1])).realize()
     yt = Tensor.randn(BS, 10).realize()

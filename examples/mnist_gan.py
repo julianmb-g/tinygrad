@@ -1,8 +1,8 @@
 from pathlib import Path
 import torch
 from torchvision.utils import make_grid, save_image
-from tinygrad.nn.state import get_parameters
-from tinygrad.tensor import Tensor
+
+from extra.datasets import fetch_mnist
 from tinygrad.helpers import trange
 from tinygrad.nn import optim
 from tinygrad.nn.datasets import mnist

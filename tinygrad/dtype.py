@@ -1,9 +1,16 @@
 from __future__ import annotations
-from typing import Final, ClassVar, Callable, Literal
-import math, struct, ctypes, functools
+
+import ctypes
+import functools
+import math
+import struct
 from dataclasses import dataclass, fields
 from tinygrad.helpers import ceildiv, getenv, prod, round_up, OSX
 from enum import Enum, auto
+from typing import Callable, ClassVar, Final, Literal
+
+from tinygrad.helpers import OSX, ceildiv, getenv, next_power2, prod, round_up
+
 
 class ConstFloat(float):
   """Float subclass that distinguishes -0.0 from 0.0 and where nan == nan."""
@@ -366,7 +373,8 @@ def _from_np_dtype(npdtype:'np.dtype') -> DType: # type: ignore [name-defined] #
 
 @functools.cache
 def _to_torch_dtype(dtype:DType) -> 'torch.dtype'|None:  # type: ignore [name-defined] # noqa: F821
-  import numpy as np, torch
+  import numpy as np
+  import torch
   if dtype == dtypes.uint64: return torch.uint64
   if dtype == dtypes.bfloat16: return torch.bfloat16
   if dtype in dtypes.fp8s: return torch.uint8

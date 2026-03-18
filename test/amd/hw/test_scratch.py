@@ -3,7 +3,9 @@
 Includes: scratch_load_*, scratch_store_*
 """
 import unittest
+
 from test.amd.hw.helpers import *
+
 
 class TestScratchStore(unittest.TestCase):
   """Tests for SCRATCH store instructions."""

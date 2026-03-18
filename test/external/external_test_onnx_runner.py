@@ -1,7 +1,13 @@
-import unittest, onnx, tempfile, pathlib
+import pathlib
+import tempfile
+import unittest
+
 import numpy as np
-from tinygrad import dtypes, Tensor
-from tinygrad.uop.ops import Ops
+import onnx
+from hypothesis import given
+from hypothesis import strategies as st
+
+from tinygrad import Tensor, dtypes
 from tinygrad.device import is_dtype_supported
 from typing import Any
 from tinygrad.nn.onnx import OnnxRunner, OnnxPBParser, OnnxDataType

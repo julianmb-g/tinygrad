@@ -1,11 +1,15 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
+import os
+import sysconfig
 from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
+
+from tinygrad.helpers import OSX, WIN
 from tinygrad.runtime.support import c
-from tinygrad.helpers import WIN, OSX
-import sysconfig, os
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 dll = c.DLL('webgpu', os.path.join(sysconfig.get_paths()['purelib'], 'pydawn', 'lib', 'libwebgpu_dawn.dll') if WIN else 'webgpu_dawn')
 WGPUFlags: TypeAlias = Annotated[int, ctypes.c_uint64]
 WGPUBool: TypeAlias = Annotated[int, ctypes.c_uint32]

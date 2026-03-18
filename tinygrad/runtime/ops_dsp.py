@@ -1,5 +1,18 @@
 from __future__ import annotations
-import ctypes, os, mmap, tempfile, pathlib, array, functools, threading, contextlib, sys, subprocess, struct
+
+import array
+import contextlib
+import ctypes
+import functools
+import mmap
+import os
+import pathlib
+import struct
+import subprocess
+import sys
+import tempfile
+import threading
+
 assert sys.platform != 'win32'
 from tinygrad.device import BufferSpec, Compiled, Allocator, Compiler
 from tinygrad.dtype import dtypes, DType, PtrDType
@@ -7,6 +20,8 @@ from tinygrad.uop.ops import Ops, UOp
 from tinygrad.helpers import getenv, round_up, mv_address, to_mv, cpu_objdump, system, DEBUG, suppress_finalizing
 from tinygrad.renderer.cstyle import ClangRenderer
 from tinygrad.runtime.autogen import libc, qcom_dsp
+from tinygrad.uop.ops import Ops, UOp
+
 if getenv("IOCTL"): import extra.dsp.run # noqa: F401 # pylint: disable=unused-import
 
 from tinygrad.uop.ops import PatternMatcher, UPat

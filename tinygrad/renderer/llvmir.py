@@ -1,12 +1,16 @@
+import math
+import struct
+import sys
 from typing import cast
-import math, struct, sys
+
 from tinygrad.codegen.opt import tc
+from tinygrad.dtype import DType, PtrDType, dtypes, float_to_fp8, truncate
+from tinygrad.helpers import AMX, CPU_COUNT, getenv, prod
 from tinygrad.renderer import Renderer
 from tinygrad.renderer.cstyle import AMDHIPRenderer, create_non_native_float_pats, pm_manual_bf16_cast
 from tinygrad.uop.decompositions import xexp2, xlog2
-from tinygrad.uop.ops import UOp, PatternMatcher, UPat, Ops, GroupOp, range_str
-from tinygrad.dtype import dtypes, float_to_fp8, DType, PtrDType, truncate
-from tinygrad.helpers import prod, AMX, CPU_COUNT, getenv
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, range_str
+
 
 def ldt(dt:DType):
   if dt.vcount > 1: return f"<{dt.vcount} x {ldt(dt.scalar())}>"

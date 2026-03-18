@@ -1,11 +1,17 @@
-import os, pathlib, tempfile, unittest
+import os
+import pathlib
+import tempfile
+import unittest
+
 import numpy as np
-from tinygrad import Tensor, Device, dtypes
-from tinygrad.device import is_dtype_supported
-from tinygrad.dtype import DType, DTYPES_DICT
-from tinygrad.nn.state import safe_load, safe_save, get_state_dict, torch_load
-from tinygrad.helpers import Timing, fetch, OSX, dedup
+
 from test.helpers import slow
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
+from tinygrad.dtype import DTYPES_DICT, DType
+from tinygrad.helpers import OSX, Timing, dedup, fetch
+from tinygrad.nn.state import get_state_dict, safe_load, safe_save, torch_load
+
 
 class TempDirTestCase(unittest.TestCase):
   def setUp(self):
@@ -184,8 +190,8 @@ class TestSafetensors(TempDirTestCase):
       np.testing.assert_equal(ones.numpy(), list(safe_load(path).values())[0].numpy())
   def test_load_supported_types(self):
     import torch
-    from safetensors.torch import save_file
     from safetensors.numpy import save_file as np_save_file
+    from safetensors.torch import save_file
     torch.manual_seed(1337)
     tensors = {
       "weight_F16": torch.randn((2, 2), dtype=torch.float16),

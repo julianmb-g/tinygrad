@@ -1,13 +1,30 @@
-import unittest, decimal, sys, json
+import decimal
+import json
+import sys
+import unittest
 from dataclasses import dataclass
 from typing import Generator
 
-from tinygrad.uop.ops import UOp, UPat, Ops, PatternMatcher, TrackedPatternMatcher, graph_rewrite, track_rewrites, TRACK_MATCH_STATS, profile_matches
-from tinygrad.uop.symbolic import sym
-from tinygrad.dtype import dtypes
-from tinygrad.helpers import PROFILE, colored, ansistrip, flatten, TracingKey, ProfileRangeEvent, ProfileEvent, Context, cpu_events, profile_marker
-from tinygrad.helpers import VIZ, cpu_profile, ProfilePointEvent
 from tinygrad.device import Buffer
+from tinygrad.dtype import dtypes
+from tinygrad.helpers import (
+  PROFILE,
+  VIZ,
+  Context,
+  ProfileEvent,
+  ProfilePointEvent,
+  ProfileRangeEvent,
+  TracingKey,
+  ansistrip,
+  colored,
+  cpu_events,
+  cpu_profile,
+  flatten,
+  profile_marker,
+)
+from tinygrad.uop.ops import TRACK_MATCH_STATS, Ops, PatternMatcher, TrackedPatternMatcher, UOp, UPat, graph_rewrite, profile_matches, track_rewrites
+from tinygrad.uop.symbolic import sym
+
 
 @track_rewrites(name=True)
 def exec_rewrite(sink:UOp, pm_lst:list[PatternMatcher], names:None|list[str]=None) -> UOp:
@@ -18,8 +35,11 @@ def exec_rewrite(sink:UOp, pm_lst:list[PatternMatcher], names:None|list[str]=Non
 # real VIZ=1 loads the trace from a file, we just keep it in memory for tests
 from tinygrad.uop.ops import tracked_keys, tracked_ctxs, uop_fields, active_rewrites, active_group, _name_cnt, RewriteTrace
 from tinygrad.viz import serve
+
 serve.trace = RewriteTrace(tracked_keys, tracked_ctxs, uop_fields)
-from tinygrad.viz.serve import get_rewrites, get_full_rewrite, uop_to_json
+from tinygrad.viz.serve import get_full_rewrite, get_rewrites, uop_to_json
+
+
 def get_viz_list(): return get_rewrites(serve.trace)
 def get_viz_details(rewrite_idx:int, step:int) -> Generator[dict, None, None]:
   lst = get_viz_list()
@@ -266,6 +286,7 @@ class TestVizTree(BaseTestViz):
 
 import gc
 
+
 def bufs_allocated() -> int:
   gc.collect()
   return sum([type(x).__name__ == "Buffer" and type(x).__module__ == "tinygrad.device" for x in gc.get_objects()])
@@ -292,8 +313,9 @@ class TestVizGC(BaseTestViz):
     self.assertEqual(len(lst), 1)
 # VIZ integrates with other parts of tinygrad
 
-from tinygrad import Tensor, Device
+from tinygrad import Device, Tensor
 from tinygrad.engine.realize import get_program
+
 
 class TestVizIntegration(BaseTestViz):
   # codegen supports rendering of code blocks
@@ -374,9 +396,10 @@ class TestVizIntegration(BaseTestViz):
     lst = get_viz_list()
     assert len(lst) == 1
 
-from tinygrad.device import ProfileDeviceEvent, ProfileGraphEvent, ProfileGraphEntry
-from tinygrad.viz.serve import get_profile
 from extra.viz.cli import decode_profile
+from tinygrad.device import ProfileDeviceEvent, ProfileGraphEntry, ProfileGraphEvent
+from tinygrad.viz.serve import get_profile
+
 
 def load_profile(lst:list[ProfileEvent]) -> dict: return decode_profile(get_profile(lst))
 

@@ -1,8 +1,11 @@
 import unittest
+
 import numpy as np
+
 from tinygrad import Tensor, function
 from tinygrad.dtype import dtypes
-from tinygrad.uop.ops import UOp, Ops
+from tinygrad.uop.ops import Ops, UOp
+
 
 class TestCall(unittest.TestCase):
   def test_call_plus(self):

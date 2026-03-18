@@ -1,11 +1,20 @@
-import os, random, pickle, queue, struct, math, functools, hashlib, time
-from typing import List
+import functools
+import hashlib
+import math
+import os
+import pickle
+import queue
+import random
+import struct
+import time
+from multiprocessing import Lock, Process, Queue, connection, cpu_count, shared_memory
 from pathlib import Path
-from multiprocessing import Queue, Process, shared_memory, connection, Lock, cpu_count
+from typing import List
 
 import numpy as np
-from tinygrad import dtypes, Tensor
-from tinygrad.helpers import getenv, prod, Context, round_up, tqdm, OSX
+
+from tinygrad import Tensor, dtypes
+from tinygrad.helpers import OSX, Context, getenv, prod, round_up, tqdm
 from tinygrad.nn.state import TensorIO
 
 ### ResNet
@@ -40,8 +49,9 @@ def loader_process(q_in, q_out, X:Tensor, seed):
   import signal
   signal.signal(signal.SIGINT, lambda _, __: exit(0))
 
-  from extra.datasets.imagenet import center_crop, preprocess_train
   from PIL import Image
+
+  from extra.datasets.imagenet import center_crop, preprocess_train
 
   with Context(DEBUG=0):
     while (_recv := q_in.get()) is not None:
@@ -236,7 +246,7 @@ def batch_load_val_bert(BS:int):
 ### UNET3D
 
 def load_unet3d_data(preprocessed_dataset_dir, seed, queue_in, queue_out, X:Tensor, Y:Tensor):
-  from extra.datasets.kits19 import rand_balanced_crop, rand_flip, random_brightness_augmentation, gaussian_noise
+  from extra.datasets.kits19 import gaussian_noise, rand_balanced_crop, rand_flip, random_brightness_augmentation
 
   while (data := queue_in.get()) is not None:
     idx, fn, val = data
@@ -346,9 +356,10 @@ def batch_load_unet3d(preprocessed_dataset_dir:Path, batch_size:int=6, val:bool=
 def load_retinanet_data(base_dir:Path, val:bool, queue_in:Queue, queue_out:Queue,
                         imgs:Tensor, boxes:Tensor, labels:Tensor, matches:Tensor|None=None,
                         anchors:Tensor|None=None, seed:int|None=None):
-  from extra.datasets.openimages import image_load, random_horizontal_flip, resize
-  from examples.mlperf.helpers import box_iou, find_matches, generate_anchors
   import torch
+
+  from examples.mlperf.helpers import box_iou, find_matches, generate_anchors
+  from extra.datasets.openimages import image_load, random_horizontal_flip, resize
 
   while (data:=queue_in.get()) is not None:
     idx, img, tgt = data
@@ -781,7 +792,7 @@ if __name__ == "__main__":
   def load_unet3d(val):
     assert not val, "validation set is not supported due to different sizes on inputs"
 
-    from extra.datasets.kits19 import get_train_files, get_val_files, preprocess_dataset, TRAIN_PREPROCESSED_DIR, VAL_PREPROCESSED_DIR
+    from extra.datasets.kits19 import TRAIN_PREPROCESSED_DIR, VAL_PREPROCESSED_DIR, get_train_files, get_val_files, preprocess_dataset
     preprocessed_dir = VAL_PREPROCESSED_DIR if val else TRAIN_PREPROCESSED_DIR
     files = get_val_files() if val else get_train_files()
 
@@ -798,8 +809,9 @@ if __name__ == "__main__":
         pbar.update(x.shape[0])
 
   def load_retinanet(val):
-    from extra.datasets.openimages import BASEDIR, download_dataset
     from pycocotools.coco import COCO
+
+    from extra.datasets.openimages import BASEDIR, download_dataset
     dataset = COCO(download_dataset(base_dir:=getenv("BASEDIR", BASEDIR), "validation" if val else "train"))
     with tqdm(total=len(dataset.imgs.keys())) as pbar:
       for x in batch_load_retinanet(dataset, val, base_dir):

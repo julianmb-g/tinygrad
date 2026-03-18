@@ -1,14 +1,17 @@
 # uops tests that pass on NULL backend (no copyout needed)
 import unittest
+
 import numpy as np
-from tinygrad.tensor import Tensor
-from tinygrad.helpers import Timing, Context
-from tinygrad.dtype import dtypes, ConstFloat  # noqa: F401
+
+from test.helpers import to_uops_list
 from tinygrad.device import Device
+from tinygrad.dtype import ConstFloat, dtypes  # noqa: F401
+from tinygrad.helpers import Context, Timing
+from tinygrad.tensor import Tensor
 from tinygrad.uop.ops import Ops, UOp, UPat, exec_alu
 from tinygrad.uop.spec import shared_spec
 from tinygrad.uop.symbolic import sym
-from test.helpers import to_uops_list
+
 
 class TestSafeCast(unittest.TestCase):
   def test_cast_folds(self):

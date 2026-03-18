@@ -1,5 +1,6 @@
-from tinygrad import Tensor, TinyJit, Device
 import numpy as np
+
+from tinygrad import Device, Tensor, TinyJit
 
 GPUS = 4
 N = 128

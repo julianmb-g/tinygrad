@@ -1,6 +1,10 @@
-import unittest, functools
-from tinygrad import Tensor, Context
+import functools
+import unittest
+
 import numpy as np
+
+from tinygrad import Context, Tensor
+
 
 def orthogonality_helper(A:Tensor, tolerance=1e-5):
   b_shape,m = A.shape[0:-2],A.shape[-2]  #outer dimension should be the dim along orthogonality

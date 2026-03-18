@@ -3,18 +3,17 @@
 # NOTE: With python 3.7.12, pip install tensorflow=1.15.5
 """Create masked LM/next sentence masked_lm TF examples for BERT."""
 
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
+from __future__ import absolute_import, division, print_function
 
 import os
+
 os.environ['PROTOCOL_BUFFERS_PYTHON_IMPLEMENTATION'] = 'python' # NOTE: This is a workaround for protobuf issue
 
 import collections
 import random
-import tokenization
-import tensorflow as tf
 
+import tensorflow as tf
+import tokenization
 
 flags = tf.flags
 

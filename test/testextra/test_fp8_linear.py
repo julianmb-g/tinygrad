@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 import unittest
+
 import numpy as np
-from tinygrad import Tensor, dtypes, Device
-from tinygrad.nn import Linear
+
 from extra.fp8.fp8_linear import FP8Linear, convert_to_float8_training
+from test.helpers import needs_second_gpu, not_support_multi_device
+from tinygrad import Device, Tensor, dtypes
 from tinygrad.device import is_dtype_supported
-from test.helpers import not_support_multi_device, needs_second_gpu
+from tinygrad.nn import Linear
 
 BS, T, in_dim, out_dim = 16, 4, 128, 128
 

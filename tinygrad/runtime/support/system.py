@@ -133,7 +133,7 @@ class _System:
     return bars
 
   def flock_acquire(self, name:str) -> int:
-    import fcntl # to support windows
+    import fcntl  # to support windows
 
     os.umask(0) # Set umask to 0 to allow creating files with 0666 permissions
 

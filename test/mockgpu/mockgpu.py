@@ -1,9 +1,16 @@
-import ctypes, ctypes.util, time, os, builtins, fcntl
+import builtins
+import ctypes
+import ctypes.util
+import fcntl
+import os
+import time
+
+from test.mockgpu.am.amdriver import AMDriver, AMUSBDriver
+from test.mockgpu.amd.amddriver import AMDDriver
+from test.mockgpu.nv.nvdriver import NVDriver
 from tinygrad.helpers import getenv
 from tinygrad.runtime.support.hcq import FileIOInterface
-from test.mockgpu.nv.nvdriver import NVDriver
-from test.mockgpu.amd.amddriver import AMDDriver
-from test.mockgpu.am.amdriver import AMDriver, AMUSBDriver
+
 start = time.perf_counter()
 
 # *** ioctl lib ***

@@ -1,6 +1,7 @@
+import functools
+import math
 from typing import Callable
-import math, functools
-from tinygrad.dtype import dtypes, DType, promo_lattice, truncate
+
 from tinygrad.device import is_dtype_supported
 from tinygrad.helpers import flatten, polyN, EMULATED_DTYPES
 from tinygrad.uop import GroupOp

@@ -1,6 +1,13 @@
 from __future__ import annotations
-import ctypes, collections, dataclasses, functools, hashlib, array
-from tinygrad.helpers import mv_address, getenv, DEBUG, fetch, lo32, hi32
+
+import array
+import collections
+import ctypes
+import dataclasses
+import functools
+import hashlib
+
+from tinygrad.helpers import DEBUG, fetch, getenv, hi32, lo32, mv_address
 from tinygrad.runtime.autogen import pci
 from tinygrad.runtime.autogen.am import am
 from tinygrad.runtime.support.amd import AMDReg, import_module, import_asic_regs

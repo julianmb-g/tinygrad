@@ -1,6 +1,8 @@
 import unittest
+
 from tinygrad.helpers import GlobalCounters
 from tinygrad.nn.datasets import mnist
+
 
 class TestDataset(unittest.TestCase):
   def test_dataset_is_realized(self):

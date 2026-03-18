@@ -1,18 +1,18 @@
 #!/usr/bin/env python
-import unittest, math
+import math
+import unittest
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Lamb
 from tensorflow.python.ops import math_ops
+
+from examples.mlperf.lr_schedulers import CosineAnnealingLRWithWarmup, LambdaLinearScheduler, LambdaLR, PolynomialDecayWithWarmup
 from extra.lr_scheduler import LRSchedulerGroup
-
-from tinygrad.tensor import Tensor
-from tinygrad.nn.optim import LAMB, LARS, SGD, OptimizerGroup, AdamW
-
 from test.external.mlperf_resnet.lars_optimizer import LARSOptimizer
-
-from examples.mlperf.lr_schedulers import PolynomialDecayWithWarmup, CosineAnnealingLRWithWarmup, LambdaLR, LambdaLinearScheduler
 from test.external.mlperf_resnet.lars_util import PolynomialDecayWithWarmup as PolynomialDecayWithWarmup_tf
+from tinygrad.nn.optim import LAMB, LARS, SGD, AdamW, OptimizerGroup
+from tinygrad.tensor import Tensor
 
 np.random.seed(1337)
 x_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,4).astype(np.float32)

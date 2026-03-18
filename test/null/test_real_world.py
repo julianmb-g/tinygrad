@@ -1,13 +1,19 @@
-import unittest, time, gc, math
+import gc
+import math
+import time
+import unittest
+
 import numpy as np
+
+from extra.lr_scheduler import OneCycleLR
+from test.helpers import slow
+from tinygrad import Device, GlobalCounters, Tensor, Variable, dtypes
 from tinygrad.device import is_dtype_supported
+from tinygrad.engine.jit import TinyJit
+from tinygrad.helpers import Context
 from tinygrad.nn import optim
 from tinygrad.nn.state import get_parameters
-from tinygrad.engine.jit import TinyJit
-from tinygrad import Tensor, Device, GlobalCounters, dtypes, Variable
-from tinygrad.helpers import Context
-from test.helpers import slow
-from extra.lr_scheduler import OneCycleLR
+
 
 def derandomize_model(model):
   for p in get_parameters(model):
@@ -18,10 +24,10 @@ def derandomize_model(model):
 
 from examples.gpt2 import Transformer as GPT2Transformer
 from examples.hlb_cifar10 import SpeedyResNet, hyp
-from extra.models.llama import Transformer as LLaMaTransformer
 from examples.stable_diffusion import UNetModel, unet_params
-from extra.models.unet import ResBlock
 from extra.models.bert import BertForPretraining
+from extra.models.llama import Transformer as LLaMaTransformer
+from extra.models.unet import ResBlock
 
 global_mem_used = 0
 def helper_test(nm, gen, model, max_memory_allowed, max_kernels_allowed, expected_out=None, all_jitted=False):

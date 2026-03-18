@@ -1,12 +1,13 @@
 #!/usr/bin/env python
 import unittest
-import torch
-import numpy as np
 
-from tinygrad.helpers import getenv, CI
-from tinygrad.tensor import Tensor
+import numpy as np
+import torch
+
 from tinygrad.device import Device
 from tinygrad.dtype import _from_torch_dtype, _to_torch_dtype
+from tinygrad.helpers import CI, getenv
+from tinygrad.tensor import Tensor
 
 MOCKGPU = getenv("MOCKGPU")
 

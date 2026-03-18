@@ -1,11 +1,11 @@
 import unittest
+
 import numpy as np
-from tinygrad import Tensor, GlobalCounters, dtypes, nn, Device, Variable
-from tinygrad.helpers import Context, getenv, EMULATE
-from tinygrad.engine.realize import run_schedule
-from tinygrad.engine.realize import CompiledRunner, get_program
+
+from tinygrad import Device, GlobalCounters, Tensor, Variable, dtypes, nn
+from tinygrad.engine.realize import CompiledRunner, get_program, run_schedule
 from tinygrad.engine.schedule import ExecItem
-from tinygrad.uop.ops import Ops
+from tinygrad.helpers import EMULATE, Context, getenv
 from tinygrad.renderer import Estimates
 from tinygrad.renderer.ptx import PTXRenderer
 from test.helpers import needs_second_gpu
@@ -219,7 +219,7 @@ class TestIndexing(unittest.TestCase):
 
   @unittest.skipUnless(Device.DEFAULT == "AMD" or (Device.DEFAULT == "NULL" and EMULATE.value.startswith("AMD")), "tests AMD bf16 cast overhead")
   def base_test_llama_8b_rope_backward(self, dtype):
-    from extra.models.llama import precompute_freqs_cis, apply_rotary_emb
+    from extra.models.llama import apply_rotary_emb, precompute_freqs_cis
     bs, seqlen, dim, n_heads = 1, 512, 256, 4
     head_dim = dim // n_heads
     x = ((Tensor.arange(bs*seqlen*dim) % 10) * 0.1).reshape(bs, seqlen, dim).cast(dtype)

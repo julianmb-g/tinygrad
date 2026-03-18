@@ -1,9 +1,10 @@
 import unittest
-from tinygrad import Device, Tensor, dtypes
-from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 
 # TODO: write a clean version of this
 from test.backend.test_linearizer import helper_linearizer_opt
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.codegen.opt import KernelOptError, Opt, OptOps
+
 
 class TestKernelOpts(unittest.TestCase):
   def test_local_and_grouped_reduce(self):

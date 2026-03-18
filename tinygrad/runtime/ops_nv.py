@@ -1,7 +1,17 @@
 from __future__ import annotations
-import os, ctypes, contextlib, re, functools, mmap, struct, array, sys, weakref
+
+import array
+import contextlib
+import ctypes
+import functools
+import mmap
+import os
+import re
+import struct
+import sys
+import weakref
+
 assert sys.platform != 'win32'
-from typing import cast
 from dataclasses import dataclass
 from tinygrad.runtime.support.hcq import HCQCompiled, HCQAllocator, HCQBuffer, HWQueue, CLikeArgsState, HCQProgram, HCQSignal, BumpAllocator
 from tinygrad.runtime.support.hcq import MMIOInterface, FileIOInterface, MOCKGPU, hcq_filter_visible_devices, hcq_profile
@@ -11,11 +21,29 @@ from tinygrad.renderer import Renderer
 from tinygrad.helpers import getenv, mv_address, round_up, data64, data64_le, prod, OSX, hi32, lo32, PROFILE, ContextVar, VIZ, ProfileEvent
 from tinygrad.renderer.ptx import PTXRenderer
 from tinygrad.renderer.cstyle import CUDARenderer, NVCCRenderer
-from tinygrad.runtime.autogen import nv_570, nv_580, mesa
-from tinygrad.runtime.support.elf import elf_loader
-from tinygrad.runtime.support.nv.nvdev import NVDev, NVMemoryManager
-from tinygrad.runtime.support.system import System, PCIIfaceBase, MAP_FIXED
 from tinygrad.renderer.nir import NAKRenderer
+from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.runtime.autogen import mesa, nv_570, nv_580
+from tinygrad.runtime.support.elf import elf_loader
+from tinygrad.runtime.support.hcq import (
+  MOCKGPU,
+  BumpAllocator,
+  CLikeArgsState,
+  FileIOInterface,
+  HCQAllocator,
+  HCQBuffer,
+  HCQCompiled,
+  HCQProgram,
+  HCQSignal,
+  HWQueue,
+  MMIOInterface,
+  hcq_filter_visible_devices,
+  hcq_profile,
+)
+from tinygrad.runtime.support.nv.nvdev import NVDev, NVMemoryManager
+from tinygrad.runtime.support.system import MAP_FIXED, PCIIfaceBase, System
+from tinygrad.uop.ops import sint
+
 if getenv("IOCTL"): import extra.nv_gpu_driver.nv_ioctl # noqa: F401 # pylint: disable=unused-import
 
 nv_gpu = nv_570 # default to 570

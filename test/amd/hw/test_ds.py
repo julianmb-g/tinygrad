@@ -5,7 +5,9 @@ Includes: ds_store_b32, ds_load_b32, ds_store_2addr_*, ds_load_2addr_*,
           ds_inc_*, ds_dec_*, ds_cmpstore_*, ds_storexchg_*
 """
 import unittest
+
 from test.amd.hw.helpers import *
+
 
 class TestDS2Addr(unittest.TestCase):
   """Tests for DS_*_2ADDR instructions."""

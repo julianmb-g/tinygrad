@@ -1,8 +1,10 @@
 import unittest
+
 from tinygrad.renderer.amd.dsl import *
 from tinygrad.renderer.amd.dsl import VDSTYField
 from tinygrad.runtime.autogen.amd.rdna3.enum import VOP1Op, VOP2Op
 from tinygrad.runtime.autogen.amd.rdna3.ins import VOP1
+
 
 class TestRegisters(unittest.TestCase):
   def test_vgpr_single(self):

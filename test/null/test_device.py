@@ -53,7 +53,7 @@ class TestDevice(unittest.TestCase):
   @unittest.skipIf(WIN and CI, "skipping windows test") # TODO: subprocess causes memory violation?
   def test_env_overwrite_default_compiler(self):
     if Device.DEFAULT == "CPU":
-      from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, ClangJITCompiler
+      from tinygrad.runtime.support.compiler_cpu import ClangJITCompiler, CPULLVMCompiler
       try: _, _ = CPULLVMCompiler(), ClangJITCompiler()
       except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
 
@@ -65,7 +65,7 @@ class TestDevice(unittest.TestCase):
       subprocess.run([f'python3 -c "{imports}; assert isinstance(Device[Device.DEFAULT].compiler, ClangJITCompiler)"'],
                         shell=True, check=True, env={**os.environ, "DEV": "CPU:CLANGJIT"})
     elif Device.DEFAULT == "AMD":
-      from tinygrad.runtime.support.compiler_amd import HIPCompiler, AMDLLVMCompiler
+      from tinygrad.runtime.support.compiler_amd import AMDLLVMCompiler, HIPCompiler
       try: _, _ = HIPCompiler(Device[Device.DEFAULT].arch), AMDLLVMCompiler(Device[Device.DEFAULT].arch)
       except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
 

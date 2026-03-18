@@ -1,4 +1,6 @@
-import unittest, struct
+import struct
+import unittest
+
 from tinygrad import Tensor, dtypes
 from tinygrad.uop.ops import UOp
 

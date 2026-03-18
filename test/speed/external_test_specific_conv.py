@@ -1,7 +1,9 @@
 import unittest
-from tinygrad.helpers import CI
-from tinygrad import Tensor, Device, dtypes
+
+from tinygrad import Device, Tensor, dtypes
 from tinygrad.device import is_dtype_supported
+from tinygrad.helpers import CI
+
 # similar to test/external/external_test_gpu_ast.py, but universal
 
 class TestSpecific(unittest.TestCase):

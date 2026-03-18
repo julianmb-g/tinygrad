@@ -1,9 +1,11 @@
-import unittest
-from tinygrad.helpers import DEBUG, Context
-from tinygrad.dtype import dtypes
-from tinygrad.uop.ops import UPat, track_rewrites, GroupOp, Ops
-from tinygrad.uop.upat import _get_code, upat_compile
 import dis
+import unittest
+
+from tinygrad.dtype import dtypes
+from tinygrad.helpers import DEBUG, Context
+from tinygrad.uop.ops import GroupOp, Ops, UPat, track_rewrites
+from tinygrad.uop.upat import _get_code, upat_compile
+
 
 @track_rewrites()
 def do_compile(up):

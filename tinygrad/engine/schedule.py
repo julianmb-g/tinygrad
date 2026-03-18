@@ -1,11 +1,13 @@
-import time, inspect
-from typing import cast
+import inspect
+import time
 from collections import deque
-from tinygrad.uop.ops import UOp, Ops, buffers, UOpMetaClass, track_rewrites, graph_rewrite, gate_kernel_sink, KernelInfo
-from tinygrad.uop.spec import type_verify, tensor_spec
+from typing import cast
+
 from tinygrad.device import Buffer, MultiBuffer
-from tinygrad.helpers import DEBUG, cpu_profile, TracingKey, SPEC, pluralize, SCACHE, BASEDIR, flatten
 from tinygrad.engine.realize import ExecItem
+from tinygrad.helpers import BASEDIR, DEBUG, SCACHE, SPEC, TracingKey, cpu_profile, flatten, pluralize
+from tinygrad.uop.ops import KernelInfo, Ops, UOp, UOpMetaClass, buffers, gate_kernel_sink, graph_rewrite, track_rewrites
+from tinygrad.uop.spec import tensor_spec, type_verify
 
 # **** schedule linearizer
 
@@ -90,6 +92,7 @@ from tinygrad.engine.realize import capturing
 from tinygrad.schedule.rangeify import get_kernel_graph
 from tinygrad.helpers import CAPTURING
 from tinygrad.uop.ops import PatternMatcher, UPat
+
 
 def create_new_buffer(ctx:tuple[dict[UOp, UOp], tuple[UOp, ...]], b:UOp):
   if (ret:=ctx[0].get(b, None)) is None: ctx[0][b] = ret = UOp.new_buffer(b.device, b.arg, b.dtype)

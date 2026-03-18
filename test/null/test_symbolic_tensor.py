@@ -1,6 +1,8 @@
 import unittest
+
 from tinygrad import Variable
 from tinygrad.tensor import Tensor
+
 
 class TestSymbolic(unittest.TestCase):
   def assert_tuple_equal(self, x, y):

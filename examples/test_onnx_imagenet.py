@@ -1,9 +1,12 @@
-import random, sys
+import random
+import sys
+
 import numpy as np
-from extra.datasets.imagenet import get_imagenet_categories, get_val_files, center_crop
-from examples.benchmark_onnx import load_onnx_model
 from PIL import Image
-from tinygrad import Tensor, dtypes, GlobalCounters
+
+from examples.benchmark_onnx import load_onnx_model
+from extra.datasets.imagenet import center_crop, get_imagenet_categories, get_val_files
+from tinygrad import GlobalCounters, Tensor, dtypes
 from tinygrad.helpers import fetch, getenv
 
 # works:
@@ -42,7 +45,7 @@ def imagenet_dataloader(cnt=0):
 if __name__ == "__main__":
   fn = sys.argv[1]
   if getenv("QUANT"):
-    from onnxruntime.quantization import quantize_dynamic, quantize_static, QuantFormat, QuantType, CalibrationDataReader
+    from onnxruntime.quantization import CalibrationDataReader, QuantFormat, QuantType, quantize_dynamic, quantize_static
     model_fp32 = fetch(fn)
     fn = '/tmp/model.quant.onnx'
     if getenv("DYNAMIC"):

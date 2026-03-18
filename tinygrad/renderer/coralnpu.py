@@ -1,10 +1,12 @@
 import re
-from tinygrad.helpers import BEAM
-from tinygrad.renderer.cstyle import CStyleLanguage, uops_to_dtypes
-from tinygrad.uop.ops import Ops, UPat, PatternMatcher, UOp, GroupOp, multirange_str
+
 from tinygrad.device import Compiler
 from tinygrad.dtype import dtypes
+from tinygrad.helpers import BEAM
+from tinygrad.renderer.cstyle import CStyleLanguage, uops_to_dtypes
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, multirange_str
 from tinygrad.uop.symbolic import sym
+
 
 def _get_memory_stride(uop, target_range):
   """
@@ -29,7 +31,7 @@ def _get_memory_stride(uop, target_range):
 def extract_features(uops) -> dict[str, float]:
   """
   Extract hardware-specific execution features from a Tinygrad UOp graph.
-  
+
   This function analyzes the computational graph (AST) to generate a set of metrics
   (e.g., instruction mix, vectorization ratio, register pressure, memory patterns)
   used by the ML cost model to predict cycle counts on the CoralNPU.
@@ -57,11 +59,11 @@ def extract_features(uops) -> dict[str, float]:
 
   uop_to_idx = {u: i for i, u in enumerate(uops)}
   depths = [0] * len(uops)
-  
+
   # Loop Analysis
   true_extents = {}
-  from tinygrad.uop.ops import Ops, GroupOp
   from tinygrad.dtype import dtypes
+  from tinygrad.uop.ops import GroupOp, Ops
   ranges = [u for u in uops if u.op is Ops.RANGE]
   num_loops = len(ranges)
   reduce_loops = 0
@@ -84,7 +86,7 @@ def extract_features(uops) -> dict[str, float]:
       for op_str in ['IDIV', 'MOD', 'EXP2', 'LOG2', 'SIN', 'SQRT', 'FDIV']:
         if hasattr(Ops, op_str):
           expensive_ops.append(getattr(Ops, op_str))
-      
+
       if u.op in expensive_ops:
 
         complex_math_ops += 1
@@ -101,7 +103,7 @@ def extract_features(uops) -> dict[str, float]:
         store_ops += 1
     elif u.op in {Ops.CAST, Ops.BITCAST, Ops.INDEX, Ops.GEP, Ops.VECTORIZE}:
       overhead_ops += 1
-    
+
     if u.op is Ops.WHERE:
       cmp_branch_ops += 1
 
@@ -111,23 +113,23 @@ def extract_features(uops) -> dict[str, float]:
     elif sdt == dtypes.int32: i32_ops += 1
     elif sdt == dtypes.int16: i16_ops += 1
     elif sdt in {dtypes.int8, dtypes.uint8, dtypes.bool}: i8_ops += 1
-    
+
     # Vectorization
     vcount = getattr(u.dtype, "count", 1)
     if vcount > 1:
       vector_ops += 1
       total_vector_lanes += vcount
-    
+
     # Depth / Critical Path
     d = 0
     for s in u.src:
       if s in uop_to_idx: d = max(d, depths[uop_to_idx[s]] + 1)
     depths[i] = d
     critical_path = max(critical_path, d)
-    
+
     # Loop context
     u_ranges = list(u.ranges)
-      
+
     # Memory Patterns
     if u.op in {Ops.LOAD, Ops.STORE} and len(u_ranges) > 0:
       idx_uop = u.src[0] if len(u.src) > 0 else None
@@ -156,7 +158,7 @@ def extract_features(uops) -> dict[str, float]:
 
   # Compute ratios and logs safely
   def ratio(num, den): return float(num) / den if den > 0 else 0.0
-  
+
   features = {
     "log_total_uops": math.log1p(total_uops),
     "alu_ratio": ratio(alu_ops, total_uops),
@@ -187,8 +189,8 @@ def extract_features(uops) -> dict[str, float]:
 
   return features
 
-import os
 import math
+import os
 import random
 
 _cost_model_loaded = False
@@ -197,7 +199,7 @@ _cost_model = None
 def load_cost_model():
   """
   Load the trained ML cost model weights and scaling parameters from disk.
-  
+
   Reads 'cost_model.safetensors' and 'cost_model_scaler.npz' to initialize the MLP
   weights and standard deviations used for cycle prediction. Failures safely fall back
   to analytical models.
@@ -205,22 +207,23 @@ def load_cost_model():
   global _cost_model_loaded, _cost_model
   if _cost_model_loaded: return
   _cost_model_loaded = True
-  
+
   import numpy as np
+
   from tinygrad.nn.state import safe_load
-  
+
   model_dir = os.environ.get("CORALNPU_COST_MODEL_DIR", "/workspace/louhi_ws/coralnpu/tests/tinygrad_test/cost_model_validation")
   weights_path = os.path.join(model_dir, "cost_model.safetensors")
   scaler_path = os.path.join(model_dir, "cost_model_scaler.npz")
-  
+
   if not os.path.exists(weights_path) or not os.path.exists(scaler_path):
     print(f"WARNING: Cost model not found at {model_dir}. Using 0.0 cost.")
     return
-    
+
   try:
     sd = safe_load(weights_path)
     scaler = np.load(scaler_path)
-    
+
     _cost_model = {
       'w1': sd['l1.weight'].numpy().T,
       'b1': sd['l1.bias'].numpy(),
@@ -237,16 +240,16 @@ def load_cost_model():
 def estimate_cost(uops) -> float:
   """
   Estimate the NPU execution cycle cost of a UOp graph using an MLP ML model.
-  
+
   Evaluates graph features through a 3-layer neural network with softplus activation
   to sample from a generated probability distribution (log normal cycle counts).
   If no model is loaded, defaults to an analytical model fallback.
   """
   load_cost_model()
   if _cost_model is None: return 0.0
-  
+
   features = extract_features(uops)
-  
+
   # Ensure strict ordering for the MLP
   feature_keys = [
     'log_total_uops', 'alu_ratio', 'mem_ratio', 'overhead_ratio', 'f32_ratio',
@@ -256,15 +259,15 @@ def estimate_cost(uops) -> float:
     'log_max_reg_pressure', 'num_loops', 'reduce_loop_ratio', 'complex_math_ratio',
     'cmp_branch_ratio', 'avg_bytes_per_load', 'avg_vector_width'
   ]
-  
+
   import numpy as np
   x = np.array([features.get(k, 0.0) for k in feature_keys], dtype=np.float32)
-  
+
   # Task 2.3.2.2: Advanced Estimator Features
-  # AST scoping depth approximates live variable pressure relative to 
+  # AST scoping depth approximates live variable pressure relative to
   # the graph's critical path, modeling hardware register spilling overhead.
   ast_scoping_depth = features.get('log_max_reg_pressure', 0.0) * features.get('log_critical_path', 0.0)
-  
+
   # Arithmetic Intensity defines the ratio of ALU operations to memory bytes loaded.
   # This serves as a key indicator of whether a kernel is compute-bound or memory-bound.
   alu_ratio = features.get('alu_ratio', 0.0)
@@ -272,46 +275,46 @@ def estimate_cost(uops) -> float:
   avg_bytes = features.get('avg_bytes_per_load', 0.0)
   intensity_denom = (mem_ratio * avg_bytes) + 1e-6
   arithmetic_intensity = alu_ratio / intensity_denom
-  
+
   # Non-linear AXI penalty injection exponentially penalizes low arithmetic intensity
   # where the kernel becomes severely constrained by DMA AXI bus streaming limits.
   axi_penalty = math.exp(0.2 - arithmetic_intensity) - 1.0 if arithmetic_intensity < 0.2 else 0.0
-  
-  # Task 3.3.2.1.3: Apply a cost model penalty scaling linearly for operations 
+
+  # Task 3.3.2.1.3: Apply a cost model penalty scaling linearly for operations
   # where the stride is not a multiple of 16 bytes (128-bit).
   unaligned_penalty = features.get('unaligned_mem_ratio', 0.0) * 10.0
-  
+
   x = np.append(x, [ast_scoping_depth, arithmetic_intensity, axi_penalty, unaligned_penalty])
-  
+
   if _cost_model['w1'].shape[0] != len(x):
     # Old model loaded, fallback to analytical during dataset generation
     return estimate_cost_analytical(uops)
-    
+
   # Scale
   x = (x - _cost_model['mean']) / _cost_model['std']
-  
+
   # L1 (Linear + ReLU)
   x = x @ _cost_model['w1'] + _cost_model['b1']
   x = np.maximum(0, x)
-  
+
   # L2 (Linear + ReLU)
   x = x @ _cost_model['w2'] + _cost_model['b2']
   x = np.maximum(0, x)
-  
+
   # L3 (Linear)
   out = x @ _cost_model['w3'] + _cost_model['b3']
   mu_log, raw_stddev = out[0], out[1]
-  
+
   # Softplus: log(1 + exp(x))
   stddev = math.log1p(math.exp(raw_stddev)) + 1.0 if raw_stddev < 20 else raw_stddev + 1.0
-  
+
   # Sample from distribution
   sample = random.gauss(mu_log, stddev)
-  
+
   # Task 3.3.3.1: FMA Forwarding Penalty Injection
   # Add +3 cycle penalty per occurrence to simulate pipeline stall
   fma_penalty = features.get('fma_hazard_count', 0.0) * 3.0
-  
+
   # Convert log-cycles to cycles and ensure non-negative
   return float(max(0.0, math.exp(sample) - 1.0)) + fma_penalty
 
@@ -319,7 +322,7 @@ def estimate_cost(uops) -> float:
 def estimate_cost_analytical(uops) -> float:
   """
   Compute an analytical baseline cost estimate for a UOp graph.
-  
+
   Used as a fallback when the ML cost model is not present. Evaluates
   cycle costs based on loop nesting, vectorized data types, instruction mix,
   and memory-access locality heuristics.
@@ -354,7 +357,7 @@ def estimate_cost_analytical(uops) -> float:
         elif loop_uop_count[r] > 32:
           # Medium loops are often efficient due to unrolling amortizing overhead
           penalty *= 0.8
-      
+
       # ILP Instruction Mix Bonus
       if r in loop_alu_count and r in loop_mem_count:
         alus, mems = loop_alu_count[r], loop_mem_count[r]
@@ -376,7 +379,7 @@ def estimate_cost_analytical(uops) -> float:
       if u.op is Ops.ADD and any(getattr(s, 'op', None) is Ops.MUL for s in getattr(u, 'src', [])): op_cost += 3.0
     elif u.op is Ops.INDEX:
       op_cost = 0.0
-    
+
     elif u.op is Ops.GEP:
       op_cost = 1.0
     elif u.op is Ops.VECTORIZE:
@@ -385,7 +388,7 @@ def estimate_cost_analytical(uops) -> float:
       is_reg = False
       if len(u.src) > 0 and 'AddrSpace.REG' in str(u.src[0].dtype): is_reg = True
       elif len(u.src) > 0 and getattr(u.src[0], 'op', None) is Ops.INDEX and len(u.src[0].src) > 0 and 'AddrSpace.REG' in str(u.src[0].src[0].dtype): is_reg = True
-        
+
       if is_reg:
         op_cost = 0.2
       else:
@@ -423,26 +426,26 @@ def estimate_cost_analytical(uops) -> float:
           if u.op is Ops.LOAD: op_cost *= (1.0 / (u.dtype.count ** 0.5)) # Vector Fetch Bonus
     elif u.op is Ops.SPECIAL:
       op_cost = 1.0
-      
+
     if u.op is Ops.IF:
       op_cost += 0.01
-      
+
     if hasattr(u.dtype, 'count') and u.dtype.count > 1:
       op_cost *= (1.0 + 0.1 * u.dtype.count)
-      
+
     cost += op_cost * mult * penalty
-    
+
   # Global register pressure and instruction count penalty
   if len(uops) > 128:
     cost *= (1.0 + (len(uops) - 128) * 0.01)
-    
+
   return cost
 
 def optimize_memory_layout(uops):
   """
   Implement memory layout passes to guarantee maximum contiguous vector load/store throughput.
-  
-  Traverses the AST and ensures that memory access strides are mapped and optimized 
+
+  Traverses the AST and ensures that memory access strides are mapped and optimized
   for hardware vector load/store limits, analyzing the exact layout mappings.
   """
   from tinygrad.uop.ops import Ops
@@ -465,13 +468,13 @@ def analyze_dma_independence(uops):
   """
   Investigate Tinygrad AST for opportunities to overlap DMA memory streaming with
   kernel execution (Double Buffering).
-  
-  Analyzes memory stream operations (LOAD/STORE) for independence against arithmetic 
+
+  Analyzes memory stream operations (LOAD/STORE) for independence against arithmetic
   clusters and isolates load/store bounds to enable concurrent DMA scheduling.
-  
+
   Returns a dictionary containing feasibility metrics for memory/compute overlap.
   """
-  from tinygrad.uop.ops import Ops, GroupOp
+  from tinygrad.uop.ops import GroupOp, Ops
 
   independent_loads = []
   independent_stores = []
@@ -479,17 +482,17 @@ def analyze_dma_independence(uops):
 
   for u in uops:
     if u.op is Ops.LOAD:
-      # A load is generally independent if its index computation doesn't 
+      # A load is generally independent if its index computation doesn't
       # depend on a complex inner-loop ALU operation (excluding simple GEP/INDEX).
       is_independent = True
       for src in u.src:
         if getattr(src, 'op', None) in GroupOp.ALU:
           is_independent = False
-      
+
       if is_independent:
         independent_loads.append(u)
       mem_bounds.append(u)
-        
+
     elif u.op is Ops.STORE:
       # A store can be pipelined if it can be decoupled from the next execution block
       independent_stores.append(u)
@@ -505,7 +508,7 @@ def analyze_dma_independence(uops):
 def is_non_pow2(dt):
   """
   Check if a vectorized data type total size is not a power of 2 bytes.
-  
+
   GCC auto-vectorization generally expects power-of-2 byte allocations.
   This identifies types that need to be scalarized (e.g. 24 bytes, 12 bytes).
   """
@@ -517,7 +520,7 @@ def is_non_pow2(dt):
 def scalarize_alu(x:UOp):
   """
   Flatten a non-power-of-2 size vectorized ALU UOp into explicit scalar UOps.
-  
+
   Returns a VECTORIZE UOp combining scalar iterations of the original ALU.
   """
   if not is_non_pow2(x.dtype): return None
@@ -551,7 +554,7 @@ pm_scalarize_non_pow2 = PatternMatcher([
 class CoralNPUCompiler(Compiler):
   """
   Compile standard C++ strings out of Tinygrad UOp abstract syntax trees.
-  
+
   Saves the generated C++ source file if the 'SAVE_BEAM_DIR' environment
   variable is active. The actual target compilation via GCC happens downstream
   via a Bazel execution.
@@ -590,7 +593,7 @@ class CoralNPURenderer(CStyleLanguage):
   """
   Define the syntax structures, type maps, and code-generation rules tailored to
   the custom GCC RISC-V Zve32x toolchain via CStyleLanguage.
-  
+
   Outputs pure scalar C++ for floats and relies completely on auto-vectorization
   features for integer vectorized data. Incorporates workarounds for GCC ternary
   bug issues via AST rewrite matchers.
@@ -600,28 +603,28 @@ class CoralNPURenderer(CStyleLanguage):
   kernel_typedef = 'extern "C" void'
   buffer_prefix = ""
   arg_int_prefix = "const int"
-  
+
   # GCC vector_size does not support .x, .y, .z. Must use [0], [1], [2].
   gep_arr_threshold = 0
-  
+
   # Force single-threaded execution (loops instead of workitems)
   has_local = False
   global_max = (1, 1, 1)
   local_max = (1, 1, 1)
-  
+
   # Limit upcasting to avoid massive AST explosions
   max_upcast = 28
-  
+
   # Disable float vectorization to avoid scalarization issues with GCC + RISC-V Zve32x
   # Integer vectorization is handled by GCC auto-vectorization from scalar loops.
   supports_float4 = False
   # Target Extension Locators (Architectural Mapping)
   supports_rv32m = True
   supports_rv32f = True
-  
+
   # RISC-V SIMD Profile Configuration
   MAX_VR_COUNT = 32
-  
+
   # Vector construction for GCC
   float4 = "(float4)"
   float4_style = ("{", "}")
@@ -629,7 +632,7 @@ class CoralNPURenderer(CStyleLanguage):
   type_map = {dtypes.bool: "signed char", dtypes.int8: "int8_t", dtypes.uint8: "uint8_t", dtypes.int16: "int16_t", dtypes.uint16: "uint16_t", dtypes.int32: "int32_t", dtypes.uint32: "uint32_t", dtypes.int64: "int64_t", dtypes.uint64: "uint64_t", dtypes.float32: "float", dtypes.float64: "double"}
 
   pre_matcher = pm_scalarize_non_pow2 + sym
-  
+
   extra_matcher = PatternMatcher([
     (UPat(Ops.MUL, name="m", src=(
       UPat(Ops.CAST, src=(UPat(name="a"),)),
@@ -643,7 +646,7 @@ class CoralNPURenderer(CStyleLanguage):
   def render(self, uops:list[UOp]) -> str:
     self.dtcm_bump = 4096
     self.local_offsets = {}
-    
+
     # Enforce AST limit: max_upcast
     for u in uops:
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
@@ -658,11 +661,11 @@ class CoralNPURenderer(CStyleLanguage):
       for s in u.src:
         if s in uop_to_idx: d = max(d, depths[uop_to_idx[s]] + 1)
       depths[i] = d
-      
+
       if getattr(u, 'dtype', None) is not None and u.dtype.scalar() in {dtypes.float32, dtypes.float16, dtypes.bfloat16, dtypes.float64}:
         if u.op in GroupOp.ALU or u.op in {Ops.LOAD, Ops.CAST, Ops.BITCAST}:
           fp_depth_counts[d] = fp_depth_counts.get(d, 0) + 1
-          
+
     active_fp_count = max(fp_depth_counts.values()) if fp_depth_counts else 0
     if active_fp_count > 32:
       raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
@@ -721,7 +724,7 @@ class CoralNPURenderer(CStyleLanguage):
         synced_uops.append(u)
       else:
         synced_uops.append(u)
-        
+
     if pending_copies:
       last_barrier = UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None)
       synced_uops.append(last_barrier)
@@ -732,7 +735,7 @@ class CoralNPURenderer(CStyleLanguage):
     active_regs = []
     spilled_vars = {}
     replacements = {}
-    
+
     # Compute liveness tracking: last usage index of each original UOp
     last_usage = {}
     all_usages = {}
@@ -741,11 +744,11 @@ class CoralNPURenderer(CStyleLanguage):
         last_usage[s] = max(last_usage.get(s, -1), i)
         if s not in all_usages: all_usages[s] = []
         all_usages[s].append(i)
-        
+
     # Create a generic DTCM buffer for register spilling
     spill_ptr = UOp(Ops.DEFINE_LOCAL, dtypes.int.ptr(), (), ("register_spill", 1024))
     spilled_uops.append(spill_ptr)
-    
+
     for i, original_u in enumerate(uops):
       # Load any spilled variables that are consumed by this UOp
       for s in original_u.src:
@@ -758,28 +761,28 @@ class CoralNPURenderer(CStyleLanguage):
           replacements[s] = spill_load
           del spilled_vars[s]
           active_regs.append(s)
-          
+
       # Construct the UOp for this step, applying active replacements
       new_src = tuple(replacements.get(x, x) for x in original_u.src)
       u = original_u
       if new_src != original_u.src:
         u = UOp(original_u.op, original_u.dtype, new_src, original_u.arg)
         replacements[original_u] = u
-        
+
       # Retire registers that are no longer used after this UOp
       for s in original_u.src:
         if last_usage.get(s, -1) == i and s in active_regs:
           active_regs.remove(s)
-          
+
       # If this UOp generates a vector value, it becomes an active register
       if u.op in GroupOp.ALU or u.op is Ops.LOAD:
         if getattr(u.dtype, 'count', 1) > 1:
           active_regs.append(original_u)
-          
+
       # Retire immediately if this UOp is never used again
       if last_usage.get(original_u, -1) <= i and original_u in active_regs:
         active_regs.remove(original_u)
-        
+
       # If we exceeded MAX_VR_COUNT, explicitly spill the register whose next usage is furthest in the future
       while len(active_regs) > self.MAX_VR_COUNT:
         furthest_reg = None
@@ -793,21 +796,21 @@ class CoralNPURenderer(CStyleLanguage):
           if next_use > furthest_dist:
             furthest_dist = next_use
             furthest_reg = r
-            
+
         spill_orig = furthest_reg
         active_regs.remove(spill_orig)
-        
+
         spill_target = replacements.get(spill_orig, spill_orig)
         spill_ptr_cast = UOp(Ops.CAST, spill_target.dtype.ptr(), (spill_ptr,), None)
         spill_store = UOp(Ops.STORE, dtypes.void, (spill_ptr_cast, spill_target), None)
         spilled_uops.append(spill_ptr_cast)
         spilled_uops.append(spill_store)
         spilled_vars[spill_orig] = spill_target
-        
+
       spilled_uops.append(u)
-        
+
     uops = spilled_uops
-    
+
     # Ensure SINK is updated if needed
     if uops and uops[-1].op is Ops.SINK:
       sink_srcs = list(uops[-1].src)
@@ -835,11 +838,11 @@ class CoralNPURenderer(CStyleLanguage):
     active_allocs = [] # list of (end_idx, offset, size)
     self.local_offsets = {}
     dtcm_peak = 4096
-    
+
     for dl, (start, end) in local_lifetimes.items():
       size = dl.arg[1] if isinstance(dl.arg, tuple) else dl.arg
       size_bytes = size * getattr(dl.dtype.base, 'itemsize', 1)
-      
+
       active_allocs = [a for a in active_allocs if a[0] >= start]
       active_allocs.sort(key=lambda x: x[1])
       current_offset = 4096
@@ -851,11 +854,11 @@ class CoralNPURenderer(CStyleLanguage):
           allocated = True
           break
         current_offset = max(current_offset, a_offset + a_size)
-      
+
       if not allocated:
         self.local_offsets[dl] = current_offset
         active_allocs.append((end, current_offset, size_bytes))
-        
+
       dtcm_peak = max(dtcm_peak, current_offset + size_bytes)
 
     if dtcm_peak > 28672 + 4096:
@@ -896,11 +899,11 @@ class CoralNPURenderer(CStyleLanguage):
     active_allocs = []
     self.local_offsets = {}
     dtcm_peak = 4096
-    
+
     for dl, (start, end) in local_lifetimes.items():
       size = dl.arg[1] if isinstance(dl.arg, tuple) else dl.arg
       size_bytes = size * getattr(dl.dtype.base, 'itemsize', 1)
-      
+
       active_allocs = [a for a in active_allocs if a[0] >= start]
       active_allocs.sort(key=lambda x: x[1])
       current_offset = 4096
@@ -912,11 +915,11 @@ class CoralNPURenderer(CStyleLanguage):
           allocated = True
           break
         current_offset = max(current_offset, a_offset + a_size)
-      
+
       if not allocated:
         self.local_offsets[dl] = current_offset
         active_allocs.append((end, current_offset, size_bytes))
-        
+
       dtcm_peak = max(dtcm_peak, current_offset + size_bytes)
 
     if dtcm_peak > 28672 + 4096:
@@ -938,11 +941,11 @@ class CoralNPURenderer(CStyleLanguage):
       for s in u.src:
         if s in uop_to_idx: d = max(d, depths[uop_to_idx[s]] + 1)
       depths[i] = d
-      
+
       if getattr(u, 'dtype', None) is not None and u.dtype.scalar() in {dtypes.float32, dtypes.float16, dtypes.bfloat16, dtypes.float64}:
         if u.op in GroupOp.ALU or u.op in {Ops.LOAD, Ops.CAST, Ops.BITCAST}:
           fp_depth_counts[d] = fp_depth_counts.get(d, 0) + 1
-          
+
     active_fp_count = max(fp_depth_counts.values()) if fp_depth_counts else 0
     if active_fp_count > 32:
       raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
@@ -1002,7 +1005,7 @@ class CoralNPURenderer(CStyleLanguage):
       prefix.append(f"__attribute__((section(\".noinit\"))) {c_type} {name}[32768 / sizeof({c_type})];")
 
     src = super().render_kernel(function_name, kernel, bufs, uops, prefix)
-    
+
     # Safely erase the function arguments to enforce global array usage
     sig_start = f'extern "C" void {function_name}('
     sig_end = ' {'

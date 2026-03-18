@@ -1,12 +1,17 @@
-import unittest, math, struct, operator
-from tinygrad.tensor import Tensor, dtypes
-from tinygrad.dtype import DTYPES_DICT, truncate, float_to_fp16, float_to_bf16, _to_np_dtype, least_upper_dtype, least_upper_float
-from tinygrad.device import is_dtype_supported
+import math
+import operator
+import struct
+import unittest
 
-from tinygrad.helpers import getenv
-from hypothesis import given, settings, strategies as strat
 import numpy as np
 import torch
+from hypothesis import given, settings
+from hypothesis import strategies as strat
+
+from tinygrad.device import is_dtype_supported
+from tinygrad.dtype import DTYPES_DICT, _to_np_dtype, float_to_bf16, float_to_fp16, least_upper_dtype, least_upper_float, truncate
+from tinygrad.helpers import getenv
+from tinygrad.tensor import Tensor, dtypes
 
 settings.register_profile("my_profile", max_examples=50, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")

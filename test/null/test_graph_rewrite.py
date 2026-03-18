@@ -1,9 +1,14 @@
-import unittest, math
+import math
+import unittest
+
+from hypothesis import given
+from hypothesis import strategies as strat
+
 from tinygrad import dtypes
-from tinygrad.helpers import all_same, Context
-from tinygrad.uop.ops import GroupOp, UOp, Ops, exec_alu, PatternMatcher, TrackedPatternMatcher, UPat
 from tinygrad.codegen import full_rewrite_to_sink
-from hypothesis import given, strategies as strat
+from tinygrad.helpers import Context, all_same
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, TrackedPatternMatcher, UOp, UPat, exec_alu
+
 
 # Helper function to apply the graph rewrite
 @Context(SPEC=0)
@@ -194,8 +199,10 @@ class TestGEPAndVectorizeRewrite(unittest.TestCase):
 
 
 import inspect
-from tinygrad.uop.ops import graph_rewrite, _substitute, track_rewrites
+
+from tinygrad.uop.ops import _substitute, graph_rewrite, track_rewrites
 from tinygrad.uop.symbolic import symbolic_simple
+
 
 class TestBottomUpRewrite(unittest.TestCase):
   def test_const_folding(self):

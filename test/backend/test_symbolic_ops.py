@@ -1,9 +1,12 @@
 import unittest
-from tinygrad import Tensor, Variable, GlobalCounters
-from tinygrad.uop.ops import sym_infer
-from tinygrad.dtype import dtypes
-from examples.gpt2 import Attention
+
 import numpy as np
+
+from examples.gpt2 import Attention
+from tinygrad import GlobalCounters, Tensor, Variable
+from tinygrad.dtype import dtypes
+from tinygrad.uop.ops import sym_infer
+
 
 class TestSymbolicOps(unittest.TestCase):
   def test_plus1(self):

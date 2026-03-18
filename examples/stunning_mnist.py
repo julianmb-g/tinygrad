@@ -5,9 +5,9 @@
 #  - symbolic removal
 
 from examples.beautiful_mnist import Model
-from tinygrad import Tensor, nn, getenv, GlobalCounters, Variable
-from tinygrad.nn.datasets import mnist
+from tinygrad import GlobalCounters, Tensor, Variable, getenv, nn
 from tinygrad.helpers import trange
+from tinygrad.nn.datasets import mnist
 
 # STEPS=70 python3 examples/stunning_mnist.py
 # NOTE: it's broken with STACK=1, why?

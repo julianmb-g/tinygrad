@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """Test that invalid instructions raise exceptions through the mock GPU stack."""
-import unittest, subprocess, os, sys, time
+import os
+import subprocess
+import sys
+import time
+import unittest
+
 
 class TestMockGPUInvalidInstruction(unittest.TestCase):
   def test_unsupported_instruction_raises(self):

@@ -1,15 +1,18 @@
-import unittest, math, time
+import math
+import time
+import unittest
 
-from tinygrad import Tensor, Device, dtypes, Context
-from tinygrad.uop.ops import UOp, Ops
-from tinygrad.engine.realize import get_runner
-from tinygrad.engine.schedule import ExecItem
-from tinygrad.engine.jit import TinyJit
 import numpy as np
 
 from extra.thunder.tiny.tk import WARP_THREADS
 from extra.thunder.tiny.tk.kernel import Kernel
-from extra.thunder.tiny.tk.tiles import ST_16X32, RT_16X32, RT_16X16, TileLayout
+from extra.thunder.tiny.tk.tiles import RT_16X16, RT_16X32, ST_16X32, TileLayout
+from tinygrad import Context, Device, Tensor, dtypes
+from tinygrad.engine.jit import TinyJit
+from tinygrad.engine.realize import get_runner
+from tinygrad.engine.schedule import ExecItem
+from tinygrad.uop.ops import Ops, UOp
+
 
 def assert_allclose(cmp:Tensor, ref:Tensor, **kwargs) -> None:
   if Device.DEFAULT == "NULL": Tensor.realize(cmp, ref)

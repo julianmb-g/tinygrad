@@ -1,6 +1,8 @@
 import unittest
+
 from tinygrad import Variable
 from tinygrad.tensor import Tensor
+
 
 class TestSymbolicPad(unittest.TestCase):
   def test_pad(self):

@@ -1,12 +1,20 @@
+import array
+import copy
+import math
+import mmap
+import random
+import unittest
+
 import numpy as np
 import torch
-import unittest, copy, mmap, random, math, array
-from tinygrad import Tensor, Device, dtypes, nn
-from tinygrad.helpers import getenv, temp, mv_address
-from extra.gradcheck import numerical_jacobian, jacobian, gradcheck
-from hypothesis import given, settings, strategies as strat
+from hypothesis import given, settings
+from hypothesis import strategies as strat
+
+from extra.gradcheck import gradcheck, jacobian, numerical_jacobian
+from tinygrad import Device, Tensor, dtypes, nn
 from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DTYPES_DICT
+from tinygrad.helpers import getenv, mv_address, temp
 
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")

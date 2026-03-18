@@ -6,8 +6,9 @@ from tinygrad.renderer import Renderer
 from tinygrad.renderer.cstyle import CUDARenderer, NVCCRenderer
 from tinygrad.renderer.ptx import PTXRenderer
 from tinygrad.runtime.autogen import cuda
-from tinygrad.runtime.support.compiler_cuda import pretty_ptx
 from tinygrad.runtime.support.c import init_c_struct_t, init_c_var
+from tinygrad.runtime.support.compiler_cuda import pretty_ptx
+
 if getenv("IOCTL"): import extra.nv_gpu_driver.nv_ioctl  # noqa: F401  # pylint: disable=unused-import
 if MOCKGPU:=getenv("MOCKGPU"): from test.mockgpu.cuda import cuda # type: ignore # pylint: disable=reimported
 

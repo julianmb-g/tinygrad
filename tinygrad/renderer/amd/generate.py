@@ -1,7 +1,12 @@
 # AMD ISA code generator - generates enum.py, ins.py, operands.py, str_pcode.py
 # Sources: XML from https://gpuopen.com/download/machine-readable-isa/latest/
 #          PDF manuals from AMD documentation
-import re, zlib, xml.etree.ElementTree as ET, zipfile, pathlib
+import pathlib
+import re
+import xml.etree.ElementTree as ET
+import zipfile
+import zlib
+
 from tinygrad.helpers import fetch
 
 # ═══════════════════════════════════════════════════════════════════════════════

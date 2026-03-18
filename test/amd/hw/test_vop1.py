@@ -5,7 +5,9 @@ Includes: v_mov_b32, v_cvt_*, v_sin_f32, v_rcp_f32, v_exp_f32, v_rndne_f32,
           v_readfirstlane_b32
 """
 import unittest
+
 from test.amd.hw.helpers import *
+
 
 class TestMov(unittest.TestCase):
   """Tests for V_MOV_B32."""

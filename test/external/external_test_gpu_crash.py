@@ -4,9 +4,12 @@
 These tests intentionally cause GPU faults to verify error handling.
 Run with: DEV=AMD python -m pytest test/external/external_test_gpu_crash.py -v
 """
-import unittest, re, importlib
+import importlib
+import re
+import unittest
+
 from tinygrad.device import Device
-from tinygrad.renderer.amd.dsl import s, v, Inst, NULL
+from tinygrad.renderer.amd.dsl import NULL, Inst, s, v
 
 RDNA3_CDNA3_MAP = {"v_mov_b32_e32": "v_mov_b32_e32", "s_mov_b32": "s_mov_b32", "s_waitcnt": "s_waitcnt", "s_endpgm": "s_endpgm",
                    "global_load_b32": "global_load_dword", "global_store_b32": "global_store_dword",

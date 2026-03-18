@@ -1,8 +1,11 @@
-import random, sys
+import random
+import sys
+
 import z3
-from tinygrad.uop.ops import UOp, Ops
-from tinygrad.uop.validate import uops_to_z3
+
 from tinygrad.helpers import DEBUG, Context, colored
+from tinygrad.uop.ops import Ops, UOp
+from tinygrad.uop.validate import uops_to_z3
 
 seed = int(sys.argv[1]) if len(sys.argv) > 1 else random.randint(0, 100)
 print(f"Seed: {seed}", flush=True)

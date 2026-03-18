@@ -1,8 +1,10 @@
 import unittest
-from tinygrad import Device, dtypes, Tensor
+
+from test.helpers import needs_second_gpu
+from tinygrad import Device, Tensor, dtypes
 from tinygrad.device import Buffer
 from tinygrad.helpers import Context, getenv
-from test.helpers import needs_second_gpu
+
 
 class TestSubBuffer(unittest.TestCase):
   def setUp(self):

@@ -9,6 +9,12 @@ from tinygrad.viz.serve import sqtt_timeline
 from test.amd.disasm import disasm
 
 import tinygrad
+from test.amd.disasm import disasm
+from tinygrad.helpers import DEBUG, OSX, getenv, temp
+from tinygrad.renderer.amd.sqtt import map_insts, print_packets
+from tinygrad.runtime.autogen.amd.rdna3.ins import s_endpgm
+from tinygrad.viz.serve import sqtt_timeline
+
 EXAMPLES_DIR = Path(tinygrad.__file__).parent.parent / "extra/sqtt/examples"
 
 def run_cli(*cli_args) -> str:
@@ -20,7 +26,6 @@ def run_cli(*cli_args) -> str:
 
 def rocprof_inst_traces_match(sqtt, prg, target):
   from tinygrad.viz.serve import amd_decode
-  from extra.sqtt.roc import decode as roc_decode, InstExec
   addr_table = amd_decode(prg.lib, target)
   disasm_map = {addr+prg.base:inst for addr,inst in addr_table.items()}
   rctx = roc_decode([sqtt], {prg.tag:disasm_map})

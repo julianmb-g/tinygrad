@@ -1,5 +1,12 @@
-import subprocess, pathlib, struct, ctypes, tempfile, functools, decimal, platform
-from tinygrad.helpers import prod, to_mv, round_up, cache_dir, PROFILE, ProfileRangeEvent, cpu_profile, unwrap, suppress_finalizing
+import ctypes
+import decimal
+import functools
+import pathlib
+import platform
+import struct
+import subprocess
+import tempfile
+
 import tinygrad.runtime.support.objc as objc
 from tinygrad.device import Compiled, Compiler, CompileError, LRUAllocator, ProfileDeviceEvent
 from tinygrad.renderer.cstyle import MetalRenderer

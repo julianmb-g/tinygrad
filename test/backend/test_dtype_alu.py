@@ -1,15 +1,20 @@
-import unittest, operator, math
-from tinygrad import Context, Tensor, dtypes, Device
-from tinygrad.dtype import DType, truncate, fp8_to_float
-from tinygrad.helpers import CI, EMULATED_DTYPES, getenv
-from tinygrad.tensor import _to_np_dtype
-from tinygrad.device import is_dtype_supported
-from tinygrad.runtime.ops_python import from_storage_scalar
-from tinygrad.renderer.ptx import PTXRenderer
-from tinygrad.renderer.nir import NIRRenderer
+import math
+import operator
+import unittest
+
 import numpy as np
 import pytest
-from hypothesis import assume, given, strategies as strat, settings
+from hypothesis import assume, given, settings
+from hypothesis import strategies as strat
+
+from tinygrad import Context, Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
+from tinygrad.dtype import DType, fp8_to_float, truncate
+from tinygrad.helpers import CI, EMULATED_DTYPES, getenv
+from tinygrad.renderer.nir import NIRRenderer
+from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.runtime.ops_python import from_storage_scalar
+from tinygrad.tensor import _to_np_dtype
 
 pytestmark = pytest.mark.filterwarnings("ignore")
 

@@ -1,13 +1,16 @@
-from typing import Literal, Callable, cast
-import os, math, sys, struct
-from collections import defaultdict, Counter
-from tinygrad.codegen.opt import tc
-from tinygrad.uop.ops import GroupOp, Ops, UOp, PatternMatcher, UPat, range_str, axis_letters
-from tinygrad.helpers import strip_parens, getenv, prod, dedup, AMX, CPU_COUNT
-from tinygrad.dtype import ImageDType, dtypes, DType, PtrDType, AddrSpace, truncate, float_to_bf16
-from tinygrad.renderer import Renderer
-from tinygrad.codegen.late.devectorizer import no_vectorized_alu
+import math
+import os
+import struct
+import sys
+from collections import Counter, defaultdict
+from typing import Callable, Literal, cast
 
+from tinygrad.codegen.late.devectorizer import no_vectorized_alu
+from tinygrad.codegen.opt import tc
+from tinygrad.dtype import AddrSpace, DType, ImageDType, PtrDType, dtypes, float_to_bf16, truncate
+from tinygrad.helpers import AMX, CPU_COUNT, dedup, getenv, prod, strip_parens
+from tinygrad.renderer import Renderer
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, axis_letters, range_str
 
 base_rewrite = PatternMatcher([
   (UPat(Ops.DEFINE_REG, name="x"), lambda ctx,x: f"{ctx.render_dtype(x.dtype.base)} {ctx[x]}[{x.dtype.size}];"),
@@ -393,7 +396,7 @@ class CUDARenderer(CStyleLanguage):
   shared_max = 49152
 
   def __init__(self, arch:str, device:str="NV", use_nvcc=False):
-    from tinygrad.runtime.support.compiler_cuda import NVRTCCompiler, NVCCCompiler
+    from tinygrad.runtime.support.compiler_cuda import NVCCCompiler, NVRTCCompiler
     from tinygrad.runtime.support.hcq import MOCKGPU
     self.device, self.arch = device, arch
     self.compiler = (NVCCCompiler if use_nvcc else NVRTCCompiler)(arch, ptx=bool(MOCKGPU) or device == "CUDA", cache_key=device.lower())

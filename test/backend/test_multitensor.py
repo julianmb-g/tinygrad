@@ -1,13 +1,18 @@
-import unittest, functools, random
-from tinygrad import Tensor, Device, nn, GlobalCounters, TinyJit, dtypes, Variable
-from tinygrad.device import is_dtype_supported
-from tinygrad.uop.ops import Ops, UOp
-from tinygrad.helpers import getenv, prod, Context
-from tinygrad.nn.state import get_parameters, get_state_dict
-from tinygrad.engine.realize import BufferCopy, CompiledRunner, run_schedule
+import functools
+import random
+import unittest
+
 import numpy as np
-from hypothesis import given, strategies as strat, settings
-from test.helpers import not_support_multi_device, needs_second_gpu, slow
+from hypothesis import given, settings
+from hypothesis import strategies as strat
+
+from test.helpers import needs_second_gpu, not_support_multi_device, slow
+from tinygrad import Device, GlobalCounters, Tensor, TinyJit, Variable, dtypes, nn
+from tinygrad.device import is_dtype_supported
+from tinygrad.engine.realize import BufferCopy, CompiledRunner, run_schedule
+from tinygrad.helpers import Context, getenv, prod
+from tinygrad.nn.state import get_parameters, get_state_dict
+from tinygrad.uop.ops import Ops, UOp
 
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")
@@ -1032,8 +1037,8 @@ class TestBatchNorm(unittest.TestCase):
       optim.step()
 
   def test_unsynced_backprop_sync_weights(self):
-    from extra.lr_scheduler import OneCycleLR
     from examples.hlb_cifar10 import UnsyncedBatchNorm
+    from extra.lr_scheduler import OneCycleLR
     GPUS = (d1, d2)
 
     with Tensor.train():

@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 import unittest
+
 import numpy as np
-from tinygrad import dtypes, Tensor, TinyJit, GlobalCounters, Variable
-from tinygrad.uop.ops import Ops
+
+from tinygrad import GlobalCounters, Tensor, TinyJit, Variable, dtypes
 from tinygrad.device import is_dtype_supported
 from tinygrad.helpers import temp, CI, DEV, Context
 

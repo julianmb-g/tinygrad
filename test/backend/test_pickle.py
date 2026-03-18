@@ -1,8 +1,13 @@
-import unittest, pickle, types
+import pickle
+import types
+import unittest
+
 import numpy as np
+
 from tinygrad import Tensor, TinyJit, Variable, dtypes
-from tinygrad.helpers import GlobalCounters, ContextVar, Context
-from tinygrad.uop.ops import PatternMatcher, UPat, UOp
+from tinygrad.helpers import Context, ContextVar, GlobalCounters
+from tinygrad.uop.ops import PatternMatcher, UOp, UPat
+
 
 class TestPickle(unittest.TestCase):
   def test_pickle_code_object(self):

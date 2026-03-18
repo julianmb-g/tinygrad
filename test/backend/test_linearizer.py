@@ -1,19 +1,22 @@
-import numpy as np
 import unittest
 from dataclasses import replace
 
+import numpy as np
+
 from tinygrad.codegen.opt import Opt, OptOps
-from tinygrad.uop.ops import UOp, Ops, GroupOp, AxisType
-from tinygrad.device import Device, Buffer, is_dtype_supported
-from tinygrad.tensor import Tensor, _to_np_dtype
-from tinygrad.engine.realize import run_schedule, CompiledRunner, get_program
-from tinygrad.helpers import Context, flatten, dedup, TC_SELECT, TC_OPT, getenv
-from tinygrad.dtype import DType, dtypes, PtrDType, AddrSpace
-from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.device import Buffer, Device, is_dtype_supported
+from tinygrad.dtype import AddrSpace, DType, PtrDType, dtypes
+from tinygrad.engine.realize import CompiledRunner, get_program, run_schedule
+from tinygrad.helpers import TC_OPT, TC_SELECT, Context, dedup, flatten, getenv
 from tinygrad.renderer.cstyle import CUDARenderer
+from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.tensor import Tensor, _to_np_dtype
+from tinygrad.uop.ops import AxisType, GroupOp, Ops, UOp
+
 MOCKGPU = getenv("MOCKGPU")
 
-from tinygrad.uop.ops import print_uops # noqa: F401 # pylint: disable=unused-import
+from tinygrad.uop.ops import print_uops  # noqa: F401 # pylint: disable=unused-import
+
 
 class TestLinearizer(unittest.TestCase):
   def test_arg_dedup(self):

@@ -1,4 +1,5 @@
 import unittest
+
 from tinygrad import Tensor
 from tinygrad.helpers import GlobalCounters, EMULATE
 from tinygrad.engine.realize import get_program
@@ -8,7 +9,13 @@ from tinygrad.uop.ops import Ops, UOp
 from tinygrad.dtype import dtypes
 from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 from tinygrad.device import Device
+from tinygrad.dtype import dtypes
+from tinygrad.engine.realize import get_program
+from tinygrad.helpers import EMULATE, GlobalCounters, getenv
+from tinygrad.renderer import Estimates, ProgramSpec
 from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.uop.ops import Ops, UOp
+
 
 def flops_mem(uops, ignore_indexing=False):
   est = Estimates.from_uops(uops, ignore_indexing)

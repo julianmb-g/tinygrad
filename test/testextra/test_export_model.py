@@ -4,6 +4,12 @@ from tinygrad.tensor import Tensor
 from tinygrad.device import Device
 from tinygrad import dtypes
 import json
+import unittest
+
+from extra.export_model import EXPORT_SUPPORTED_DEVICE, export_model
+from tinygrad import dtypes
+from tinygrad.tensor import Device, Tensor
+
 
 class MockMultiInputModel:
   def forward(self, x1, x2, x3):

@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """Integration test: round-trip RDNA3 assembly through LLVM toolchain."""
 import unittest
-from tinygrad.runtime.autogen.amd.rdna3.ins import *
+
 from test.amd.helpers import llvm_assemble, llvm_disasm
+from tinygrad.runtime.autogen.amd.rdna3.ins import *
+
 
 def waitcnt(vmcnt: int = 0x3f, expcnt: int = 0x7, lgkmcnt: int = 0x3f) -> int:
   return (expcnt & 0x7) | ((lgkmcnt & 0x3f) << 4) | ((vmcnt & 0x3f) << 10)

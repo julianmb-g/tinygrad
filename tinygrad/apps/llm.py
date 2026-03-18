@@ -3,8 +3,8 @@ import sys, argparse, typing, re, unicodedata, json, uuid, time, functools, iter
 from dataclasses import dataclass
 from tinygrad import Tensor, nn, UOp, TinyJit, getenv, function
 from tinygrad.uop.ops import resolve
-from tinygrad.helpers import partition, DEBUG, Timing, GlobalCounters, stderr_log, colored, Context
-from tinygrad.viz.serve import TCPServerWithReuse, HTTPRequestHandler
+from tinygrad.viz.serve import HTTPRequestHandler, TCPServerWithReuse
+
 
 class SimpleTokenizer:
   def __init__(self, normal_tokens:dict[str, int], special_tokens:dict[str, int], preset:str="llama3"):

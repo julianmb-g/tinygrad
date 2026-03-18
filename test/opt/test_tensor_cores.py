@@ -1,4 +1,3 @@
-import numpy as np
 import unittest
 from dataclasses import replace
 
@@ -14,7 +13,17 @@ from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 from tinygrad.codegen.opt.tc import amd_cdna_1616128
 
 # TODO: write a clean version of this
-from test.backend.test_linearizer import helper_realized_ast, helper_linearizer_opt
+from test.backend.test_linearizer import helper_linearizer_opt, helper_realized_ast
+from test.helpers import slow
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.codegen.opt import KernelOptError, Opt, OptOps
+from tinygrad.codegen.opt.tc import amd_cdna_1616128
+from tinygrad.device import is_dtype_supported
+from tinygrad.dtype import DType
+from tinygrad.engine.realize import CompiledRunner, get_program
+from tinygrad.helpers import AMD_LLVM, AMX, CPU_LLVM, Context
+from tinygrad.tensor import _to_np_dtype
+from tinygrad.uop.ops import Ops
 
 # NOTE: get_program always passes in Device[Device.DEFAULT].renderer explicitly for process_replay!!!
 

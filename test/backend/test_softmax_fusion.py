@@ -1,9 +1,12 @@
 import unittest
+
 import numpy as np
-from tinygrad import Tensor, GlobalCounters, Context, Device
+
+from tinygrad import Context, Device, GlobalCounters, Tensor
+from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DTypeLike, dtypes
 from tinygrad.helpers import DEBUG, get_single_element
-from tinygrad.device import is_dtype_supported
+
 
 def single_kernel_softmax(x_in:Tensor, axis=-1, dtype:DTypeLike|None=None) -> Tensor:
   # only support axis =-1

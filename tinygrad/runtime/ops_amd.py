@@ -1,6 +1,22 @@
 from __future__ import annotations
+
+import array
+import atexit
+import collections
+import contextlib
+import ctypes
+import errno
+import functools
+import hashlib
+import importlib
+import itertools
+import mmap
+import os
+import struct
+import sys
+import weakref
 from typing import cast
-import os, ctypes, struct, hashlib, functools, importlib, mmap, errno, array, contextlib, sys, weakref, itertools, collections, atexit
+
 assert sys.platform != 'win32'
 from dataclasses import dataclass
 from tinygrad.runtime.support.hcq import HCQCompiled, HCQAllocator, HCQBuffer, HWQueue, CLikeArgsState, HCQSignal, HCQProgram, FileIOInterface
@@ -12,13 +28,15 @@ from tinygrad.helpers import getenv, round_up, data64_le, DEBUG, PROFILE, Profil
 from tinygrad.helpers import VIZ, ceildiv, unwrap
 from tinygrad.renderer.cstyle import AMDHIPRenderer, AMDHIPCCRenderer
 from tinygrad.renderer.llvmir import AMDLLVMRenderer
-from tinygrad.runtime.autogen import kfd, hsa, sqtt, amdgpu_kd, amdgpu_drm
+from tinygrad.runtime.autogen import amdgpu_drm, amdgpu_kd, hsa, kfd, sqtt
 from tinygrad.runtime.autogen.am import am
-from tinygrad.runtime.support.elf import elf_loader
 from tinygrad.runtime.support.am.amdev import AMDev, AMMemoryManager
 from tinygrad.runtime.support.amd import AMDReg, AMDIP, import_module, import_soc, import_ip_offsets, import_pmc
 from tinygrad.runtime.support.system import System, PCIIfaceBase, PCIAllocationMeta, USBPCIDevice, MAP_FIXED, MAP_NORESERVE
 from tinygrad.runtime.support.memory import AddrSpace
+from tinygrad.runtime.support.system import MAP_FIXED, MAP_NORESERVE, PCIAllocationMeta, PCIDevice, PCIIfaceBase, System, USBPCIDevice
+from tinygrad.uop.ops import sint
+
 if getenv("IOCTL"): import extra.hip_gpu_driver.hip_ioctl  # noqa: F401 # pylint: disable=unused-import
 
 SQTT = ContextVar("SQTT", abs(VIZ.value)>=2)

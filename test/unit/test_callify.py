@@ -1,5 +1,7 @@
 import unittest
+
 from tinygrad import Tensor, dtypes
+
 
 class TestCallify(unittest.TestCase):
   def test_basic(self):

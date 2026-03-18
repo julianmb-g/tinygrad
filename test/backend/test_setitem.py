@@ -1,7 +1,10 @@
 import unittest
-from tinygrad import Tensor, TinyJit, Variable, dtypes, Device
-from tinygrad.helpers import Context
+
 import numpy as np
+
+from tinygrad import Device, Tensor, TinyJit, Variable, dtypes
+from tinygrad.helpers import Context
+
 
 class TestSetitem(unittest.TestCase):
   def test_simple_setitem(self):

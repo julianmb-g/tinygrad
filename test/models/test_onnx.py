@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import unittest
-import numpy as np
-from tinygrad.nn.onnx import OnnxRunner
-from tinygrad.device import Device
-from tinygrad.helpers import fetch, Context
 
-from extra.onnx_helpers import validate
+import numpy as np
+
 from extra.huggingface_onnx.huggingface_manager import DOWNLOADS_DIR, snapshot_download_with_retry
+from extra.onnx_helpers import validate
+from tinygrad.device import Device
+from tinygrad.helpers import Context, fetch
+from tinygrad.nn.onnx import OnnxRunner
+
 
 def run_onnx_torch(onnx_model, inputs):
   import torch
@@ -38,7 +40,7 @@ class TestOnnxModel(unittest.TestCase):
   def _test_model(self, fn, input_name, input_new, debug=False):
     run_onnx = OnnxRunner(fn)
     print("onnx loaded")
-    from test.models.test_efficientnet import chicken_img, car_img, preprocess, _LABELS
+    from test.models.test_efficientnet import _LABELS, car_img, chicken_img, preprocess
 
     def run(img):
       inputs = {input_name: preprocess(img, new=input_new)}

@@ -1,10 +1,13 @@
-import numpy as np
 import unittest
-from tinygrad import Tensor, Device
-from tinygrad.helpers import get_single_element
+
+import numpy as np
+
+from tinygrad import Device, Tensor
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.engine.realize import CompiledRunner, get_program
 from tinygrad.engine.schedule import ExecItem
+from tinygrad.helpers import get_single_element
+
 
 class TestOptGemm(unittest.TestCase):
   @classmethod

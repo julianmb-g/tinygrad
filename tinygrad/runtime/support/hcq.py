@@ -1,6 +1,18 @@
 from __future__ import annotations
-from typing import cast, Callable, Type, TypeVar, Generic, Any
-import contextlib, decimal, statistics, time, ctypes, array, os, struct, collections, functools, itertools
+
+import array
+import collections
+import contextlib
+import ctypes
+import decimal
+import functools
+import itertools
+import os
+import statistics
+import struct
+import time
+from typing import Any, Callable, Generic, Type, TypeVar, cast
+
 try: import fcntl # windows misses that
 except ImportError: fcntl = None #type:ignore[assignment]
 from tinygrad.helpers import PROFILE, getenv, to_mv, from_mv, cpu_profile, ProfileRangeEvent, select_first_inited, unwrap, suppress_finalizing

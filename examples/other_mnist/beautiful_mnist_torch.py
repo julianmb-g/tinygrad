@@ -1,8 +1,10 @@
-from tinygrad import dtypes, getenv, Device
-from tinygrad.helpers import trange, colored, DEBUG, temp
-from tinygrad.nn.datasets import mnist
 import torch
 from torch import nn, optim
+
+from tinygrad import Device, dtypes, getenv
+from tinygrad.helpers import DEBUG, colored, temp, trange
+from tinygrad.nn.datasets import mnist
+
 
 class Model(nn.Module):
   def __init__(self):

@@ -1,8 +1,10 @@
 import unittest
-from tinygrad import Tensor, Context, Device
-from tinygrad.engine.realize import get_program
+
+from tinygrad import Context, Device, Tensor
 from tinygrad.codegen.opt import Opt, OptOps
+from tinygrad.engine.realize import get_program
 from tinygrad.uop.ops import KernelInfo
+
 
 class TestLinearizerRewrite(unittest.TestCase):
   def test_reduction(self):

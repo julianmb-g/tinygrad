@@ -4,6 +4,7 @@ from tinygrad import Tensor, TinyJit, nn, GlobalCounters, function
 from tinygrad.helpers import getenv, colored, trange
 from tinygrad.nn.datasets import mnist
 
+
 class Model:
   def __init__(self):
     self.layers: list[Callable[[Tensor], Tensor]] = [

@@ -1,7 +1,9 @@
 import unittest
-from tinygrad import Tensor, Device, Variable
+
 from examples.gpt2 import Transformer
+from tinygrad import Device, Tensor, Variable
 from tinygrad.nn.state import get_state_dict
+
 
 class TestMethodCache(unittest.TestCase):
   def setUp(self):

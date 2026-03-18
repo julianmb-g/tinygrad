@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Tests for SQTT packet decoding using real captured examples."""
-import pickle, unittest, ctypes, threading
+import ctypes
+import pickle
+import threading
+import unittest
 from pathlib import Path
 from tinygrad.helpers import DEBUG
 from tinygrad.runtime.autogen import rocprof
@@ -14,6 +17,35 @@ from tinygrad.renderer.amd.sqtt import (decode, LAYOUT_HEADER, WAVESTART, WAVEST
 from test.amd.helpers import TARGET_TO_ARCH
 
 import tinygrad
+from test.amd.helpers import TARGET_TO_ARCH
+from tinygrad.helpers import DEBUG
+from tinygrad.renderer.amd import decode_inst
+from tinygrad.renderer.amd.sqtt import (
+  CDNA_INST,
+  CDNA_WAVEEND,
+  CDNA_WAVESTART,
+  IMMEDIATE,
+  IMMEDIATE_MASK,
+  INST,
+  INST_RDNA4,
+  LAYOUT_HEADER,
+  PACKET_TYPES_CDNA,
+  PACKET_TYPES_RDNA3,
+  PACKET_TYPES_RDNA4,
+  VALUINST,
+  WAVEEND,
+  WAVESTART,
+  WAVESTART_RDNA4,
+  InstOp,
+  InstOpRDNA4,
+  decode,
+  print_packets,
+)
+from tinygrad.runtime.autogen import rocprof
+from tinygrad.runtime.autogen.amd.rdna3.enum import SOPPOp
+from tinygrad.runtime.autogen.amd.rdna3.ins import SOPP
+from tinygrad.runtime.support.elf import elf_loader
+
 EXAMPLES_DIR = Path(tinygrad.__file__).parent.parent / "extra/sqtt/examples"
 
 # ═══════════════════════════════════════════════════════════════════════════════

@@ -1,11 +1,14 @@
 # test cases are modified from pytorch test_indexing.py https://github.com/pytorch/pytorch/blob/597d3fb86a2f3b8d6d8ee067e769624dcca31cdb/test/test_indexing.py
 
-import unittest, random, warnings
+import random
+import unittest
+import warnings
+
 import numpy as np
 
-from tinygrad import Tensor, dtypes, Device, TinyJit, Variable
-from tinygrad.helpers import all_same, prod
 from test.helpers import slow
+from tinygrad import Device, Tensor, TinyJit, Variable, dtypes
+from tinygrad.helpers import all_same, prod
 
 random.seed(42)
 

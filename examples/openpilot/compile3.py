@@ -1,10 +1,16 @@
-import os, sys, pickle, time, re
+import os
+import pickle
+import re
+import sys
+import time
+
 import numpy as np
+
 if "JIT_BATCH_SIZE" not in os.environ: os.environ["JIT_BATCH_SIZE"] = "0"
 
-from tinygrad import fetch, Tensor, TinyJit, Context, GlobalCounters, Device, dtypes
-from tinygrad.helpers import DEBUG, getenv
+from tinygrad import Context, Device, GlobalCounters, Tensor, TinyJit, dtypes, fetch
 from tinygrad.engine.realize import CompiledRunner
+from tinygrad.helpers import DEBUG, getenv
 from tinygrad.nn.onnx import OnnxRunner
 
 OPENPILOT_MODEL = sys.argv[1] if len(sys.argv) > 1 else "https://github.com/commaai/openpilot/raw/v0.9.7/selfdrive/modeld/models/supercombo.onnx"
@@ -97,7 +103,7 @@ def test_vs_compile(run, inputs, test_val=None):
 def test_vs_onnx(new_inputs, test_val, onnx_file, tol):
   import onnx
   import onnxruntime as ort
-  
+
   onnx_inputs = {k:v.numpy() for k,v in new_inputs.items()}
   onnx_model = onnx.load(onnx_file)
 
@@ -122,7 +128,7 @@ def test_vs_onnx(new_inputs, test_val, onnx_file, tol):
   return timings
 
 def bench(run, inputs):
-  from extra.bench_log import WallTimeEvent, BenchEvent
+  from extra.bench_log import BenchEvent, WallTimeEvent
   for _ in range(10):
     with WallTimeEvent(BenchEvent.STEP):
       run(**inputs).numpy()

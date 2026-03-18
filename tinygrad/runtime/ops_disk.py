@@ -1,9 +1,18 @@
-import os, sys, mmap, io, ctypes, contextlib, pathlib
-from typing import Generator, Callable
+import contextlib
+import ctypes
+import io
+import mmap
+import os
+import pathlib
+import sys
+from typing import Callable, Generator
+
+from tinygrad.device import Allocator, Compiled
 from tinygrad.helpers import OSX, round_up
-from tinygrad.device import Compiled, Allocator
+
 with contextlib.suppress(ImportError):
   import _posixshmem
+
   from tinygrad.runtime.autogen import io_uring, libc
 
 class DiskDevice(Compiled):

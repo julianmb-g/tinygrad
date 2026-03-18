@@ -1,8 +1,8 @@
-import numpy as np
 import unittest
 from tinygrad.function import function
 from tinygrad import Tensor, GlobalCounters
 from tinygrad.uop.ops import UOp
+
 
 class TestFunction(unittest.TestCase):
   def test_simple(self):

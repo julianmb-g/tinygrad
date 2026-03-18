@@ -1,14 +1,18 @@
 #!/usr/bin/env python
-import gc, unittest
+import gc
+import unittest
+
 import numpy as np
 import torch
 
-from tinygrad import GlobalCounters, Tensor, Device
+from tinygrad import Device, GlobalCounters, Tensor
+from tinygrad.engine.realize import capturing
 from tinygrad.helpers import getenv
 from tinygrad.nn.state import get_parameters
 from tinygrad.engine.realize import capturing, run_schedule
 from tinygrad.engine.schedule import linear_to_schedule
 from tinygrad.tensor import _to_np_dtype
+
 
 class CLCache:
   def __init__(self, allowed=None, strict=False, preclear=True, var_vals=None):
@@ -37,6 +41,7 @@ from extra.models.convnext import ConvNeXt
 from extra.models.efficientnet import EfficientNet
 from extra.models.resnet import ResNet18
 from extra.models.vit import ViT
+
 
 class TestInferenceMinKernels(unittest.TestCase):
   def setUp(self):

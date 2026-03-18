@@ -1,7 +1,8 @@
-import subprocess
 import random
+import subprocess
 import time
 from concurrent.futures import ProcessPoolExecutor, as_completed
+
 from tinygrad.helpers import getenv
 
 # checks that HCQ drivers can be killed during operation without causing issues

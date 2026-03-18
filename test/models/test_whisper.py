@@ -1,13 +1,15 @@
-import unittest
 import pathlib
-from examples.whisper import init_whisper, load_file_waveform, transcribe_file, transcribe_waveform
-from examples.audio_helpers import mel
-import examples.mlperf.metrics as metrics
-from tinygrad.helpers import fetch
-from test.helpers import slow
-from tinygrad import Tensor, Device, dtypes
-from tinygrad.device import is_dtype_supported
+import unittest
+
 import numpy as np
+
+import examples.mlperf.metrics as metrics
+from examples.audio_helpers import mel
+from examples.whisper import init_whisper, load_file_waveform, transcribe_file, transcribe_waveform
+from test.helpers import slow
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
+from tinygrad.helpers import fetch
 
 # Audio generated with the command on MacOS:
 # say "Could you please let me out of the box?" --file-format=WAVE  --data-format=LEUI8@16000 -o test

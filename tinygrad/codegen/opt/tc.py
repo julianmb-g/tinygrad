@@ -1,6 +1,9 @@
-import math, functools
+import functools
+import math
 from dataclasses import dataclass
+
 from tinygrad.dtype import DType, dtypes
+
 
 @dataclass(frozen=True)
 class TensorCore: # D = A * B + C, A is (M x K), B is (K x N), C and D are (M x N)

@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
-import subprocess, sys
+import subprocess
+import sys
+
 from tinygrad.helpers import getenv
 
 LOOPS = getenv("LOOPS", 50)

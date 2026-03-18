@@ -1,11 +1,17 @@
+import argparse
+import json
+import os
+import random
+import time
 from pathlib import Path
 from typing import List
-import json, argparse, random, time, os
-from extra.models.llama import Transformer, convert_from_huggingface, convert_from_gguf, fix_bf16
-from tinygrad.nn.state import safe_load, torch_load, load_state_dict, get_parameters, gguf_load
-from tinygrad import Tensor, dtypes, nn, Context, Device, GlobalCounters
-from tinygrad.helpers import Profiling, Timing, DEBUG, colored, fetch, tqdm
+
 from extra.bench_log import BenchEvent, WallTimeEvent
+from extra.models.llama import Transformer, convert_from_gguf, convert_from_huggingface, fix_bf16
+from tinygrad import Context, Device, GlobalCounters, Tensor, dtypes, nn
+from tinygrad.helpers import DEBUG, Profiling, Timing, colored, fetch, tqdm
+from tinygrad.nn.state import get_parameters, gguf_load, load_state_dict, safe_load, torch_load
+
 
 class Tokenizer:
   pat_str = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
@@ -327,7 +333,7 @@ if __name__ == "__main__":
   param_bytes = sum(x.uop.size * x.dtype.itemsize for x in get_parameters(model))
 
   if not args.no_api and not args.benchmark:
-    from bottle import Bottle, request, response, HTTPResponse, abort, static_file
+    from bottle import Bottle, HTTPResponse, abort, request, response, static_file
     app = Bottle()
 
     cors_headers = {

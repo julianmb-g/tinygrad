@@ -1,18 +1,20 @@
 # ruff: noqa: E501
-import numpy as np
 import unittest
 from dataclasses import replace
-from tinygrad import Tensor, Context, Device, dtypes
-from tinygrad.uop.ops import Ops
+
+import numpy as np
+
+from tinygrad import Context, Device, Tensor, dtypes
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.engine.realize import CompiledRunner, get_program
 from tinygrad.engine.schedule import ExecItem
+from tinygrad.uop.ops import Ops
 
 N = 512
 
 def create_gemm_model(model_path:str, batch_size=N, in_size=N, out_size=N, bias=False):
   import onnx
-  from onnx import helper, numpy_helper, TensorProto
+  from onnx import TensorProto, helper, numpy_helper
   # Define input and output
   input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [batch_size, in_size])
   output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, out_size])
@@ -47,7 +49,7 @@ def sexec(out:Tensor, opts:list[Opt], replace_src=None, run_count=3):
   for _ in range(run_count): new_si.run(wait=True)
 
 def get_quantized_model(sz):
-  from onnxruntime.quantization import quantize_static, QuantFormat, QuantType, CalibrationDataReader
+  from onnxruntime.quantization import CalibrationDataReader, QuantFormat, QuantType, quantize_static
   class FakeDataReader(CalibrationDataReader):
     def __init__(self): self.cnt = 0
     def get_next(self) -> dict:
@@ -64,7 +66,7 @@ def get_quantized_model(sz):
 class TestQuantizeOnnxCPU(unittest.TestCase):
   def test_quant_128(self, sz=128):
     try:
-      import onnx # noqa: F401 # pylint: disable=unused-import
+      import onnx  # noqa: F401 # pylint: disable=unused-import
     except ImportError:
       raise unittest.SkipTest()
     from tinygrad.nn.onnx import OnnxRunner

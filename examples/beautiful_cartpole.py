@@ -1,9 +1,11 @@
-from typing import Tuple
 import time
-from tinygrad import Tensor, TinyJit, nn
+from typing import Tuple
+
 import gymnasium as gym
-from tinygrad.helpers import trange
 import numpy as np  # TODO: remove numpy import
+
+from tinygrad import Tensor, TinyJit, nn
+from tinygrad.helpers import trange
 
 ENVIRONMENT_NAME = 'CartPole-v1'
 #ENVIRONMENT_NAME = 'LunarLander-v2'

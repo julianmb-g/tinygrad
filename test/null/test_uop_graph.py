@@ -1,11 +1,14 @@
-import unittest, pytest
-from tinygrad import dtypes, Variable
+import unittest
+
+import pytest
+
+from test.helpers import to_uops_list
+from tinygrad import Variable, dtypes
+from tinygrad.codegen.late.expander import expander
 from tinygrad.dtype import AddrSpace
 from tinygrad.helpers import DEBUG, Context
-from tinygrad.uop.ops import Ops, UOp, UPat, PatternMatcher, track_rewrites, graph_rewrite, GroupOp, AxisType
+from tinygrad.uop.ops import AxisType, GroupOp, Ops, PatternMatcher, UOp, UPat, graph_rewrite, track_rewrites
 from tinygrad.uop.symbolic import sym
-from tinygrad.codegen.late.expander import expander
-from test.helpers import to_uops_list
 
 simple_pm = PatternMatcher([
   (UPat.cvar('x', dtypes.int), lambda x: UOp.const(dtypes.float, 1.0) + UOp.const(dtypes.float, 2.0)),
@@ -774,7 +777,7 @@ class TestConstBufferize(unittest.TestCase):
     The pattern at rangeify.py uses allow_any_len=True because
     CONST doesn't depend on ranges (constant is same value everywhere).
     """
-    from tinygrad.schedule.rangeify import pm_const_buffer_folding, BufferizeOpts
+    from tinygrad.schedule.rangeify import BufferizeOpts, pm_const_buffer_folding
     c = UOp.const(dtypes.float, 42.0)
     r1 = UOp.range(3, 0)
     bufferize_with_range = UOp(Ops.BUFFERIZE, dtypes.float, (c, r1), arg=BufferizeOpts(device="CPU"))
@@ -788,7 +791,7 @@ class TestConstBufferize(unittest.TestCase):
 
   def test_const_bufferize_with_multiple_ranges(self):
     """Test CONST.BUFFERIZE with multiple ranges is also folded."""
-    from tinygrad.schedule.rangeify import pm_const_buffer_folding, BufferizeOpts
+    from tinygrad.schedule.rangeify import BufferizeOpts, pm_const_buffer_folding
     c = UOp.const(dtypes.float, 3.14)
     r1 = UOp.range(3, 0)
     r2 = UOp.range(4, 1)

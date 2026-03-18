@@ -1,9 +1,13 @@
-import time, unittest
+import time
+import unittest
+
+from tinygrad.codegen.opt.kernel import Kernel
 from tinygrad.runtime.support.hip_comgr import compile_hip
+
 from tinygrad import Tensor
 from tinygrad.device import Device
 from tinygrad.engine.schedule import create_schedule
-from tinygrad.codegen.opt.kernel import Kernel
+
 
 class TestHIPCompileSpeed(unittest.TestCase):
   def test_hip_compile(self):

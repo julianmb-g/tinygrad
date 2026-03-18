@@ -1,7 +1,9 @@
 # opt opinionatedly transforms an ast into an optimized ast using either heuristics or beam search
 from __future__ import annotations
-from enum import Enum, auto
+
 from dataclasses import dataclass
+from enum import Enum, auto
+
 
 class OptOps(Enum):
   TC = auto(); UPCAST = auto(); UNROLL = auto(); LOCAL = auto(); THREAD = auto() # noqa: E702

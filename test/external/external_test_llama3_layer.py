@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
-from tinygrad import Tensor, TinyJit, nn, dtypes
-from tinygrad.helpers import getenv
 from extra.models.llama import TransformerBlock, precompute_freqs_cis
+from tinygrad import Tensor, TinyJit, dtypes, nn
+from tinygrad.helpers import getenv
 
 BS = getenv("BS", 1)
 SEQLEN = getenv("SEQLEN", 128)

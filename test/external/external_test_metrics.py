@@ -1,10 +1,13 @@
-from tinygrad import Tensor
-from test.external.mlperf_unet3d.dice import DiceScore
-from examples.mlperf.metrics import dice_score, log_perplexity
+import math
+import unittest
 
 import numpy as np
 import torch
-import unittest, math
+
+from examples.mlperf.metrics import dice_score, log_perplexity
+from test.external.mlperf_unet3d.dice import DiceScore
+from tinygrad import Tensor
+
 
 class ExternalTestMetrics(unittest.TestCase):
   def _test_metrics(self, tinygrad_metrics, orig_metrics, pred, label, atol=1e-8, rtol=1e-7):

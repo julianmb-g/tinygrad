@@ -1,12 +1,15 @@
 # Test to compare Python and Rust RDNA3 emulators by running real tinygrad kernels
-import math, unittest, ctypes
+import ctypes
+import math
+import unittest
 from dataclasses import dataclass
 from pathlib import Path
-from tinygrad import Device
 
-from test.mockgpu.amd.emu import WaveState, _decode_at, WAVE_SIZE, VCC_LO, EXEC_LO, SCC
-from tinygrad.renderer.amd import decode_inst
 import tinygrad
+from test.mockgpu.amd.emu import EXEC_LO, SCC, VCC_LO, WAVE_SIZE, WaveState, _decode_at
+from tinygrad import Device
+from tinygrad.renderer.amd import decode_inst
+
 REMU_PATH = Path(tinygrad.__file__).parent.parent / "extra/remu/target/release/libremu.so"
 if not REMU_PATH.exists(): REMU_PATH = Path(tinygrad.__file__).parent.parent / "extra/remu/target/release/libremu.dylib"
 
@@ -108,6 +111,7 @@ class PythonEmulator:
 
   def create(self, kernel: bytes, n_lanes: int):
     import ctypes
+
     from tinygrad.device import Buffer, BufferSpec
     from tinygrad.dtype import dtypes
     # Store kernel in a ctypes buffer so _decode_at can read from memory at actual PC address

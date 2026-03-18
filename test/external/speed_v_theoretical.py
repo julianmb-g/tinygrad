@@ -1,8 +1,10 @@
 import unittest
-from tinygrad import Tensor, TinyJit, Device
-from tinygrad.helpers import Context, DEBUG, GlobalCounters
+
+from tinygrad import Device, Tensor, TinyJit
+from tinygrad.helpers import DEBUG, Context, GlobalCounters
 from tinygrad.nn import Conv2d
 from tinygrad.nn.state import get_parameters
+
 
 class TestKernelSpeed(unittest.TestCase):
   def _get_tensor(self, *shape:int):

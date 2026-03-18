@@ -1,15 +1,34 @@
-import functools, math, time, multiprocessing, traceback, signal, atexit
+import atexit
+import functools
+import math
+import multiprocessing
+import signal
+import time
+import traceback
 from dataclasses import replace
-from tinygrad.uop.ops import sym_infer, AxisType, pyrender
-from tinygrad.device import Device, Buffer, Compiler
-from tinygrad.helpers import prod, flatten, DEBUG, CACHELEVEL, diskcache_get, diskcache_put, getenv, Context, colored, time_to_str, unwrap
-from tinygrad.helpers import IGNORE_BEAM_CACHE
-from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
-from tinygrad.tensor import Tensor
-from tinygrad.engine.realize import CompiledRunner
+
 from tinygrad.codegen import get_program
-from tinygrad.renderer import ProgramSpec
+from tinygrad.codegen.opt import KernelOptError, Opt, OptOps
 from tinygrad.codegen.opt.postrange import Scheduler
+from tinygrad.device import Buffer, Compiler, Device
+from tinygrad.engine.realize import CompiledRunner
+from tinygrad.helpers import (
+  CACHELEVEL,
+  DEBUG,
+  IGNORE_BEAM_CACHE,
+  Context,
+  colored,
+  diskcache_get,
+  diskcache_put,
+  flatten,
+  getenv,
+  prod,
+  time_to_str,
+  unwrap,
+)
+from tinygrad.renderer import ProgramSpec
+from tinygrad.tensor import Tensor
+from tinygrad.uop.ops import AxisType, pyrender, sym_infer
 
 actions = [Opt(op=OptOps.UPCAST, axis=axis, arg=amt) for amt in [0,2,3,4,5,7,8,16,32,64,128,256] for axis in range(8)]
 actions += [Opt(op=OptOps.UNROLL, axis=axis, arg=amt) for amt in [0,4,7,8,16,32,64,128,256] for axis in range(5)]
@@ -97,9 +116,9 @@ def _ensure_buffer_alloc(bufs:list[Buffer]) -> list[Buffer]: return [buf.ensure_
 # get dictionary of all possible actions
 def get_kernel_actions(s:Scheduler, include_0=True, max_up:int|None=None) -> dict[int, Scheduler]:
   acted, max_up, max_lcl = {0:s} if include_0 else {}, getenv("BEAM_UPCAST_MAX", 256) if max_up is None else max_up, getenv("BEAM_LOCAL_MAX", 1024)
-  
+
   if hasattr(s.ren, "MAX_VR_COUNT"):
-    from tinygrad.uop.ops import Ops, GroupOp
+    from tinygrad.uop.ops import GroupOp, Ops
     allocated_vr = len([u for u in s.ast.toposort() if u.op in GroupOp.ALU or u.op is Ops.LOAD])
     max_up = min(max_up, s.ren.MAX_VR_COUNT // max(1, allocated_vr))
 

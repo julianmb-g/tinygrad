@@ -2,11 +2,9 @@ import functools, struct
 from tinygrad.device import Compiled, Allocator, BufferSpec
 from tinygrad.renderer.wgsl import WGSLRenderer
 from tinygrad.helpers import round_up, suppress_finalizing
+from tinygrad.renderer.wgsl import WGSLRenderer
 from tinygrad.runtime.autogen import webgpu
 from tinygrad.runtime.support import c
-from typing import cast, List, Any, TypeAlias
-import ctypes
-import os
 
 WGPUDevPtr: TypeAlias = webgpu.WGPUDevice
 WGPUBufPtr: TypeAlias = webgpu.WGPUBuffer

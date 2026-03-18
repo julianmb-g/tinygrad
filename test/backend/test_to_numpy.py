@@ -1,7 +1,10 @@
-from tinygrad.tensor import Tensor
-import numpy as np
 import pickle
 import unittest
+
+import numpy as np
+
+from tinygrad.tensor import Tensor
+
 
 class TestToNumpy(unittest.TestCase):
   def test_numpy_is_numpy(self):

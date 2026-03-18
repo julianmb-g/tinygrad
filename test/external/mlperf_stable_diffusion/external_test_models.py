@@ -1,12 +1,14 @@
 import unittest
-import numpy as np
 from pathlib import Path
-from tinygrad import Tensor, dtypes, Device
+from typing import Literal
+
+import numpy as np
+
+from examples.mlperf.initializers import attn_f32_softmax, gelu_erf, init_stable_diffusion
+from extra.models import clip
+from tinygrad import Device, Tensor, dtypes
 from tinygrad.helpers import getenv
 from tinygrad.nn.state import get_parameters
-from extra.models import clip
-from examples.mlperf.initializers import gelu_erf, init_stable_diffusion, attn_f32_softmax
-from typing import Literal
 
 clip_params = {"dims": 1024, "n_heads": 16, "layers": 24, "return_pooled": False, "ln_penultimate": True, "clip_tokenizer_version": "sd_mlperf_v5_0"}
 def get_cond_stage_model(GPUS:list[str]|None=None) -> clip.FrozenOpenClipEmbedder:

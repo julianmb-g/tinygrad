@@ -1,8 +1,10 @@
 # sorted in order of increasing complexity
 import itertools
-from tinygrad.helpers import dedup, flatten, getenv, unwrap, FUSE_OPTIM
-from tinygrad.tensor import Tensor
+
 from tinygrad.dtype import dtypes, least_upper_dtype, to_dtype
+from tinygrad.helpers import FUSE_OPTIM, dedup, flatten, getenv, unwrap
+from tinygrad.tensor import Tensor
+
 
 class Optimizer:
   """
@@ -104,15 +106,15 @@ class Muon(Optimizer):
       if self.momentum:
         self.b[i].assign(self.momentum * self.b[i] + (1.0 - self.momentum) * g)
         g = ((1.0 - self.momentum) * g + self.momentum * self.b[i]) if self.nesterov else self.b[i]
-      if self.ns_coefficients: 
+      if self.ns_coefficients:
         g = g.reshape(g.shape[0], -1).newton_schulz(self.ns_steps, self.ns_coefficients).reshape(g.shape)
       ratio = max(1.0, t.shape[0] / t.shape[1]) if len(t.shape) >= 2 else 1.0
       adjusted_lr = self.lr * (ratio ** 0.5)
-      
+
       up = g * adjusted_lr
       if self.wd > 0:
         up = up + t.detach() * self.wd * self.lr
-      
+
       ret.append(up.cast(t.dtype))
     return ret, self.b
 

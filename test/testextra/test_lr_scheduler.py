@@ -1,13 +1,15 @@
+import unittest
+
 import numpy as np
 import torch
-import unittest
-from tinygrad.tensor import Tensor
-from tinygrad.nn.state import get_parameters
-from tinygrad.nn.optim import Adam, SGD
-from tinygrad.helpers import DEBUG
-from extra.lr_scheduler import MultiStepLR, ReduceLROnPlateau, CosineAnnealingLR, OneCycleLR
-from extra.training import train, evaluate
+
 from extra.datasets import fetch_mnist
+from extra.lr_scheduler import CosineAnnealingLR, MultiStepLR, OneCycleLR, ReduceLROnPlateau
+from extra.training import evaluate, train
+from tinygrad.helpers import DEBUG
+from tinygrad.nn.optim import SGD, Adam
+from tinygrad.nn.state import get_parameters
+from tinygrad.tensor import Tensor
 
 np.random.seed(1337)
 Tensor.manual_seed(1337)
