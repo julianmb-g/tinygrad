@@ -105,5 +105,96 @@ class TestCoralNPUMemory(unittest.TestCase):
             os.unlink(f.name)
             os.unlink(so_path)
 
+    def test_axi_burst_unaligned_boundary_nan_preservation(self):
+        renderer = CoralNPURenderer()
+
+        # Generate a COPY of >4KB (5000 bytes)
+        buf_dest = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
+        buf_src = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
+        copy_size = 5000
+        copy_uop = UOp(Ops.COPY, dtypes.void, (buf_dest, buf_src), arg=copy_size)
+        sink = UOp(Ops.SINK, dtypes.void, (copy_uop,))
+        uops = [buf_dest, buf_src, copy_uop, sink]
+
+        name, kernel, bufs = renderer._render(uops)
+        src = renderer.render_kernel(name, kernel, bufs, uops)
+
+        # Strip .noinit declarations since we will pass pointers directly
+        src = re.sub(r'__attribute__\(\(section\("\.noinit"\)\)\) .*?;\n', '', src)
+
+        sig_match = re.search(r'extern "C" void ([a-zA-Z0-9_]+)\(\)', src)
+        func_name = sig_match.group(1) if sig_match else "compiled"
+
+        # Change signature to accept source and destination pointers
+        src = src.replace(f'extern "C" void {func_name}() {{', f'extern "C" void {func_name}(float* data0, float* data1) {{')
+
+        # Compile with a strict CORAL_DMA_ASYNC implementation that enforces AXI hardware bounds
+        with tempfile.NamedTemporaryFile(suffix=".cc", delete=False) as f:
+            dummy_includes = """#include <string.h>
+#include <stdint.h>
+#include <stdlib.h>
+#include <stdio.h>
+#ifndef CORAL_DMA_ASYNC
+extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
+    if (size > 4096) {
+        fprintf(stderr, "FATAL: DMA burst size %d exceeded 4096 bytes!\\n", size);
+        abort();
+    }
+    uintptr_t src_start = (uintptr_t)src;
+    uintptr_t src_end = src_start + size - 1;
+    if ((src_start & ~0xFFF) != (src_end & ~0xFFF)) {
+        fprintf(stderr, "FATAL: DMA burst crossed 4KB physical boundary!\\n");
+        abort();
+    }
+    memcpy(dest, src, size);
+}
+#define WAIT_DMA_READY() /* sync */
+#endif
+"""
+            f.write((dummy_includes + src).encode())
+            f.flush()
+            so_path = f.name + ".so"
+            subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path])
+
+        try:
+            lib = ctypes.CDLL(so_path)
+
+            # Allocate 8KB arrays (2 pages) and explicitly fill with NaN
+            nan_bytes = struct.pack('f', float('nan'))
+            mem_src = bytearray(nan_bytes * 2048)
+            mem_dst = bytearray(nan_bytes * 2048)
+
+            # Choose an offset that crosses the 4KB boundary unaligned
+            # e.g., 124 bytes offset + 5000 bytes copy > 4096 bytes
+            offset = 124
+            payload = bytes([i % 256 for i in range(copy_size)])
+            mem_src[offset:offset+copy_size] = payload
+
+            c_mem_src = (ctypes.c_char * len(mem_src)).from_buffer(mem_src)
+            c_mem_dst = (ctypes.c_char * len(mem_dst)).from_buffer(mem_dst)
+
+            ptr_src = ctypes.cast(ctypes.addressof(c_mem_src) + offset, ctypes.POINTER(ctypes.c_float))
+            ptr_dst = ctypes.cast(ctypes.addressof(c_mem_dst) + offset, ctypes.POINTER(ctypes.c_float))
+
+            # Organically execute the compiled AXI burst loop
+            func = getattr(lib, func_name)
+            func(ptr_dst, ptr_src)
+
+            # Explicitly verify the memory payload
+            self.assertEqual(mem_dst[offset:offset+copy_size], payload, "Memory payload not correctly copied across unaligned boundaries")
+
+            # Verify NaN preservation around the boundaries
+            for i in range(0, offset, 4):
+                val = struct.unpack('f', mem_dst[i:i+4])[0]
+                self.assertTrue(math.isnan(val), f"EXTMEM pre-boundary NaN clobbered at byte {i}")
+
+            for i in range(offset + copy_size, len(mem_dst), 4):
+                val = struct.unpack('f', mem_dst[i:i+4])[0]
+                self.assertTrue(math.isnan(val), f"EXTMEM post-boundary NaN clobbered at byte {i}")
+
+        finally:
+            os.unlink(f.name)
+            os.unlink(so_path)
+
 if __name__ == '__main__':
     unittest.main()
