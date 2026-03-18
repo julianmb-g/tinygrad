@@ -3,6 +3,9 @@ from __future__ import annotations
 import time
 
 START_TIME = time.perf_counter()
+import atexit
+import glob
+import signal
 import contextlib
 import copyreg
 import ctypes
@@ -580,3 +583,40 @@ class count:
     cur = self.n
     self.n += self.step
     return cur
+
+def _kill_pg_children():
+  try:
+    pid = os.getpid()
+    pgid = os.getpgid(pid)
+    for stat_file in glob.glob("/proc/[0-9]*/stat"):
+      try:
+        with open(stat_file, "r") as f:
+          parts = f.read().split()
+          child_pid = int(parts[0])
+          child_pgid = int(parts[4])
+          if child_pgid == pgid and child_pid != pid:
+            os.kill(child_pid, signal.SIGKILL)
+      except (FileNotFoundError, ProcessLookupError, PermissionError, OSError):
+        pass
+  except (ProcessLookupError, OSError):
+    pass
+
+def init_worker_process_group():
+  """Severs the process group and registers atexit to kill children"""
+  try:
+    os.setpgrp()
+    libc = ctypes.CDLL("libc.so.6")
+    libc.prctl(1, signal.SIGKILL) # PR_SET_PDEATHSIG
+  except OSError:
+    pass
+  atexit.register(_kill_pg_children)
+
+def init_c_process_group():
+  """Severs the process group and binds lifecycle to parent (no atexit hooks needed)"""
+  try:
+    os.setpgrp()
+    libc = ctypes.CDLL("libc.so.6")
+    libc.prctl(1, signal.SIGKILL)
+  except OSError:
+    pass
+

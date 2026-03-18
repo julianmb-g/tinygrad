@@ -22,6 +22,7 @@ from tinygrad.helpers import (
   diskcache_put,
   flatten,
   getenv,
+  init_worker_process_group,
   prod,
   time_to_str,
   unwrap,
@@ -106,6 +107,7 @@ def _try_compile(x:tuple[int,Scheduler], compiler:Compiler) -> tuple[int, tuple[
 
 # workers should not open devices and should ignore ctrl c and should not launch VIZ
 def _init_worker():
+  init_worker_process_group()
   Context(ALLOW_DEVICE_USAGE=0, VIZ=0, TRACK_MATCH_STATS=0).__enter__()
   signal.signal(signal.SIGINT, signal.SIG_IGN)
 

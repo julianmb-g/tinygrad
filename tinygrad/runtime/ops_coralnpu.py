@@ -1,8 +1,17 @@
 import ctypes
 import functools
 import os
+import signal
+import subprocess
+import tempfile
+import unittest
+import re
+import struct
+import multiprocessing
+import multiprocessing.shared_memory
 
 from tinygrad.device import Allocator, BufferSpec, Compiled, Compiler, CompilerSet
+from tinygrad.helpers import init_c_process_group
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 
 
@@ -12,14 +21,12 @@ class CoralNPUAllocator(Allocator):
     self.mem = {}
     self.shms = {}
 
-    import multiprocessing
     self.lock = multiprocessing.Lock()
 
     # Dynamically parse .elf for _end symbol (strictly NOT 0x80000000)
     self.vmm_base = None
     elf_path = os.environ.get("CORALNPU_ELF", "coralnpu.elf")
     if os.path.exists(elf_path):
-        import struct
         with open(elf_path, "rb") as f: lib = f.read()
         if lib[:4] == b'\x7fELF' and lib[4] == 1:
             e_shoff, _, _, _, _, e_shentsize, e_shnum, e_shstrndx = struct.unpack_from("<II6H", lib, 32)
@@ -47,7 +54,6 @@ class CoralNPUAllocator(Allocator):
     super().__init__(device)
 
   def _alloc(self, size:int, options:BufferSpec):
-    import multiprocessing.shared_memory
     with self.lock:
         size_aligned = (size + 15) & ~15
         handle = None
@@ -122,8 +128,6 @@ class CoralNPUProgram:
     self.args = args
     self.runtimevars = runtimevars
 
-    import os
-    import re
     self.is_beam = int(os.environ.get("BEAM", "0")) > 0
     self.lib_so = None
     self.fxn = None
@@ -134,8 +138,6 @@ class CoralNPUProgram:
       self.beam_cost = float(match.group(1)) if match else float(len(src))
 
   def _compile_on_host(self, src):
-    import subprocess
-    import tempfile
     with tempfile.NamedTemporaryFile(delete=False, suffix='.c', mode='w') as f:
       f.write(src)
       src_path = f.name
@@ -145,7 +147,6 @@ class CoralNPUProgram:
     except subprocess.CalledProcessError as e:
       raise RuntimeError(f"Cross-compilation failed: {e.output.decode()}")
     except FileNotFoundError as e:
-      import unittest
       raise unittest.SkipTest(f"Missing cross-compiler: {e}")
     return elf_path
 
@@ -164,16 +165,15 @@ class CoralNPUProgram:
     for v in vals:
       cmd.extend(["--val", str(v)])
 
-    import subprocess
     if timeout is not None:
       try:
-        subprocess.run(cmd, timeout=timeout, check=True)
+        subprocess.run(cmd, timeout=timeout, check=True, preexec_fn=init_c_process_group)
       except subprocess.TimeoutExpired:
         raise TimeoutError(f"CoralNPU execution timed out after {timeout} seconds.")
       except subprocess.CalledProcessError as e:
         raise RuntimeError(f"CoralNPU execution failed with exit code {e.returncode}")
     else:
-      subprocess.run(cmd, check=True)
+      subprocess.run(cmd, check=True, preexec_fn=init_c_process_group)
     return 0.0
 
 

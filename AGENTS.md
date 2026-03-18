@@ -52,3 +52,7 @@
 - **Memory Mapping & Loop Constraints**: The unroll boundary parameter (`max_upcast=32`) must be handled separately from the physical chunk boundary (28KB DTCM restriction).
 - **Inline Imports Anti-Pattern**: Nested standard library imports must be physically extracted to the top-level scope, not merely alphabetized. Also, ruff automated formatting should include F401 to strip unused imports.
 - **Worker Process Deadlocks**: Implement explicit `atexit` handlers or PR_SET_PDEATHSIG when spanning pytest worker processes in Tinygrad IPC loops to ensure safe teardowns during test interruptions.
+
+### Pytest Xdist IPC Deadlocks and Node Down Constraints
+- **OOM `node down` Crash vs IPC Deadlock**: The use of `pytest -n auto` on high-core count environments (e.g. 128 logical cores) can exhaust container memory leading to OOM-killer SIGKILLs that manifest identically to IPC deadlocks ("node down: Not properly terminated"). 
+- **Process Group Severing with pytest**: When implementing `os.setpgrp()` in test workers (`conftest.py`), use explicit `atexit` hooks to kill children of the severed group, and ALWAYS use `prctl(1, signal.SIGKILL)` in out-of-band simulators (`ops_coralnpu.py`) so they receive `SIGKILL` if the python orchestrator crashes unexpectedly.
