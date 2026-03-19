@@ -157,9 +157,9 @@ class TestCoralNPURenderer(unittest.TestCase):
       first_wait = min(loc for loc, val in enumerate(sequence) if val == 'DMA_WAIT')
       self.assertGreater(first_wait, last_store, "WAIT_DMA_READY must come strictly after all disjoint STOREs")
 
-    # Authentic Failure Pipeline Verification
+    # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -178,11 +178,6 @@ class TestCoralNPURenderer(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
 
-    # Native GCC Compilation Validation
-    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
-      f.write((dummy_includes + src).encode())
-      f.flush()
       try:
         subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
       except FileNotFoundError:
@@ -215,7 +210,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn("& 0xFFF", src, "Must calculate offset to next physical 4KB boundary")
     self.assertIn("for (int _dma_off = 0", src)
 
-    # Authentic Failure Pipeline Verification
+    # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
       f.write((dummy_includes + src).encode())
@@ -236,11 +231,6 @@ class TestCoralNPURenderer(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
 
-    # Native GCC Compilation Validation
-    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
-      f.write((dummy_includes + src).encode())
-      f.flush()
       try:
         subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
       except FileNotFoundError:
@@ -268,9 +258,9 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn("CORAL_DMA_ASYNC", src)
     body = src.split("{", 1)[1] if "{" in src else src
     self.assertIn("WAIT_DMA_READY();", body)
-    # Authentic Failure Pipeline Verification
+    # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -289,10 +279,6 @@ class TestCoralNPURenderer(unittest.TestCase):
             with self.assertRaises(FileNotFoundError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
 
-    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
-      f.write((dummy_includes + src).encode())
-      f.flush()
       try:
         subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
       except FileNotFoundError:
@@ -556,19 +542,12 @@ class TestCoralNPURenderer(unittest.TestCase):
         first_load = min(loc for loc, val in enumerate(sequence) if val == 'SPILL_LOAD')
         self.assertGreater(first_load, last_store, "Spill LOAD must be strictly delayed after intermediate operations.")
 
-      # Native GCC Compilation Validation
+      # Authentic Failure Pipeline Verification
       with tempfile.NamedTemporaryFile(suffix=".cc") as f:
         dummy_includes = "#include <stdint.h>\n"
         f.write((dummy_includes + src).encode())
         f.flush()
-        try:
-          subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-        except FileNotFoundError:
-          raise unittest.SkipTest("Toolchain missing")
-        except subprocess.CalledProcessError:
-          self.fail("Generated C++ code failed to compile natively via GCC.")
 
-        # Authentic Failure Pipeline Verification
         with tempfile.TemporaryDirectory() as temp_dir:
           dummy_gpp = os.path.join(temp_dir, "g++")
           with open(dummy_gpp, "w") as fake:
@@ -583,6 +562,14 @@ class TestCoralNPURenderer(unittest.TestCase):
             with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
               with self.assertRaises(FileNotFoundError):
                 subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+
+        # Native GCC Compilation Validation
+        try:
+          subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+        except FileNotFoundError:
+          raise unittest.SkipTest("Toolchain missing")
+        except subprocess.CalledProcessError:
+          self.fail("Generated C++ code failed to compile natively via GCC.")
 
     finally:
       renderer.MAX_VR_COUNT = old_max
