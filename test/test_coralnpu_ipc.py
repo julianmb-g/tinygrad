@@ -124,3 +124,46 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class TestIpcWorkerPool(unittest.TestCase):
+    def test_worker_execution(self):
+        """Test that the IPC worker correctly receives and executes a task across the boundary."""
+        from tinygrad.helpers import IpcWorkerPool
+        def dummy_worker(x): return x * 2
+        pool = IpcWorkerPool(dummy_worker, 1)
+        try:
+            pool.submit(0, 5)
+            self.assertEqual(pool.get_result(0, timeout=1.0), 10)
+        finally:
+            pool.shutdown()
+
+    def test_worker_timeout(self):
+        """Test that a hanging worker correctly triggers a TimeoutError on the parent without deadlocking."""
+        from tinygrad.helpers import IpcWorkerPool
+        def hanging_worker():
+            import time
+            while True: time.sleep(1)
+        pool = IpcWorkerPool(hanging_worker, 1)
+        try:
+            pool.submit(0)
+            with self.assertRaises(TimeoutError):
+                pool.get_result(0, timeout=0.1)
+        finally:
+            pool.shutdown()
+
+    def test_worker_deadlock_prevention(self):
+        """Test that massive unread payloads fill the pipe and trigger the POLLOUT watchdog instead of deadlocking."""
+        from tinygrad.helpers import IpcWorkerPool
+        def blocking_worker(*args, **kwargs):
+            import time
+            while True: time.sleep(1)
+        pool = IpcWorkerPool(blocking_worker, 1)
+        try:
+            with self.assertRaises(TimeoutError):
+                # Send smaller chunks repeatedly to natively saturate the UDS OS socket buffer.
+                # Once the physical memory limit is breached, the pipe fills up.
+                # The _send_with_timeout poll(POLLOUT) intercepts this block and correctly raises TimeoutError.
+                for _ in range(100000):
+                    pool.submit(0, "A" * 1024)
+        finally:
+            pool.shutdown()

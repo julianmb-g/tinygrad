@@ -16,6 +16,7 @@ import importlib
 import inspect
 import itertools
 import math
+import multiprocessing
 import operator
 import os
 import pathlib
@@ -23,6 +24,7 @@ import pickle
 import platform
 import pstats
 import re
+import select
 import shutil
 import signal
 import sqlite3
@@ -30,6 +32,7 @@ import string
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 import types
 import urllib.request
@@ -620,3 +623,78 @@ def init_c_process_group():
   except OSError:
     pass
 
+
+_ipc_active_pids = set()
+def _kill_ipc_orphans():
+  for pid in list(_ipc_active_pids):
+    try:
+      os.killpg(pid, signal.SIGKILL)
+    except Exception:
+      pass
+atexit.register(_kill_ipc_orphans)
+
+class IpcWorkerPool:
+  """Stateful Python daemon boundaries to prevent Pytest-xdist node collapses and zombie deadlocks."""
+  def __init__(self, target, num_workers=1):
+    self.target = target
+    self.num_workers = num_workers
+    self.workers = []
+    
+    for _ in range(num_workers):
+      parent_conn, child_conn = multiprocessing.Pipe(duplex=True)
+      p = multiprocessing.Process(target=self._worker_wrapper, args=(child_conn, target))
+      p.start()
+      _ipc_active_pids.add(p.pid)
+      self.workers.append({"process": p, "conn": parent_conn, "pid": p.pid})
+      
+  @staticmethod
+  def _send_with_timeout(conn, obj, timeout=5.0):
+    import select
+    if hasattr(select, "poll"):
+      p = select.poll()
+      p.register(conn.fileno(), select.POLLOUT)
+      if not p.poll(timeout * 1000.0):
+        raise TimeoutError("IPC Worker pipe is full, write deadlock prevented.")
+    else:
+      _, w, _ = select.select([], [conn.fileno()], [], timeout)
+      if not w:
+        raise TimeoutError("IPC Worker pipe is full, write deadlock prevented.")
+    conn.send(obj)
+
+  @staticmethod
+  def _worker_wrapper(conn, target):
+    init_worker_process_group()
+    while True:
+      try:
+        if conn.poll(timeout=1.0):
+          msg = conn.recv()
+          if msg is None: break
+          res = target(*msg[0], **msg[1])
+          IpcWorkerPool._send_with_timeout(conn, res, 1.0)
+      except EOFError:
+        break
+      except Exception as e:
+        try: IpcWorkerPool._send_with_timeout(conn, e, 1.0)
+        except Exception: pass
+
+  def submit(self, worker_idx, *args, **kwargs):
+    conn = self.workers[worker_idx]["conn"]
+    self._send_with_timeout(conn, (args, kwargs), 5.0)
+    
+  def get_result(self, worker_idx, timeout=None):
+    conn = self.workers[worker_idx]["conn"]
+    if conn.poll(timeout):
+      res = conn.recv()
+      if isinstance(res, Exception): raise res
+      return res
+    raise TimeoutError(f"IPC Worker {worker_idx} execution timed out.")
+
+  def shutdown(self):
+    for w in self.workers:
+      try: self._send_with_timeout(w["conn"], None, 1.0)
+      except Exception: pass
+      
+      try: os.killpg(w["pid"], signal.SIGKILL)
+      except Exception: pass
+      _ipc_active_pids.discard(w["pid"])
+      w["process"].join(timeout=1)
