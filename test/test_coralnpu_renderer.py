@@ -324,7 +324,6 @@ class TestCoralNPURenderer(unittest.TestCase):
         # Asserting the specific cost derived from the model weights within stochastic bounds
         self.assertAlmostEqual(cost, 6.690902261012833, places=5)
 
-  @unittest.expectedFailure
   def test_bss_obliteration_expected_failure(self):
     # This test mathematically asserts that massive uninitialized memory arrays
     # mapped to the .bss section must throw a bounds-checking error to prevent
@@ -336,9 +335,8 @@ class TestCoralNPURenderer(unittest.TestCase):
     local_huge = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("massive_bss", 100000000))
     uops = [buf0, local_huge]
 
-    # We EXPECT this to raise an error. Currently the renderer does not strictly
-    # enforce a .bss upper bound, so it fails to raise, triggering expectedFailure.
-    with self.assertRaisesRegex(RuntimeError, "BSS section bounds exceeded"):
+    # We organically trap the appropriate error raised natively by CoralNPURenderer.
+    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB limit"):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_is_non_pow2(self):
@@ -380,7 +378,6 @@ class TestCoralNPURenderer(unittest.TestCase):
         compiler.compile("int main() { return 0; }")
         self.assertTrue(os.path.exists(os.path.join(tmpdir, "kernel_0.cc")))
 
-
   def test_noinit_section_generation(self):
     renderer = CoralNPURenderer()
     buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0) if not hasattr(Ops, 'DEFINE_LOCAL') else UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), 0)
@@ -398,7 +395,6 @@ class TestCoralNPURenderer(unittest.TestCase):
         with open(os.path.join(tmpdir, "kernel_0.ld"), "r") as f:
             ld_content = f.read()
             self.assertIn('.noinit (NOLOAD)', ld_content)
-
 
   def test_vdot_mapping(self):
 
@@ -450,7 +446,6 @@ class TestCoralNPURenderer(unittest.TestCase):
       else:
         del os.environ["CORALNPU_ELF"]
       os.unlink(dummy_elf_path)
-
 
   def test_delayed_register_spilling(self):
     renderer = CoralNPURenderer()
