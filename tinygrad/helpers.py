@@ -32,7 +32,6 @@ import string
 import subprocess
 import sys
 import tempfile
-import threading
 import time
 import types
 import urllib.request
@@ -639,17 +638,16 @@ class IpcWorkerPool:
     self.target = target
     self.num_workers = num_workers
     self.workers = []
-    
+
     for _ in range(num_workers):
       parent_conn, child_conn = multiprocessing.Pipe(duplex=True)
       p = multiprocessing.Process(target=self._worker_wrapper, args=(child_conn, target))
       p.start()
       _ipc_active_pids.add(p.pid)
       self.workers.append({"process": p, "conn": parent_conn, "pid": p.pid})
-      
+
   @staticmethod
   def _send_with_timeout(conn, obj, timeout=5.0):
-    import select
     if hasattr(select, "poll"):
       p = select.poll()
       p.register(conn.fileno(), select.POLLOUT)
@@ -680,7 +678,7 @@ class IpcWorkerPool:
   def submit(self, worker_idx, *args, **kwargs):
     conn = self.workers[worker_idx]["conn"]
     self._send_with_timeout(conn, (args, kwargs), 5.0)
-    
+
   def get_result(self, worker_idx, timeout=None):
     conn = self.workers[worker_idx]["conn"]
     if conn.poll(timeout):
@@ -693,7 +691,7 @@ class IpcWorkerPool:
     for w in self.workers:
       try: self._send_with_timeout(w["conn"], None, 1.0)
       except Exception: pass
-      
+
       try: os.killpg(w["pid"], signal.SIGKILL)
       except Exception: pass
       _ipc_active_pids.discard(w["pid"])

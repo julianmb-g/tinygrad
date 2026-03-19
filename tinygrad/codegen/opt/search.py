@@ -228,7 +228,7 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
           if getenv("BEAM_LOG_SURPASS_MAX"): print(f"too much compute. {this_compute_ops} when least is {least_compute_ops}")
           continue
         seen_libs.add(lib)
-        
+
         h = hash(p.src) if p.src else hash(lib)
         ast_hash = UOpAstHash(h & 0xFFFFFFFF, (h >> 32) & 0xFFFFFFFF, 0, 0)
         cached_tms = GLOBAL_MEMOIZATION_CACHE.get_empirical_cycles(ast_hash)

@@ -1032,10 +1032,10 @@ class CoralNPURenderer(CStyleLanguage):
   def emit_dma_async(ctx, x):
     size = x.arg if x.arg is not None else getattr(x.dtype, 'itemsize', 4)
     dest, src = ctx[x.src[0]], ctx[x.src[1]]
-    
+
     # Ring-buffer threshold constraint (28KB limit)
     threshold_check = f"if (({size}) > 28672) {{ WAIT_DMA_READY(); }}" if isinstance(size, int) else f"if (({ctx[size] if hasattr(size, 'op') else str(size)}) > 28672) {{ WAIT_DMA_READY(); }}"
-    
+
     size_str = ctx[size] if hasattr(size, "op") else str(size)
     return f"""{threshold_check}
 for (int _dma_off = 0; _dma_off < ({size_str}); ) {{

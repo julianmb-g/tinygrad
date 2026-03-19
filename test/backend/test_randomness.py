@@ -83,7 +83,6 @@ class TestRandomness(unittest.TestCase):
     self.assertTrue(r1.uop.is_realized, "tensor should be realized after .realize()")
     self.assertTrue(r2.uop.is_realized, "tensor should be realized after .realize()")
 
-
   def test_rand_float16(self):
     N = 128
     x = Tensor.rand((2, N, N), dtype=dtypes.float16)
@@ -93,7 +92,6 @@ class TestRandomness(unittest.TestCase):
     assert nx[nx == 1].size == 0
     assert nx[nx == 0].size > 0
     equal_distribution(lambda *x: Tensor.rand(*x, dtype=dtypes.float16), torch.rand, lambda x: np.random.rand(*x), shape=(2, N, N))
-
 
   def test_threefry_against_reference(self):
     Tensor.manual_seed(1337)
@@ -114,7 +112,6 @@ class TestRandomness(unittest.TestCase):
     r = Tensor._threefry_random_bits(Tensor([0, 1337], dtype='uint32'), counts0, counts1).numpy()
 
     np.testing.assert_allclose(jr, r)
-
 
   def test_threefry_doesnt_use_long(self):
     sched = Tensor.rand(20).schedule()
@@ -203,7 +200,6 @@ class TestRandomness(unittest.TestCase):
     for x,y in zip(s3, s4):
       if not (x.ast == y.ast):
         print(f"{x.ast} != {y.ast}")
-
 
   def test_rand_bfloat16(self):
     N = 128

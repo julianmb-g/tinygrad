@@ -132,7 +132,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 # Organic AST Chronological Verification
     try:
       index = clang.cindex.Index.create()
-    except Exception as e:
+    except (FileNotFoundError, OSError, clang.cindex.LibclangError) as e:
       raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
 
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
@@ -157,19 +157,12 @@ class TestCoralNPURenderer(unittest.TestCase):
       first_wait = min(loc for loc, val in enumerate(sequence) if val == 'DMA_WAIT')
       self.assertGreater(first_wait, last_store, "WAIT_DMA_READY must come strictly after all disjoint STOREs")
 
-    # Native GCC Compilation Validation
+    # Authentic Failure Pipeline Verification
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
       f.write((dummy_includes + src).encode())
       f.flush()
-      try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-      except FileNotFoundError:
-        raise unittest.SkipTest("Toolchain missing")
-      except subprocess.CalledProcessError:
-        self.fail("Generated C++ code failed to compile natively via GCC.")
 
-      # Authentic Failure Pipeline Verification
       with tempfile.TemporaryDirectory() as temp_dir:
         dummy_gpp = os.path.join(temp_dir, "g++")
         with open(dummy_gpp, "w") as fake:
@@ -184,6 +177,18 @@ class TestCoralNPURenderer(unittest.TestCase):
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises(FileNotFoundError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+
+    # Native GCC Compilation Validation
+    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      f.write((dummy_includes + src).encode())
+      f.flush()
+      try:
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+      except FileNotFoundError:
+        raise unittest.SkipTest("Toolchain missing")
+      except subprocess.CalledProcessError:
+        self.fail("Generated C++ code failed to compile natively via GCC.")
 
   def test_dma_macro_injection_segmented(self):
     renderer = CoralNPURenderer()
@@ -210,19 +215,12 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn("& 0xFFF", src, "Must calculate offset to next physical 4KB boundary")
     self.assertIn("for (int _dma_off = 0", src)
 
-    # Native GCC Compilation Validation
+    # Authentic Failure Pipeline Verification
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
       f.write((dummy_includes + src).encode())
       f.flush()
-      try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-      except FileNotFoundError:
-        raise unittest.SkipTest("Toolchain missing")
-      except subprocess.CalledProcessError:
-        self.fail("Generated C++ code failed to compile natively via GCC.")
 
-      # Authentic Failure Pipeline Verification
       with tempfile.TemporaryDirectory() as temp_dir:
         dummy_gpp = os.path.join(temp_dir, "g++")
         with open(dummy_gpp, "w") as fake:
@@ -237,6 +235,18 @@ class TestCoralNPURenderer(unittest.TestCase):
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises(FileNotFoundError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+
+    # Native GCC Compilation Validation
+    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
+      f.write((dummy_includes + src).encode())
+      f.flush()
+      try:
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+      except FileNotFoundError:
+        raise unittest.SkipTest("Toolchain missing")
+      except subprocess.CalledProcessError:
+        self.fail("Generated C++ code failed to compile natively via GCC.")
 
   def test_dma_macro_injection(self):
     renderer = CoralNPURenderer()
@@ -258,18 +268,12 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn("CORAL_DMA_ASYNC", src)
     body = src.split("{", 1)[1] if "{" in src else src
     self.assertIn("WAIT_DMA_READY();", body)
+    # Authentic Failure Pipeline Verification
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
       f.write((dummy_includes + src).encode())
       f.flush()
-      try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
-      except FileNotFoundError:
-        raise unittest.SkipTest("Toolchain missing")
-      except subprocess.CalledProcessError:
-        self.fail("Generated C++ code failed to compile natively via GCC.")
 
-      # Authentic Failure Pipeline Verification
       with tempfile.TemporaryDirectory() as temp_dir:
         dummy_gpp = os.path.join(temp_dir, "g++")
         with open(dummy_gpp, "w") as fake:
@@ -284,6 +288,17 @@ class TestCoralNPURenderer(unittest.TestCase):
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises(FileNotFoundError):
               subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+
+    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      f.write((dummy_includes + src).encode())
+      f.flush()
+      try:
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+      except FileNotFoundError:
+        raise unittest.SkipTest("Toolchain missing")
+      except subprocess.CalledProcessError:
+        self.fail("Generated C++ code failed to compile natively via GCC.")
 
   def test_estimate_cost_analytical(self):
     cost = estimate_cost_analytical(self.uops)
@@ -433,8 +448,13 @@ class TestCoralNPURenderer(unittest.TestCase):
         if si.ast.op.name == "SINK":
           device = getattr(si.bufs[0], "device", "CORALNPU")
           runner = get_runner(device, si.ast)
-          src = runner.p.src
-          if "VDOT" in src and "int32_t" in src and "int64_t" not in src and ">>8ll" not in src:
+          uops = runner.p.uops
+          has_vdot = any(u.op.name == "CUSTOM" and "VDOT" in str(getattr(u, "arg", "")) for u in uops)
+          has_int32 = any(u.dtype == dtypes.int32 for u in uops)
+          has_int64 = any(u.dtype in (dtypes.int64, dtypes.uint64) for u in uops)
+          has_shr = any(u.op.name == "SHR" for u in uops)
+          
+          if has_vdot and has_int32 and not has_int64 and not has_shr:
             vdot_found = True
             break
 
@@ -486,7 +506,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 # Organic AST Chronological Verification
       try:
         index = clang.cindex.Index.create()
-      except Exception as e:
+      except (FileNotFoundError, OSError, clang.cindex.LibclangError) as e:
         raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
 
       with tempfile.NamedTemporaryFile(suffix=".cc") as f:

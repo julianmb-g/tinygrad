@@ -129,7 +129,7 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
     def test_ops_coralnpu_bridge_execution(self):
         """Test the organic out-of-band IPC execution boundary natively."""
         from tinygrad.device import BufferSpec
-        
+
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
@@ -137,7 +137,7 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
             src = b"void bridge_execution(float* a) { a[0] = 42.0f; }"
             prog = CoralNPUProgram(self.device, "bridge_execution", src)
             prog(handle, wait=True)
-            
+
             dest = bytearray(4)
             self.allocator._copyout(memoryview(dest), handle)
             out_val = struct.unpack('f', dest)[0]
