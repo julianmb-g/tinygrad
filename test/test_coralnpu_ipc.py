@@ -60,12 +60,12 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             self.allocator._free(handle, dummy_options)
 
     def test_missing_compiler_raises_file_not_found(self):
-        """Test that missing cross-compiler cleanly raises unittest.SkipTest (wrapping FileNotFoundError)."""
+        """Test that missing cross-compiler authentically raises FileNotFoundError."""
         import os
         import unittest.mock
         with unittest.mock.patch.dict(os.environ, {"PATH": "/tmp/dummy_empty_path"}):
             program = CoralNPUProgram(self.device, "missing_compiler", b"void missing_compiler() {}")
-            with self.assertRaises(unittest.SkipTest):
+            with self.assertRaises(FileNotFoundError):
                 program()
 
     def test_compiler_failure_raises_called_process_error(self):
@@ -73,7 +73,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         import os
         import tempfile
         import unittest.mock
-        import subprocess
         with tempfile.TemporaryDirectory() as tmp_bin:
             gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
             with open(gcc_path, 'w') as f:
@@ -107,7 +106,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
         from tinygrad.device import BufferSpec
-        
+
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:

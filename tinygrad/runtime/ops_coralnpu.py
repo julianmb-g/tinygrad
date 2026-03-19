@@ -9,10 +9,8 @@ import signal
 import struct
 import subprocess
 import tempfile
-import unittest
 
 from tinygrad.device import Allocator, BufferSpec, Compiled, CompilerSet
-from tinygrad.helpers import init_c_process_group
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 
 active_pids = set()
@@ -157,7 +155,7 @@ class CoralNPUProgram:
     except subprocess.CalledProcessError as e:
       raise RuntimeError(f"Cross-compilation failed: {e.output.decode()}")
     except FileNotFoundError as e:
-      raise unittest.SkipTest(f"Missing cross-compiler: {e}")
+      raise FileNotFoundError(f"Missing cross-compiler: {e}")
     return elf_path
 
   def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=None, **kwargs):
