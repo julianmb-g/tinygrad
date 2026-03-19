@@ -594,7 +594,6 @@ class TestMultiTensor(unittest.TestCase):
       out = f(a, b)
       np.testing.assert_allclose(out.numpy(), np.full((4, 4), i) + np.full((4, 4), i*2), atol=1e-4, rtol=1e-5)
 
-  @unittest.skip("test broken")
   def test_multi_device_jit_graph(self):
     if Device[d0].graph is None or Device[d1].graph is None: raise unittest.SkipTest("only test graphs")
 
@@ -686,7 +685,6 @@ class TestMultiTensor(unittest.TestCase):
 
   # it doesn't work like this anymore
   # NOTE: this never failed in assign_multi, it failed tensor spec because MULTI was never pushed in the graph
-  @unittest.skip("this test is broken")
   def test_mlb_assign_change_axis(self):
     t_none = Tensor.zeros((16, 16)).shard(devices_2).contiguous().realize()
     t_zero = Tensor.ones((16, 16)).shard(devices_2, axis=0)
@@ -811,7 +809,6 @@ class TestMultiTensor(unittest.TestCase):
       assert set(unique) == {0, 2}, unique
       assert 200 < counts[0] < 312, counts[0]
 
-  @unittest.skip("TODO: this requires forced_realize to be deleted.")
   def test_shard_memory(self):
     devices = (d0, d1, d2, d3)
     t = Tensor.zeros(16, 16).contiguous()
@@ -828,7 +825,6 @@ class TestMultiTensor(unittest.TestCase):
       t_clone += 1
       self.assertNotEqual(t_clone.tolist(), t.tolist())
 
-  @unittest.skip("RANGEIFY doesn't support multi const folding")
   def test_multi_const_folding(self):
     with Context(TRACK_MATCH_STATS=0):
       a = Tensor.arange(3).realize()
@@ -1345,7 +1341,6 @@ class TestMultiTransformer(unittest.TestCase):
       self.assertEqual(real_tok, shard_tok, f"issue at token {i}")
       last_tok = real_tok
 
-  @unittest.skip("super slow")
   def test_llama1b_full(self):
     from tinygrad.helpers import fetch
     fetch("https://huggingface.co/bofenghuang/Meta-Llama-3-8B/resolve/main/original/tokenizer.model", "tokenizer.model", subdir="llama3-1b-instruct")

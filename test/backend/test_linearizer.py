@@ -42,7 +42,6 @@ class TestLinearizer(unittest.TestCase):
     np.testing.assert_equal(a.numpy(), ta)
     np.testing.assert_equal(b.numpy(), tb)
 
-  @unittest.skip("TODO: some backends insert more casts")
   def test_cast_there_and_back(self):
     tst = Tensor.ones(16, dtype=dtypes.int).contiguous().realize()
     out = tst.neg().cast(dtypes.char).cast(dtypes.int).cast(dtypes.char) * 2
@@ -141,7 +140,6 @@ class TestLinearizer(unittest.TestCase):
     assert num_loads <= 4, "more load uops than needed"
     assert num_loads >= 4, "unexpected number of uops, maybe this test needs updating?"
 
-  @unittest.skip("this is handled at higher level now")
   def test_upcast_cse(self):
     # when upcasting, within a subtree, there may be common expressions.
 

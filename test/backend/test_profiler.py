@@ -189,7 +189,6 @@ class TestProfiler(unittest.TestCase):
     range_events = [p for p in profile if isinstance(p, ProfileRangeEvent) and p.device == dev]
     self.assertEqual(len(range_events), 2)
 
-  @unittest.skip("this test is flaky")
   @unittest.skipUnless(Device[Device.DEFAULT].graph is not None, "graph support required")
   def test_graph(self):
     from test.backend.test_graph import helper_alloc_rawbuffer, helper_exec_op, helper_test_graphs
@@ -206,7 +205,6 @@ class TestProfiler(unittest.TestCase):
     for ge in graphs:
       self.assertEqual(len(ge.ents), len(graphs))
 
-  @unittest.skip("this test is flaky")
   def test_trace_metadata(self):
     with Context(TRACEMETA=1):
       a = Tensor.empty(1)+2

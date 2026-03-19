@@ -1081,7 +1081,6 @@ class TestSymInfer(unittest.TestCase):
     assert isinstance(result, int)
 
 """
-@unittest.skip("not supported on uops yet")
 class TestSymbolicSymbolicOps(unittest.TestCase):
   def test_node_divmod_node(self):
     i = Variable("i", 1, 10)
