@@ -126,6 +126,27 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         self.allocator._free(handle, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
         self.allocator._free(handle2, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
 
+    def test_ops_coralnpu_bridge_execution(self):
+        """Test the organic out-of-band IPC execution boundary natively."""
+        from tinygrad.device import BufferSpec
+        
+        dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
+        handle = self.allocator._alloc(1024, dummy_options)
+        try:
+            self.device.allocator = self.allocator
+            src = b"void bridge_execution(float* a) { a[0] = 42.0f; }"
+            prog = CoralNPUProgram(self.device, "bridge_execution", src)
+            prog(handle, wait=True)
+            
+            dest = bytearray(4)
+            self.allocator._copyout(memoryview(dest), handle)
+            out_val = struct.unpack('f', dest)[0]
+            self.assertEqual(out_val, 42.0)
+        except FileNotFoundError:
+            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
+        finally:
+            self.allocator._free(handle, dummy_options)
+
 class TestCoralNPUProgram(BaseCoralNPUTest):
     @patch.dict(os.environ, {"BEAM": "1"})
     def test_beam_cost_parsing(self):
