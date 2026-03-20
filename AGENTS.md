@@ -45,3 +45,4 @@
 # tinygrad Lessons Learned
 
 - **Linter Infrastructure Configuration**: Ensure `ruff` is explicitly installed in `harness.yaml` `setup_cmd` using `pip install ruff` to prevent command-not-found failures during linting workflows.
+- **Linter Availability**: If the environment lacks the pre-configured linter tool (like `ruff`), the Review Agent must explicitly catch the 'command not found' error and proceed without crashing the lifecycle execution.
