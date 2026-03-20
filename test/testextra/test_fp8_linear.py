@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import math
 import unittest
 
 import numpy as np
@@ -77,7 +78,7 @@ class TestFP8Linear(unittest.TestCase):
     fp8_layer.bias.to_(GPUS)
     normal_layer.weight.to_(GPUS)
     normal_layer.bias.to_(GPUS)
-    x = ((Tensor.arange(math.prod(BS2, in_dim)) % 10) * 0.1).reshape(BS*2, in_dim).cast(dtypes.float32) * 0.2
+    x = ((Tensor.arange(math.prod((BS*2, in_dim))) % 10) * 0.1).reshape(BS*2, in_dim).cast(dtypes.float32) * 0.2
     x_sharded = x.detach()
     x = x.shard_(GPUS, axis=0)
     y_normal = normal_layer(x).realize()

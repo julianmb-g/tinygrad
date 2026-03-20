@@ -26,3 +26,4 @@
 - **Test Framework Leaked into Production Runtime**: Production execution code MUST NOT raise test framework exceptions (like `unittest.SkipTest`) to silently bypass execution failures.
 - **Device Assignments in Tensor Operations**: When replacing `Tensor.randn` with `Tensor.arange` to fix test nondeterminism, explicitly pass the device keyword to the constructor (e.g. `Tensor.arange(..., device=Device.DEFAULT)`) rather than chaining it to `.reshape()`, as `.reshape()` does not accept `device` arguments and will violently crash the test suite.
 
+- **Test Math Dependencies**: When generating tensor shapes mathematically in tests like `test_fp8_linear.py`, ensure `import math` is explicitly present at the top level to prevent `NameError` execution crashes. Also ensure `math.prod` is fed valid tuples instead of undeclared variables.
