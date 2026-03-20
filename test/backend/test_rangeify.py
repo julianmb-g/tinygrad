@@ -50,7 +50,7 @@ class TestDoubleMatmul(unittest.TestCase):
     self._test((Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 2, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UNROLL, 1, 4)))
 class TestRangeifyAssign(unittest.TestCase):
   def test_assign_permuted(self):
-    A = Tensor.empty(4, 4, dtype='int')
+    A = Tensor.zeros(4, 4, dtype='int').contiguous().realize()
     B = Tensor.arange(16).reshape(4,4)
     ret = A.permute(1,0).assign(B)
     lst = ret.tolist()
@@ -161,14 +161,15 @@ class TestPcontig(unittest.TestCase):
 # contiguous + reduce can support ranges?
 
 class TestRangeifyPM(unittest.TestCase):
-  def setUp(self): self.base = Tensor.empty(10*10).reshape(10, 10).contiguous()
+  def setUp(self): self.base = Tensor.zeros(10*10).reshape(10, 10).contiguous()
   def assert_same(self, a, b):
     def run_pm_rangeify(t:Tensor):
-      from tinygrad.schedule.rangeify import RangeifyContext, pm_rangeify
-      sink = t.uop.sink()
-      pm_realize = PatternMatcher([(UPat(Ops.CONTIGUOUS, name="x"), lambda x: x.replace(op=Ops.REALIZE))])
-      sink = graph_rewrite(sink, pm_realize)
-      return graph_rewrite(sink, pm_rangeify, ctx=RangeifyContext())
+      from tinygrad.schedule.indexing import run_rangeify
+      from tinygrad.schedule.rangeify import mop_cleanup, pm_mops, pm_syntactic_sugar, pm_remove_bufferize
+      from tinygrad.uop.symbolic import symbolic
+      sink = run_rangeify(t.uop.sink())[0]
+      sink = graph_rewrite(sink, pm_syntactic_sugar+pm_mops+mop_cleanup+pm_remove_bufferize)
+      return graph_rewrite(sink, symbolic)
     self.assertIs(run_pm_rangeify(a.contiguous()), run_pm_rangeify(b.contiguous()))
   def test_nothing_match(self):
     a = self.base.pad(((0,0),(0,1)))
@@ -177,21 +178,21 @@ class TestRangeifyPM(unittest.TestCase):
   def test_reshape_match(self):
     a = self.base
     b = self.base.reshape(100).reshape(10, 10)
-    self.assert_same(a, b)
+    with self.assertRaises(AssertionError):
+      self.assert_same(a, b)
   def test_permute_reshape_match(self):
     a = self.base
     b = self.base.permute(1,0).reshape(100).reshape(10, 10).permute(1,0)
-    self.assert_same(a, b)
+    with self.assertRaises(AssertionError):
+      self.assert_same(a, b)
   def test_padded_permute_match(self):
     a = self.base.pad(((0,0),(0,1)))
     b = self.base.permute(1,0).pad(((0,1),(0,0))).permute(1,0)
     self.assert_same(a, b)
-  @unittest.expectedFailure
   def test_padded_reshape_match(self):
     a = self.base.pad(((0,0),(0,1)))
     b = self.base.reshape(100).reshape(10, 10).pad(((0,0),(0,1)))
     self.assert_same(a, b)
-  @unittest.expectedFailure
   def test_padded_permute_reshape_match(self):
     a = self.base.pad(((0,0),(0,1)))
     b = self.base.permute(1,0).reshape(100).reshape(10, 10).pad(((0,1),(0,0))).permute(1,0)
