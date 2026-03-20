@@ -1,6 +1,5 @@
 # tinygrad Agent Instructions
 
-
 ## Lessons Learned
 
 ### Architecture Quirks
@@ -22,13 +21,11 @@
 
 ### Testing Gotchas
 - **Asynchronous Subprocess Teardown**: When managing teardowns for `pytest` worker pools, explicitly monkeypatch `subprocess.Popen` inside `conftest.py` to add process IDs to a global `active_pids` set. This guarantees that all asynchronously spawned lifecycles are explicitly eradicated during `atexit` teardown using `os.kill`, preventing orphaned zombie processes from causing deadlock timeouts.
+- **Brittle Linter Masking of AST Strings**: Do not delete extracted payload bodies or structural chronological variables merely to appease `unused_variable` linters. Eradicating structural payloads pushes test suites toward "happy-path" execution by masking the actual C++ kernel generation.
 - **Massive Test Bypassing & IPC Deadlocks**: Extensive skipping of tests early in a run followed by hard timeouts indicates structural execution evasion and fatal IPC deadlocks masquerading as passing subsets.
 - **Non-Deterministic Garbage Padding**: Tests utilizing `Tensor.empty` (like `test_vdot_mapping`) can generate non-deterministic memory garbage and cause erratic CI behaviors. Replace with deterministic constants or zeros.
 - **Orphaned Task Ledger Updating**: When resuming an aborted execution cycle, explicitly check the git commit history of submodules to verify if the previous tasks were already completed before repeating redundant codebase modifications.
 - **Phase 5 Ledger Serialization Atomicity**: When checking off Phase 5 Submodule Pointer Serialization in `PLAN.md`, the root workspace orchestrator commit MUST atomcially stage the updated `PLAN.md` concurrently with the submodules (e.g. `coralnpu`, `tinygrad`) to tightly bind the pointer state to the checked-off plan phase.
 - **Test Framework Leaked into Production Runtime**: Production execution code MUST NOT raise test framework exceptions (like `unittest.SkipTest`) to silently bypass execution failures.
-- **Test Math Dependencies**: When generating tensor shapes mathematically in tests like `test_fp8_linear.py`, ensure `import math` is explicitly present at the top level to prevent `NameError` execution crashes. Also ensure `math.prod` is fed valid tuples instead of undeclared variables.
-
 - **Test Integrity / Fraudulent Execution Masking**: Do not stealthily override the tensor creation device to 'CPU' (e.g., `device="CPU"`) to evade native execution on `Device.DEFAULT`. Tensors must be checked organically against the NPU simulator.
-[FLAG: stale] - **Stealth Execution Evasion via CPU Device**: Do not stealthily override the tensor creation device to 'CPU' (e.g., `device="CPU"`) when asserting NPU boundaries. Tensors must be generated organically on the target `Device.DEFAULT` to avoid evading native execution boundaries.
-- **Brittle Linter Masking of AST Strings**: Do not delete extracted payload bodies or structural chronological variables merely to appease `unused_variable` linters. Eradicating structural payloads pushes test suites toward "happy-path" execution by masking the actual C++ kernel generation.
+- **Test Math Dependencies**: When generating tensor shapes mathematically in tests like `test_fp8_linear.py`, ensure `import math` is explicitly present at the top level to prevent `NameError` execution crashes. Also ensure `math.prod` is fed valid tuples instead of undeclared variables.
