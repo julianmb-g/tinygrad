@@ -28,3 +28,4 @@
 
 - **Test Math Dependencies**: When generating tensor shapes mathematically in tests like `test_fp8_linear.py`, ensure `import math` is explicitly present at the top level to prevent `NameError` execution crashes. Also ensure `math.prod` is fed valid tuples instead of undeclared variables.
 - **Asynchronous Subprocess Teardown**: When managing teardowns for `pytest` worker pools, explicitly monkeypatch `subprocess.Popen` inside `conftest.py` to add process IDs to a global `active_pids` set. This guarantees that all asynchronously spawned lifecycles are explicitly eradicated during `atexit` teardown using `os.kill`, preventing orphaned zombie processes from causing deadlock timeouts.
+- **QA Execution Enforcement**: QA agents must strictly execute `test_cmd` defined in the target submodule's `harness.yaml` and verify organic execution boundaries before logging results in `QA.md`.
