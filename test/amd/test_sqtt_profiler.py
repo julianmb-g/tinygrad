@@ -18,7 +18,7 @@ class TestSQTTProfiler(unittest.TestCase):
   # TODO: can we enable SQTT profiling in context?
   @classmethod
   def setUpClass(cls):
-    if not Device[Device.DEFAULT].sqtt_enabled: raise unittest.SkipTest("device must be in SQTT profiling mode")
+    if not getattr(Device[Device.DEFAULT], "sqtt_enabled", False): raise unittest.SkipTest("device must be in SQTT profiling mode")
 
   def setUp(self):
     Device[Device.DEFAULT].synchronize()
