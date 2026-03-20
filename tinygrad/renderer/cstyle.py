@@ -139,8 +139,6 @@ class CStyleLanguage(Renderer):
 
   def render_kernel(self, function_name:str, kernel:list[str], bufs:list[tuple[str,tuple[DType,bool]]], uops:list[UOp], prefix=None) -> str:
     tmp = ""
-    if any(isinstance(dtype, ImageDType) for _,(dtype,_) in bufs):
-      tmp = "const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;\n"
     buftypes = [(name, self.render_dtype(dtype, mutable)+self.buffer_suffix if isinstance(dtype, (ImageDType, PtrDType)) else
                 self.arg_int_prefix if dtype == dtypes.int else None) for name,(dtype,mutable) in bufs]
     local_dims = [u.src[0] for u in uops if u.op is Ops.SPECIAL and u.arg[0] == "l"]
@@ -152,7 +150,7 @@ class CStyleLanguage(Renderer):
 
   def render_cast(self, dt:DType, val: str) -> str: return f"({self.render_dtype(dt)})({val})"
   def render_dtype(self, dt:DType, mutable=True) -> str:
-    if isinstance(dt, ImageDType): return f"{'write_only' if mutable else 'read_only'} image2d_t"
+    if isinstance(dt, ImageDType): return f"{self.render_dtype(dt.base)}*"
     if isinstance(dt, PtrDType):
       prefix = ""
       if dt.addrspace == AddrSpace.LOCAL and self.smem_prefix_for_cast: prefix = self.smem_prefix
@@ -287,6 +285,23 @@ class ClangJITRenderer(ClangRenderer):
 
 class OpenCLRenderer(CStyleLanguage):
   device = "CL"
+
+  def render_kernel(self, function_name:str, kernel:list[str], bufs:list[tuple[str,tuple[DType,bool]]], uops:list[UOp], prefix=None) -> str:
+    tmp = ""
+    if any(isinstance(dtype, ImageDType) for _,(dtype,_) in bufs):
+      tmp = "const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;\n"
+    buftypes = [(name, self.render_dtype(dtype, mutable)+self.buffer_suffix if isinstance(dtype, (ImageDType, PtrDType)) else
+                self.arg_int_prefix if dtype == dtypes.int else None) for name,(dtype,mutable) in bufs]
+    local_dims = [u.src[0] for u in uops if u.op is Ops.SPECIAL and u.arg[0] == "l"]
+    launch_bounds = prod([d.vmax for d in local_dims])
+    prg = ''.join([f"{self.kernel_typedef.format(launch_bounds=launch_bounds)} {function_name}(",] +
+    [', '.join([f'{t} {name}' for name,t in buftypes] + self.extra_args)] +
+    [") {\n" + tmp] + ['\n'.join(kernel), "\n}"])
+    return prg if prefix is None else "\n".join(prefix)+f"\n{prg}"
+
+  def render_dtype(self, dt:DType, mutable=True) -> str:
+    if isinstance(dt, ImageDType): return f"{'write_only' if mutable else 'read_only'} image2d_t"
+    return super().render_dtype(dt, mutable)
   has_aux = True
 
   # language options
