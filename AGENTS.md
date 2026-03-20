@@ -42,3 +42,6 @@
 - **OpenCL Backend Cross-Compilation Trap**: Do not feed OpenCL-specific types (`write_only`, `sampler_t`, `CLK_NORMALIZED_COORDS_FALSE`) into C target compilers. Map backend type `'l'` correctly to `int64` or `long` in C-style renderers to prevent `KeyError: 'l'`.
 - **Platform Bleed Prevention**: macOS library loading logic (`libSystem.dylib`) must be wrapped in explicit platform guards (`if sys.platform == 'darwin':`) to prevent Linux environment crashes.
 - **Kernel Optimization Upcast Bounds**: Ensure DTCM tensor allocation limits are strictly enforced (e.g., `max_upcast = 28`) to prevent upcast bounds violations (`don't upcast more than...`).
+# tinygrad Lessons Learned
+
+- **Linter Infrastructure Configuration**: Ensure `ruff` is explicitly installed in `harness.yaml` `setup_cmd` using `pip install ruff` to prevent command-not-found failures during linting workflows.
