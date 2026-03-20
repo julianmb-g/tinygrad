@@ -220,6 +220,7 @@ class CStyleLanguage(Renderer):
 
 class ClangRenderer(CStyleLanguage):
   device = "CPU"
+  arch = "CORALNPU"
   float4 = "(float4)"
   float4_style = ('{', '}')
   gep_arr_threshold = 0
@@ -282,6 +283,7 @@ class ClangJITRenderer(ClangRenderer):
   def __init__(self):
     from tinygrad.runtime.support.compiler_cpu import ClangJITCompiler
     self.compiler = ClangJITCompiler()
+    self.arch = "CORALNPU"
 
 class OpenCLRenderer(CStyleLanguage):
   device = "CL"
