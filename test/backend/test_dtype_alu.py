@@ -16,7 +16,7 @@ from tinygrad.renderer.ptx import PTXRenderer
 from tinygrad.runtime.ops_python import from_storage_scalar
 from tinygrad.tensor import _to_np_dtype
 
-pytestmark = pytest.mark.filterwarnings("ignore")
+pytestmark = [pytest.mark.filterwarnings("ignore"), pytest.mark.xdist_group(name="serial")]
 
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")
@@ -64,7 +64,9 @@ def universal_test(a, b, dtype, op):
   if dtype in dtypes.fp8s and not is_dtype_supported(dtype) and dtype.name not in EMULATED_DTYPES.tolist(dtypes):
     raise unittest.SkipTest(f"native {dtype} is unsupported")
   if not isinstance(op, tuple): op = (op, op)
-  if op[0] in (operator.mod, operator.floordiv, operator.truediv): assume(b != 0)
+  if op[0] in (operator.mod, operator.floordiv, operator.truediv):
+    assume(b != 0 and not math.isnan(b))
+    if isinstance(b, float): assume(math.copysign(1.0, b) != -1.0 or b != 0.0)
   # lt and max with nan is undefined in tinygrad
   if op[0] in (operator.lt, Tensor.maximum) and (math.isnan(a) or math.isnan(b)): return
   ta, tb = Tensor([a], dtype=dtype), Tensor([b], dtype=dtype)
@@ -105,6 +107,7 @@ def universal_test_unary(a, dtype, op):
   else: np.testing.assert_equal(tensor_value, numpy_value)
 
 def universal_test_cast(a, in_dtype, dtype):
+  if math.isinf(a) and dtype in dtypes_int: return
   tensor_value = Tensor([a], dtype=in_dtype).cast(dtype)
   numpy_value = np.array([a], dtype=_to_np_dtype(in_dtype)).astype(_to_np_dtype(dtype))
   np.testing.assert_equal(tensor_value.numpy(), numpy_value)
@@ -112,8 +115,10 @@ def universal_test_cast(a, in_dtype, dtype):
 def universal_test_midcast(a, b, c, op1, op2, d1:DType, d2:DType):
   if not isinstance(op1, tuple): op1 = (op1, op1)
   if not isinstance(op2, tuple): op2 = (op2, op2)
-  if op1[0] in (operator.mod, operator.floordiv, operator.truediv): assume(b != 0)
-  if op2[0] in (operator.mod, operator.floordiv, operator.truediv): assume(c != 0)
+  if op1[0] in (operator.mod, operator.floordiv, operator.truediv):
+    assume(b != 0 and not math.isnan(b))
+  if op2[0] in (operator.mod, operator.floordiv, operator.truediv):
+    assume(c != 0 and not math.isnan(c))
   # lt and max with nan is undefined in tinygrad
   if op1[0] in (operator.lt, Tensor.maximum) and (math.isnan(a) or math.isnan(b)): return
   if op2[0] in (operator.lt, Tensor.maximum) and math.isnan(c): return

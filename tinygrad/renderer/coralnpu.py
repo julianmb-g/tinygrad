@@ -1036,9 +1036,6 @@ class CoralNPURenderer(CStyleLanguage):
   code_for_op = {
     **CStyleLanguage.code_for_op,
     Ops.MAX: lambda a,b,dtype: f"(({a}>{b})?{a}:{b})",
-    Ops.IDIV: lambda a,b,dtype: f"(({b}==0)?0:(({b}==-1)?-({a}):({a}/{b})))",
-    Ops.MOD: lambda a,b,dtype: f"(({b}==0)?0:(({b}==-1)?0:({a}%{b})))",
-    Ops.RECIPROCAL: lambda x,dtype: f"((__builtin_fabs({x}) < 1e-35f) ? (__builtin_signbit({x}) ? -__builtin_inff() : __builtin_inff()) : (1.0f/{x}))",
   }
 
   def _define_local_rewrite(ctx, x):
