@@ -9,8 +9,11 @@ import unittest.mock
 import clang.cindex
 from clang.cindex import Config
 
-try: Config.set_library_file('/usr/lib/llvm-19/lib/libclang.so')
-except (FileNotFoundError, OSError, clang.cindex.LibclangError): pass
+import logging
+try:
+  Config.set_library_file('/usr/lib/llvm-19/lib/libclang.so')
+except (FileNotFoundError, OSError, clang.cindex.LibclangError) as e:
+  logging.warning(f"libclang initialization failed at import time: {e}")
 
 import random
 
