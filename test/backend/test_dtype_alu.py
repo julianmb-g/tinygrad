@@ -62,7 +62,7 @@ ht.fp8e5m2fnuz = ht.uint8
 
 def universal_test(a, b, dtype, op):
   if not isinstance(op, tuple): op = (op, op)
-  if op[0] == operator.mod and b == 0: return
+  if op[0] in (operator.mod, operator.floordiv, operator.truediv): assume(b != 0)
   # lt and max with nan is undefined in tinygrad
   if op[0] in (operator.lt, Tensor.maximum) and (math.isnan(a) or math.isnan(b)): return
   ta, tb = Tensor([a], dtype=dtype), Tensor([b], dtype=dtype)
@@ -108,6 +108,8 @@ def universal_test_cast(a, in_dtype, dtype):
 def universal_test_midcast(a, b, c, op1, op2, d1:DType, d2:DType):
   if not isinstance(op1, tuple): op1 = (op1, op1)
   if not isinstance(op2, tuple): op2 = (op2, op2)
+  if op1[0] in (operator.mod, operator.floordiv, operator.truediv): assume(b != 0)
+  if op2[0] in (operator.mod, operator.floordiv, operator.truediv): assume(c != 0)
   # lt and max with nan is undefined in tinygrad
   if op1[0] in (operator.lt, Tensor.maximum) and (math.isnan(a) or math.isnan(b)): return
   if op2[0] in (operator.lt, Tensor.maximum) and math.isnan(c): return
