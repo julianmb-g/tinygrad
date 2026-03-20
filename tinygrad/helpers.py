@@ -384,7 +384,8 @@ if getenv("DEBUG_GC"):
 # *** universal database cache ***
 
 cache_dir: str = os.path.join(getenv("XDG_CACHE_HOME", os.path.expanduser("~/Library/Caches" if OSX else "~/.cache")), "tinygrad")
-CACHEDB: str = getenv("CACHEDB", os.path.abspath(os.path.join(cache_dir, "cache.db")))
+worker = getenv("PYTEST_XDIST_WORKER", "")
+CACHEDB: str = getenv("CACHEDB", os.path.abspath(os.path.join(cache_dir, f"cache_{worker}.db" if worker else "cache.db")))
 
 VERSION = 22
 _db_connection = None
