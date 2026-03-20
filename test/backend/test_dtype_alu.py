@@ -61,6 +61,8 @@ ht.fp8e4m3fnuz = ht.uint8
 ht.fp8e5m2fnuz = ht.uint8
 
 def universal_test(a, b, dtype, op):
+  if dtype in dtypes.fp8s and not is_dtype_supported(dtype) and dtype.name not in EMULATED_DTYPES.tolist(dtypes):
+    raise unittest.SkipTest(f"native {dtype} is unsupported")
   if not isinstance(op, tuple): op = (op, op)
   if op[0] in (operator.mod, operator.floordiv, operator.truediv): assume(b != 0)
   # lt and max with nan is undefined in tinygrad
@@ -80,6 +82,8 @@ def universal_test(a, b, dtype, op):
   else: np.testing.assert_equal(tensor_value, numpy_value)
 
 def universal_test_unary(a, dtype, op):
+  if dtype in dtypes.fp8s and not is_dtype_supported(dtype) and dtype.name not in EMULATED_DTYPES.tolist(dtypes):
+    raise unittest.SkipTest(f"native {dtype} is unsupported")
   if not isinstance(op, tuple): op = (op, op)
   ta = Tensor([a], dtype=dtype)
   # TODO: cos does not match for large input
