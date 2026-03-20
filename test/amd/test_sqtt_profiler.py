@@ -25,7 +25,7 @@ class TestSQTTProfiler(unittest.TestCase):
     Compiled.profile_events[:] = [e for e in Compiled.profile_events if isinstance(e, (ProfileProgramEvent, ProfileDeviceEvent))]
 
   def test_simple(self):
-    t = Tensor.empty(1) + 1
+    t = Tensor.zeros(1) + 1
     with save_sqtt() as sqtt:
       ei = t.schedule()[0].lower()
       ei.run()
@@ -33,7 +33,7 @@ class TestSQTTProfiler(unittest.TestCase):
     self.assertEqual(sqtt[0]["name"], f"SQTT {ei.prg.p.function_name}")
 
   def test_multiple_runs(self):
-    t = Tensor.empty(1) + 1
+    t = Tensor.zeros(1) + 1
     with save_sqtt() as sqtt:
       ei = t.schedule()[0].lower()
       for _ in range(N:=3):
@@ -43,7 +43,7 @@ class TestSQTTProfiler(unittest.TestCase):
       self.assertEqual(sqtt[i]["name"], f"SQTT {ei.prg.p.function_name} n{i+1}")
 
   def test_multiple_kernels(self):
-    t = ((Tensor.empty(1) + 1).contiguous() + 2)
+    t = ((Tensor.zeros(1) + 1).contiguous() + 2)
     sched = t.schedule()
     with save_sqtt() as sqtt:
       for si in sched: si.lower().run()
@@ -52,7 +52,7 @@ class TestSQTTProfiler(unittest.TestCase):
       self.assertEqual(sqtt[i]["name"], f"SQTT {k.lower().prg.p.function_name}")
 
   def test_multiple_kernels_lower(self):
-    t = ((Tensor.empty(1) + 1).contiguous() + 2)
+    t = ((Tensor.zeros(1) + 1).contiguous() + 2)
     sched = t.schedule()
     with save_sqtt() as sqtt:
       prgs = [si.lower() for si in sched]
@@ -64,7 +64,7 @@ class TestSQTTProfiler(unittest.TestCase):
   def test_jit(self):
     @TinyJit
     def f(a): return a + 1
-    t = Tensor.empty(1)
+    t = Tensor.zeros(1)
     with save_sqtt() as sqtt:
       for _ in range(N:=5):
         f(t).realize()
@@ -75,7 +75,7 @@ class TestSQTTProfiler(unittest.TestCase):
   def test_jit_graph(self, kernel_count=3*1):
     @TinyJit
     def f(a): return ((a + 1).contiguous() + 2).contiguous().sum()
-    t = Tensor.empty(32)
+    t = Tensor.zeros(32)
     with save_sqtt() as sqtt:
       for _ in range(5):
         f(t).realize()
