@@ -196,7 +196,8 @@ class Scheduler:
         check(amt <= 32, "don't unroll more than 32")
         check(rng.arg[-1] in {AxisType.GROUP_REDUCE, AxisType.REDUCE}, "unroll is for GROUP_REDUCE/REDUCE")
       if opt.op is OptOps.UPCAST:
-        check((self.ren is not None and self.ren.device == "DSP") or (self.ren is not None and self.ren.device == "CORALNPU" and amt <= 28) or amt <= 16, "don't upcast more than 16 (28 for CORALNPU)")
+        max_upcast = getattr(self.ren, "max_upcast", 16) if self.ren is not None else 16
+        check((self.ren is not None and self.ren.device == "DSP") or amt <= max_upcast, f"don't upcast more than {max_upcast}")
         check(rng.arg[-1] in {AxisType.GLOBAL, AxisType.LOCAL, AxisType.LOOP}, f"upcast is for GLOBAL/LOCAL/LOOP, not {rng.arg[-1]}")
       if opt.op is OptOps.LOCAL:
         check(not self.dont_use_locals, "can't use locals")

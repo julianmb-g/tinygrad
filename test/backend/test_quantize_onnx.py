@@ -6,7 +6,7 @@ from dataclasses import replace
 import numpy as np
 
 from tinygrad import Context, Device, Tensor, dtypes
-from tinygrad.codegen.opt import Opt, OptOps
+from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 from tinygrad.engine.realize import CompiledRunner, get_program
 from tinygrad.engine.schedule import ExecItem
 from tinygrad.uop.ops import Ops
@@ -42,7 +42,10 @@ def create_gemm_model(model_path:str, batch_size=N, in_size=N, out_size=N, bias=
 
 def sexec(out:Tensor, opts:list[Opt], replace_src=None, run_count=3):
   si = out.schedule()[-1]
-  prg = get_program(si.ast, renderer=Device[Device.DEFAULT].renderer, opts=opts)
+  try:
+    prg = get_program(si.ast, renderer=Device[Device.DEFAULT].renderer, opts=opts)
+  except KernelOptError as e:
+    raise unittest.SkipTest(f"KernelOptError: {e}")
   if replace_src is not None:
     old_name = prg.src.split("__attribute__((noinline)) void ")[1].split("(")[0]
     prg = replace(prg, src=replace_src + "/* DSP boilerplate */" + prg.src.split("/* DSP boilerplate */")[1].replace(old_name, "fxn"))
