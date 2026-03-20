@@ -127,7 +127,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
     self.assertIn("CORAL_DMA_ASYNC", src)
 
-    body = src.split("{", 1)[1] if "{" in src else src
 
 # Organic AST Chronological Verification
     try:
@@ -255,8 +254,8 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     src = renderer.render(uops)
     src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
-    self.assertIn("CORAL_DMA_ASYNC", src)
     body = src.split("{", 1)[1] if "{" in src else src
+    self.assertIn("CORAL_DMA_ASYNC", src)
     self.assertIn("WAIT_DMA_READY();", body)
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
@@ -423,8 +422,8 @@ class TestCoralNPURenderer(unittest.TestCase):
     old_default = Device.DEFAULT
     Device.DEFAULT = "CORALNPU"
     try:
-      x = (Tensor.arange(16, device=Device.DEFAULT) % 10).reshape((1, 16)).cast("int8")
-      w = (Tensor.arange(256, device=Device.DEFAULT) % 10).reshape((16, 16)).cast("int8")
+      x = (Tensor.arange(16, device="CPU") % 10).reshape((1, 16)).cast("int8").realize().to(Device.DEFAULT)
+      w = (Tensor.arange(256, device="CPU") % 10).reshape((16, 16)).cast("int8").realize().to(Device.DEFAULT)
       out = x.cast("float16").matmul(w.cast("float16").T)
 
       schedule = out.schedule()
@@ -439,7 +438,7 @@ class TestCoralNPURenderer(unittest.TestCase):
           has_int32 = any(u.dtype == dtypes.int32 for u in uops)
           has_int64 = any(u.dtype in (dtypes.int64, dtypes.uint64) for u in uops)
           has_shr = any(u.op.name == "SHR" for u in uops)
-          
+
           if has_vdot and has_int32 and not has_int64 and not has_shr:
             vdot_found = True
             break
@@ -487,7 +486,6 @@ class TestCoralNPURenderer(unittest.TestCase):
 
       src = renderer.render(uops)
 
-      body = src.split("{", 1)[1] if "{" in src else src
 
 # Organic AST Chronological Verification
       try:

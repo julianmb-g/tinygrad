@@ -4,10 +4,11 @@ import tempfile
 import unittest
 import unittest.mock
 
+from tinygrad.dtype import dtypes
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
 from tinygrad.uop.ops import Ops, UOp
-from tinygrad.dtype import dtypes
+
 
 class TestCrossCompilerTestingMatrix(unittest.TestCase):
   def setUp(self):

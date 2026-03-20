@@ -1,10 +1,9 @@
-import math
 # this will be the new test_ops for the next level
 # schedule confirms the right things are capable of fusing
 # NOTE: this has overlap with external_test_opt.py
-
 import functools
 import gc
+import math
 import unittest
 from typing import cast
 
