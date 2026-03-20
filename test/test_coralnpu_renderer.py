@@ -422,8 +422,8 @@ class TestCoralNPURenderer(unittest.TestCase):
     old_default = Device.DEFAULT
     Device.DEFAULT = "CORALNPU"
     try:
-      x = (Tensor.arange(16, device="CPU") % 10).reshape((1, 16)).cast("int8").realize().to(Device.DEFAULT)
-      w = (Tensor.arange(256, device="CPU") % 10).reshape((16, 16)).cast("int8").realize().to(Device.DEFAULT)
+      x = (Tensor.arange(16, device=Device.DEFAULT) % 10).reshape((1, 16)).cast("int8").realize()
+      w = (Tensor.arange(256, device=Device.DEFAULT) % 10).reshape((16, 16)).cast("int8").realize()
       out = x.cast("float16").matmul(w.cast("float16").T)
 
       schedule = out.schedule()
