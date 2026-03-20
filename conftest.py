@@ -12,6 +12,22 @@ class _TrackedPopen(_original_popen):
         super().__init__(*args, **kwargs)
         active_pids.add(self.pid)
 
+    def wait(self, *args, **kwargs):
+        ret = super().wait(*args, **kwargs)
+        active_pids.discard(self.pid)
+        return ret
+
+    def poll(self):
+        ret = super().poll()
+        if ret is not None:
+            active_pids.discard(self.pid)
+        return ret
+
+    def communicate(self, *args, **kwargs):
+        ret = super().communicate(*args, **kwargs)
+        active_pids.discard(self.pid)
+        return ret
+
 subprocess.Popen = _TrackedPopen
 
 def teardown_worker_group():
