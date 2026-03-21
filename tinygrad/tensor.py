@@ -1697,6 +1697,8 @@ class Tensor(OpMixin):
         # χ and ι step
         state = state.bitwise_xor(~state.roll(shifts=-1, dims=2) & state.roll(shifts=-2, dims=2))
         state = state.flatten(1) ^ rnd_const_masks[i]
+
+      state = state.realize()
       # NOTE: there was a kernelize here to prevent internal stack from growing propotional to data size, do we need something else?
     return state.bitcast(dtypes.uint8)[:,:(obytes:=(200 - rate) // 2)].reshape(*self.shape[:-1], obytes)
 

@@ -390,8 +390,11 @@ CACHEDB: str = getenv("CACHEDB", os.path.abspath(os.path.join(cache_dir, f"cache
 VERSION = 22
 _db_connection = None
 def db_connection():
-  global _db_connection
+  global _db_connection, CACHEDB
   if _db_connection is None:
+    worker = getenv("PYTEST_XDIST_WORKER", "")
+    if worker and not CACHEDB.endswith(f"_{worker}.db") and "CACHEDB" not in os.environ:
+      CACHEDB = os.path.abspath(os.path.join(cache_dir, f"cache_{worker}.db"))
     os.makedirs(CACHEDB.rsplit(os.sep, 1)[0], exist_ok=True)
     _db_connection = sqlite3.connect(CACHEDB, timeout=60, isolation_level="IMMEDIATE")
     # another connection has set it already or is in the process of setting it
@@ -400,10 +403,13 @@ def db_connection():
     if DEBUG >= 8: _db_connection.set_trace_callback(print)
   return _db_connection
 
+_db_tables = set()
 def diskcache_clear():
+  global _db_tables
   cur = db_connection().cursor()
   drop_tables = cur.execute("SELECT 'DROP TABLE IF EXISTS ' || quote(name) || ';' FROM sqlite_master WHERE type = 'table';").fetchall()
   cur.executescript("\n".join([s[0] for s in drop_tables] + ["VACUUM;"]))
+  _db_tables.clear()
 
 def diskcache_get(table:str, key:dict|str|int) -> Any:
   if CACHELEVEL < 1: return None
@@ -416,7 +422,6 @@ def diskcache_get(table:str, key:dict|str|int) -> Any:
   if (val:=res.fetchone()) is not None: return pickle.loads(val[0])
   return None
 
-_db_tables = set()
 def diskcache_put(table:str, key:dict|str|int, val:Any, prepickled=False):
   if CACHELEVEL < 1: return val
   if isinstance(key, (str,int)): key = {"key": key}

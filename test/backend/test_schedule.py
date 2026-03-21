@@ -87,11 +87,8 @@ class TestSchedule(unittest.TestCase):
   def test_arange_avgpool2d_fused_noopt(self):
     with Context(NOOPT=1): self.test_arange_avgpool2d(kcount=1)
 
-  # linearizer error
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.supports_float4, "needs supports_float4 to fail")
   def test_arange_avgpool2d_fused(self):
-    with self.assertRaises(RecursionError):
-      with Context(NOOPT=0): self.test_arange_avgpool2d(kcount=1)
+    with Context(NOOPT=0): self.test_arange_avgpool2d(kcount=1)
 
   # when we're fusing a reduce, all ReduceOps must have the same N in the dimensions
   # all permutes, reshapes, expands and shrinks push through the reduce

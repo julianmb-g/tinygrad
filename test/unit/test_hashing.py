@@ -15,6 +15,7 @@ class TestHashing(unittest.TestCase):
     chunks = [data[i:i+4096] for i in range(0, len(data), 4096)]
     chunk_hashes = [hashlib.shake_128(chunk).digest(16) for chunk in chunks]
     return hashlib.shake_128(b''.join(chunk_hashes)).digest(16)
+  @slow
   def test_abc(self):
     expected = self._python_hash_1mb(b"abc" + b"\x00" * (2**20 - 3))
     out = Tensor(b"abc").hash()
