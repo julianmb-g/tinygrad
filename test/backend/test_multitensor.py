@@ -610,8 +610,8 @@ class TestMultiTensor(unittest.TestCase):
       # Creates one last entry on device 1: 1 batch.
       return (a + c).realize()
 
-    a = ((Tensor.arange(100) % 10) * 0.1).reshape(10, 10, device=d0).realize()
-    b = ((Tensor.arange(100) % 10) * 0.1).reshape(10, 10, device=d0).realize()
+    a = ((Tensor.arange(100, device=d0) % 10) * 0.1).reshape(10, 10).realize()
+    b = ((Tensor.arange(100, device=d0) % 10) * 0.1).reshape(10, 10).realize()
     c = Tensor.randn(10, 10, device=d1).realize()
     d = Tensor.randn(10, 10, device=d1).realize()
 

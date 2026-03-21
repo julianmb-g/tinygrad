@@ -38,7 +38,7 @@ class TestInterop(unittest.TestCase):
     np.testing.assert_allclose(tg_res, torch_out.cpu().numpy(), atol=1e-5, rtol=1e-5)
 
   def test_torch_interop_write(self):
-    tg_data = ((Tensor.arange(math.prod((4, 4))) % 10) * 0.1).reshape((4, 4), device=Device.DEFAULT)
+    tg_data = ((Tensor.arange(math.prod((4, 4)), device=Device.DEFAULT) % 10) * 0.1).reshape((4, 4))
 
     out = torch.empty(4, 4, device=torch.device(self.torch_device), dtype=_to_torch_dtype(tg_data.dtype))
     tg_out = Tensor.from_blob(out.data_ptr(), out.shape, dtype=_from_torch_dtype(out.dtype))

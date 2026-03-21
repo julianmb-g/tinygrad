@@ -549,7 +549,7 @@ class TestHCQ(unittest.TestCase):
     except Exception: self.skipTest("no NV device, test skipped")
 
     def _check_copy(dev1, dev2):
-      buf1 = ((Tensor.arange(10*10, device=dev1) % 10) * 0.1).reshape(10, 10, device=dev1).realize()
+      buf1 = ((Tensor.arange(10*10, device=dev1) % 10) * 0.1).reshape(10, 10).realize()
       buf2 = buf1.to(dev2).realize()
       np.testing.assert_equal(buf1.numpy(), buf2.numpy(), "p2p failed")
     _check_copy("AMD", "NV")
