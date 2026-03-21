@@ -107,9 +107,6 @@ def universal_test_unary(a, dtype, op):
   else: np.testing.assert_equal(tensor_value, numpy_value)
 
 def universal_test_cast(a, in_dtype, dtype):
-  if in_dtype in dtypes_float and dtype in dtypes_int:
-    info = np.iinfo(_to_np_dtype(dtype))
-    if not (info.min <= a <= info.max): return
   if math.isinf(a) and dtype in dtypes_int: return
   tensor_value = Tensor([a], dtype=in_dtype).cast(dtype)
   numpy_value = np.array([a], dtype=_to_np_dtype(in_dtype)).astype(_to_np_dtype(dtype))

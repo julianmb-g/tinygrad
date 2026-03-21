@@ -233,7 +233,7 @@ class ClangRenderer(CStyleLanguage):
 
   # language options
   buffer_suffix = " restrict"
-  type_map = {dtypes.bool:"_Bool", dtypes.half:"__fp16"}
+  type_map = {dtypes.bool:"_Bool", dtypes.half:"__fp16", dtypes.bfloat16:"unsigned short", dtypes.fp8e4m3:"unsigned char", dtypes.fp8e5m2:"unsigned char", dtypes.fp8e4m3fnuz:"unsigned char", dtypes.fp8e5m2fnuz:"unsigned char"}
   code_for_op = {**({k:v for k,v in CStyleLanguage.code_for_op.items() if k not in [Ops.EXP2, Ops.SIN, Ops.LOG2, Ops.TRUNC, Ops.RECIPROCAL]}),
                  Ops.SQRT: lambda x,dtype: f"__builtin_sqrt({x})" if dtype == dtypes.float64 else f"__builtin_sqrtf({x})",
                  Ops.TRUNC: lambda x,dtype: f"__builtin_trunc({x})" if dtype == dtypes.float64 else f"__builtin_truncf({x})",
@@ -244,7 +244,7 @@ class ClangRenderer(CStyleLanguage):
   extra_matcher = PatternMatcher([(UPat.var("x", dtypes.float64).cast(dtypes.float16), lambda x: x.cast(dtypes.float32).cast(dtypes.float16)),
                                  (UPat.var("x", dtypes.float64).cast(dtypes.bfloat16), lambda x: x.cast(dtypes.float32).cast(dtypes.bfloat16)),
                                  (UPat.var("x", dtypes.bfloat16).cast(dtypes.float16), lambda x: x.cast(dtypes.float32).cast(dtypes.float16)),
-    (UPat((Ops.SQRT, Ops.TRUNC), name="alu"), no_vectorized_alu)]) + create_non_native_float_pats((dtypes.bfloat16,)) + pm_manual_bf16_cast + \
+    (UPat((Ops.SQRT, Ops.TRUNC), name="alu"), no_vectorized_alu)]) + create_non_native_float_pats((dtypes.bfloat16, *dtypes.fp8s)) + pm_manual_bf16_cast + \
     CStyleLanguage.extra_matcher
 
   if sys.platform == 'win32':
@@ -316,8 +316,8 @@ class OpenCLRenderer(CStyleLanguage):
   float4 = "(float4)"
   code_for_workitem = {"g": lambda x: f"get_group_id({x})", "l": lambda x: f"get_local_id({x})", "i": lambda x: f"get_global_id({x})"}
   type_map = { dtypes.int8: "char", dtypes.uint8: "uchar", dtypes.uint32: "uint", dtypes.uint16: "ushort", dtypes.uint64: "ulong",
-              dtypes.bfloat16: "ushort" }
-  extra_matcher = create_non_native_float_pats((dtypes.bfloat16,)) + pm_manual_bf16_cast + extra_pm
+              dtypes.bfloat16: "ushort", dtypes.fp8e4m3: "uchar", dtypes.fp8e5m2: "uchar", dtypes.fp8e4m3fnuz: "uchar", dtypes.fp8e5m2fnuz: "uchar" }
+  extra_matcher = create_non_native_float_pats((dtypes.bfloat16, *dtypes.fp8s)) + pm_manual_bf16_cast + extra_pm
 
   string_rewrite = PatternMatcher([
     (UPat(Ops.BITCAST, name="x"), lambda ctx,x: f"as_{ctx.render_dtype(x.dtype)}(({ctx.render_dtype(x.src[0].dtype)})({ctx[x.src[0]]}))"),
