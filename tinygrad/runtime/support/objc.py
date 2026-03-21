@@ -24,22 +24,26 @@ else:
 
 def returns_retained(f): return functools.wraps(f)(lambda *args, **kwargs: f(*args, **kwargs).retained())
 
-lib = ctypes.CDLL(ctypes.util.find_library('objc'))
-lib.sel_registerName.restype = id_
-getsel = functools.cache(lib.sel_registerName)
-lib.objc_getClass.restype = id_
 if sys.platform == 'darwin':
+  lib = ctypes.CDLL(ctypes.util.find_library('objc'))
+  lib.sel_registerName.restype = id_
+  getsel = functools.cache(lib.sel_registerName)
+  lib.objc_getClass.restype = id_
+
   dispatch_data_create = ctypes.CDLL("/usr/lib/libSystem.dylib").dispatch_data_create
   dispatch_data_create.restype = id_
   dispatch_data_create = returns_retained(dispatch_data_create)
-else:
-  dispatch_data_create = None
 
-def msg(sel:str, restype=id_, argtypes=[], retain=False, clsmeth=False):
-  # Using attribute access returns a new reference so setting restype is safe
-  (sender:=lib["objc_msgSend"]).restype, sender.argtypes = del_an(restype), [id_, id_]+[del_an(a) for a in argtypes] if argtypes else []
-  def f(ptr, *args): return sender(ptr._objc_class_ if clsmeth else ptr, getsel(sel.encode()), *args)
-  return returns_retained(f) if retain else f
+  def msg(sel:str, restype=id_, argtypes=[], retain=False, clsmeth=False):
+    # Using attribute access returns a new reference so setting restype is safe
+    (sender:=lib["objc_msgSend"]).restype, sender.argtypes = del_an(restype), [id_, id_]+[del_an(a) for a in argtypes] if argtypes else []
+    def f(ptr, *args): return sender(ptr._objc_class_ if clsmeth else ptr, getsel(sel.encode()), *args)
+    return returns_retained(f) if retain else f
+else:
+  lib = None
+  getsel = None
+  dispatch_data_create = None
+  def msg(*args, **kwargs): raise NotImplementedError("macOS only")
 
 if TYPE_CHECKING:
   import _ctypes
@@ -50,7 +54,7 @@ if TYPE_CHECKING:
 else:
   class MetaSpec(type(id_)):
     def __new__(mcs, name, bases, dct):
-      cls = super().__new__(mcs, name, bases, {'_objc_class_': lib.objc_getClass(name.encode()), '_children_': set(), **dct})
+      cls = super().__new__(mcs, name, bases, {'_objc_class_': lib.objc_getClass(name.encode()) if lib is not None else None, '_children_': set(), **dct})
       cls._methods_, cls._classmethods_ = dct.get('_methods_', []), dct.get('_classmethods_', [])
       return cls
 

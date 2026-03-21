@@ -7,11 +7,14 @@ import unittest
 from tinygrad import Device, dtypes
 from tinygrad.codegen.opt.search import Opt, OptOps
 from tinygrad.engine.realize import get_program
+from tinygrad.renderer.cstyle import MetalRenderer
 from tinygrad.uop.ops import AxisType, KernelInfo, Ops, UOp
 
 
+import sys
 class TestLinearizerFailure(unittest.TestCase):
   def test_failure_beam_mnist(self):
+    if sys.platform != 'darwin': raise unittest.SkipTest("MetalRenderer requires macOS")
     c0 = UOp(Ops.PARAM, dtypes.uchar.ptr(4014080), arg=0, src=())
     c1 = UOp.range(UOp.const(dtypes.weakint, 512), 0, AxisType.GLOBAL)
     c2 = UOp.range(UOp.const(dtypes.weakint, 784), 1, AxisType.GLOBAL)

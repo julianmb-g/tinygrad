@@ -37,6 +37,7 @@ def _setup_and_test_alu(alu_op:Ops, input_val:ConstType, *alu_src_uops:UOp):
 
 class TestRendererFailures(unittest.TestCase):
   def test_gated_store_with_alu(self):
+    if not Device[Device.DEFAULT].renderer.has_local: raise unittest.SkipTest("no local")
     a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
     gate_alu = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
     gated_alu_store = UOp(Ops.STORE, dtypes.void, (a.index(lidx0.valid(gate_alu)), UOp.const(dtypes.int, 1)))
@@ -45,6 +46,7 @@ class TestRendererFailures(unittest.TestCase):
     ret = _test_uop_result([], prg, local_size=[4, 1, 1])[0]
     np.testing.assert_equal(ret, [0, 1, 1, 1])
   def test_gated_store_with_alu_2d(self):
+    if not Device[Device.DEFAULT].renderer.has_local: raise unittest.SkipTest("no local")
     a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
     gate_alu_0 = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
     gate_alu_1 = (lidx1:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 2),), 'lidx1')).ne(0)
@@ -82,6 +84,7 @@ class TestWGSLFailures(unittest.TestCase):
     self.assertEqual(ret[0], float("inf"))
 class TestPTXFailures(unittest.TestCase):
   def test_gated_store_with_if(self):
+    if not Device[Device.DEFAULT].renderer.has_local: raise unittest.SkipTest("no local")
     a = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
     gate_alu = (lidx0:=UOp(Ops.SPECIAL, dtypes.int, (UOp.const(dtypes.int, 4),), 'lidx0')).ne(0)
     val = UOp.const(dtypes.int, 1)
