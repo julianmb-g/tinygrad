@@ -74,10 +74,7 @@ class TestTinygradKernelRoundtrip(unittest.TestCase):
     decoded_instrs: list[tuple] = []  # list of (ki, offset, orig_bytes, decoded, our_disasm, decode_ok, decode_err)
     for ki, kernel in enumerate(kernels):
       offset = 0
-      try:
-        code = next((s.content for s in elf_loader(compiler.compile(kernel.src))[1] if s.name == ".text"))
-      except (ValueError, RuntimeError) as e:
-        raise unittest.SkipTest(f"Failed to compile or load ELF: {e}")
+      code = next((s.content for s in elf_loader(compiler.compile(kernel.src))[1] if s.name == ".text"))
 
       while offset < len(code):
         remaining = code[offset:]
