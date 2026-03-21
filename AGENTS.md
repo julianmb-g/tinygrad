@@ -26,3 +26,4 @@
 \n### Testing & Environment Lessons
 - **Evisceration of Exception Trapping**: Do not use `with self.assertRaises(Exception):` as a catch-all wrapper. It will fraudulently pass if the code crashes for unrelated reasons like `AttributeError` or `SyntaxError`.
 - **Linter Environment Execution**: When `ruff` executable is missing from the container's path, explicitly invoke it via the module path (`python3 -m ruff`) to guarantee execution.
+- **Test Fraud via helper_test_op Wrappers**: Tests using `helper_test_op` must not be wrapped in `try... except RuntimeError: raise unittest.SkipTest` unless the operation structurally crashes by design. Eviscerating these exceptions masks failing mathematical or hardware operations and gives a fraudulent sense of codebase stability. When stripping these, only use `with self.assertRaises(RuntimeError):` if the test natively fails due to known structural boundaries.
