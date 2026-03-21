@@ -1,3 +1,5 @@
+import os
+os.environ["DISABLE_COMPILER_CACHE"] = "1"
 import atexit
 import os
 import signal
