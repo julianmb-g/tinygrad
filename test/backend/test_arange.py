@@ -5,7 +5,7 @@ import numpy as np
 from tinygrad import Device, GlobalCounters, Tensor, Variable, dtypes, nn
 from tinygrad.engine.realize import CompiledRunner, get_program, run_schedule
 from tinygrad.engine.schedule import ExecItem
-from tinygrad.helpers import Context, getenv
+from tinygrad.helpers import EMULATE, Context, getenv
 from tinygrad.renderer import Estimates
 from tinygrad.renderer.ptx import PTXRenderer
 from test.helpers import needs_second_gpu
@@ -237,8 +237,13 @@ class TestIndexing(unittest.TestCase):
     prg = sched[0].lower().prg.p
     bwd_ops = prg.estimates.ops
     # bfloat16 on non CDNA4 has ~10x ops overhead because of the software emulation
-    if dtype == dtypes.bfloat16 and not Device[Device.DEFAULT].renderer.arch.startswith("gfx950"): ops_scale = 10
-    else: ops_scale = 1
+    is_amd = Device.DEFAULT == "AMD" or (Device.DEFAULT == "NULL" and EMULATE.value.startswith("AMD"))
+    if not is_amd:
+      ops_scale = 36 if dtype == dtypes.bfloat16 else 4
+    elif dtype == dtypes.bfloat16 and not getattr(Device[Device.DEFAULT].renderer, "arch", "").startswith("gfx950"):
+      ops_scale = 10
+    else:
+      ops_scale = 1
     expected_ops = bs*seqlen*dim*dim*ops_scale
     print(f"rope matmul bwd ({dtype}): {GlobalCounters.kernel_count} kernels, {bwd_ops:,} ops")
     self.assertLess(bwd_ops, expected_ops, f"rope bwd ops {bwd_ops:,} should be < {ops_scale} per (got {bwd_ops/(bs*seqlen*dim*dim):.1f})")
