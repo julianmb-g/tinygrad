@@ -35,3 +35,7 @@
 - **Objective-C Message Forwarding Crash (Linux)**: When invoking or importing macOS-specific backend bindings (like `ops_metal.py` or `objc.py`) on Linux, do not unconditionally load `libSystem.dylib` or execute `libobjc` lookups for `objc_msgSend`. Use strict `if sys.platform == 'darwin':` guards to cleanly disable the bindings and raise `NotImplementedError` for missing features rather than allowing violent segmentation faults or `AttributeError` crashes on missing symbols.
 - **Unsupported Backend Feature Testing**: Tests asserting linearizer functionality or backend capabilities that natively require specific backends (e.g. `MetalRenderer()` or `Device.DEFAULT` expecting `has_local=True` for thread execution) MUST use `unittest.SkipTest("Reason")` to organically trap the unsupported boundary rather than executing and failing abruptly.
 - **Inline Imports Anti-Pattern (PEP-8)**: All standard library and framework imports must be extracted to the top-level scope of the file rather than buried inside deep execution paths (e.g. `def _get_memory_stride: import math`). This prevents redundant scope evaluation and complies with strict linting rules.
+
+## Lessons Learned
+
+* **Test Fraud Exposed via Expected Exceptions:** Do not wrap executions in expected exceptions (like `assertRaises(RecursionError)`) to bypass or mask failing executions. If the underlying code changes and the expected exception is no longer raised, it organically indicates that the test was attempting to mask a failure condition rather than proving correct functionality.
