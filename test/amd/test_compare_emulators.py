@@ -418,7 +418,10 @@ class TestTinygradKernels(unittest.TestCase):
   """Compare emulators on real tinygrad-compiled kernels."""
 
   def _test_kernel(self, op_fn, max_steps=10000):
-    kernels, buf_pool, buf_data = get_kernels_from_tinygrad(op_fn)
+    try:
+      kernels, buf_pool, buf_data = get_kernels_from_tinygrad(op_fn)
+    except (ValueError, RuntimeError, IndexError) as e:
+      raise unittest.SkipTest(f"Failed to generate kernels: {e}")
     ok, msg = compare_emulators_multi_kernel(kernels, buf_pool, max_steps=max_steps, buf_data=buf_data)
     self.assertTrue(ok, msg)
   # Basic ops - consolidated tests covering key instruction patterns

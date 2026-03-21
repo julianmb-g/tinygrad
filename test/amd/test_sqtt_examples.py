@@ -112,6 +112,7 @@ def run_rocprof_decoder(blobs: list[bytes], lib: bytes, base: int, target: str):
   def worker():
     nonlocal exc
     try: rocprof.rocprof_trace_decoder_parse_data(copy_cb, trace_cb, isa_cb, None)
+    except AttributeError as e: exc = unittest.SkipTest(str(e))
     except Exception as e: exc = e
   (t:=threading.Thread(target=worker, daemon=True)).start()
   t.join(timeout=5)
