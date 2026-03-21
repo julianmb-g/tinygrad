@@ -77,12 +77,14 @@ class TestQuantizeOnnxCPU(unittest.TestCase):
     out_file = get_quantized_model(sz)
     run_onnx = OnnxRunner(out_file)
     inp = Tensor(np.random.uniform(size=(sz, sz)).astype(np.float32))
-    with self.assertRaises(KeyError):
+    try:
       with Context(QUANTIZE=1):
         sched = run_onnx({"input":inp})["output"].schedule()
         sched[-2].lower()
         daccs = [u for u in sched[-2].prg.p.uops if u.op is Ops.DEFINE_REG]
         assert all(u.dtype.scalar() is dtypes.int for u in daccs)
+    except KeyError:
+      raise unittest.SkipTest("QUANTIZE is unsupported")
 class TestQuantizeOnnx(unittest.TestCase):
   def test_quant_128(self): self.test_quant(128)
   def test_quant(self, sz=512):
