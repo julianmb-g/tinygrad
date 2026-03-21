@@ -23,3 +23,6 @@
 - **Testing Framework SQLite Concurrency Deadlocks**: When utilizing parallel testing frameworks like `pytest-xdist` on machine learning libraries utilizing shared cache layers (like tinygrad), concurrent SQLite access will cause catastrophic database locking (`OperationalError: database is locked`) and bypass execution entirely. To resolve this, mandate isolated or in-memory database connections per-worker, or strictly serialize the cache-layer tests.
 - **Zero-Trust Baseline Path Coupling**: When executing `bazel test --override_repository` inside an out-of-tree isolated baseline worktree (e.g. `/tmp/coralnpu-baseline`), you MUST strictly enforce absolute paths (e.g. `--override_repository=tinygrad=/workspace/louhi_ws/tinygrad`). Using relative paths (like `../tinygrad`) will fatally escape the temporary root and crash the dependency resolver because `/tmp/tinygrad` does not exist.
 
+\n### Testing & Environment Lessons
+- **Evisceration of Exception Trapping**: Do not use `with self.assertRaises(Exception):` as a catch-all wrapper. It will fraudulently pass if the code crashes for unrelated reasons like `AttributeError` or `SyntaxError`.
+- **Linter Environment Execution**: When `ruff` executable is missing from the container's path, explicitly invoke it via the module path (`python3 -m ruff`) to guarantee execution.
