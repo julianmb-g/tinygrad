@@ -44,3 +44,5 @@
 - **Renderer Architectural Identity**: When extending or defining C-style renderers like `ClangJITRenderer` and `ClangRenderer`, always ensure the `arch` property is explicitly defined (e.g., `arch = "CORALNPU"`) so that hardware-specific capabilities and properties can be correctly evaluated downstream without throwing `AttributeError`.
 - **Renderer Property Hardcoding**: Do not hardcode renderer strings like "CORALNPU" into general optimizer layers (`codegen/opt/postrange.py`). Use generic `getattr(self.ren, "max_upcast", <default>)` patterns so limits apply seamlessly regardless of the backend.
 - **Code Style (PEP8/Ruff)**: Always flatten inline `try-except` blocks (e.g., `try: ... except ...: pass`) and extract inline loop declarations (e.g., single-line `for` loops or inline assignments within loops) across the repository into standard multi-line structures to comply with strict E701 linting rules.
+
+- **Exception Swallowing in Test Decorators**: When modifying `wrap_class` and `wrap_tests` decorators, do not use unconditional `with self.assertRaises(Exception):`. It masks unrelated failures like `AttributeError` or syntax errors.
