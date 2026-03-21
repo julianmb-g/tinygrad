@@ -3,7 +3,10 @@ import unittest
 from tinygrad import Tensor, nn
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.helpers import DEBUG, PCONTIG, Context, GlobalCounters, getenv
-from tinygrad.uop.ops import Ops, PatternMatcher, UPat, graph_rewrite
+from tinygrad.uop.ops import graph_rewrite
+from tinygrad.schedule.indexing import run_rangeify
+from tinygrad.schedule.rangeify import mop_cleanup, pm_mops, pm_syntactic_sugar, pm_remove_bufferize
+from tinygrad.uop.symbolic import symbolic
 
 
 class TestDoubleMatmul(unittest.TestCase):
@@ -164,9 +167,6 @@ class TestRangeifyPM(unittest.TestCase):
   def setUp(self): self.base = Tensor.zeros(10*10).reshape(10, 10).contiguous()
   def assert_same(self, a, b):
     def run_pm_rangeify(t:Tensor):
-      from tinygrad.schedule.indexing import run_rangeify
-      from tinygrad.schedule.rangeify import mop_cleanup, pm_mops, pm_syntactic_sugar, pm_remove_bufferize
-      from tinygrad.uop.symbolic import symbolic
       sink = run_rangeify(t.uop.sink())[0]
       sink = graph_rewrite(sink, pm_syntactic_sugar+pm_mops+mop_cleanup+pm_remove_bufferize)
       return graph_rewrite(sink, symbolic)

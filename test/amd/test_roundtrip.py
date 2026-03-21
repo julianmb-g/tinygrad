@@ -4,11 +4,13 @@ import io
 import re
 import sys
 import unittest
-
 from test.amd.disasm import disasm
 from test.amd.helpers import get_mattr, get_target, llvm_assemble, llvm_disasm
 from tinygrad.renderer.amd import detect_format
-
+from test.amd.test_compare_emulators import get_kernels_from_tinygrad
+from tinygrad.runtime.support.elf import elf_loader
+from tinygrad.runtime.support.compiler_amd import HIPCompiler, AMDLLVMCompiler
+from tinygrad.helpers import AMD_LLVM
 
 def disassemble_lib(lib: bytes, compiler) -> list[tuple[str, bytes]]:
   """Disassemble ELF binary and return list of (instruction_text, machine_code_bytes)."""

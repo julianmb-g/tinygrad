@@ -6,6 +6,11 @@ from tinygrad.helpers import BEAM
 from tinygrad.renderer.cstyle import CStyleLanguage, uops_to_dtypes
 from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, multirange_str
 from tinygrad.uop.symbolic import sym
+import math
+import os
+import random
+import numpy as np
+from tinygrad.nn.state import safe_load
 
 
 def _get_memory_stride(uop, target_range):
@@ -36,7 +41,6 @@ def extract_features(uops) -> dict[str, float]:
   (e.g., instruction mix, vectorization ratio, register pressure, memory patterns)
   used by the ML cost model to predict cycle counts on the CoralNPU.
   """
-  import math
   total_uops = len(uops)
   alu_ops = 0
   mem_ops = 0
@@ -62,8 +66,6 @@ def extract_features(uops) -> dict[str, float]:
 
   # Loop Analysis
   true_extents = {}
-  from tinygrad.dtype import dtypes
-  from tinygrad.uop.ops import GroupOp, Ops
   ranges = [u for u in uops if u.op is Ops.RANGE]
   num_loops = len(ranges)
   reduce_loops = 0
@@ -189,9 +191,6 @@ def extract_features(uops) -> dict[str, float]:
 
   return features
 
-import math
-import os
-import random
 
 _cost_model_loaded = False
 _cost_model = None
@@ -207,10 +206,6 @@ def load_cost_model():
   global _cost_model_loaded, _cost_model
   if _cost_model_loaded: return
   _cost_model_loaded = True
-
-  import numpy as np
-
-  from tinygrad.nn.state import safe_load
 
   model_dir = os.environ.get("CORALNPU_COST_MODEL_DIR", "/workspace/louhi_ws/coralnpu/tests/tinygrad_test/cost_model_validation")
   weights_path = os.path.join(model_dir, "cost_model.safetensors")
@@ -260,7 +255,6 @@ def estimate_cost(uops) -> float:
     'cmp_branch_ratio', 'avg_bytes_per_load', 'avg_vector_width'
   ]
 
-  import numpy as np
   x = np.array([features.get(k, 0.0) for k in feature_keys], dtype=np.float32)
 
   # Task 2.3.2.2: Advanced Estimator Features
@@ -449,7 +443,6 @@ def optimize_memory_layout(uops):
   Traverses the AST and ensures that memory access strides are mapped and optimized
   for hardware vector load/store limits, analyzing the exact layout mappings.
   """
-  from tinygrad.uop.ops import Ops
 
   contiguous_loads = 0
   contiguous_stores = 0
@@ -475,7 +468,6 @@ def analyze_dma_independence(uops):
 
   Returns a dictionary containing feasibility metrics for memory/compute overlap.
   """
-  from tinygrad.uop.ops import GroupOp, Ops
 
   independent_loads = []
   independent_stores = []
@@ -567,7 +559,6 @@ class CoralNPUCompiler(Compiler):
     self.kernel_counter = 0
 
   def compile(self, src:str) -> bytes:
-    import os
     save_dir = os.environ.get("SAVE_BEAM_DIR", "")
     if save_dir:
       os.makedirs(save_dir, exist_ok=True)
