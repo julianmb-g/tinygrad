@@ -53,3 +53,7 @@
 
 - **SharedMemory View Casting Vulnerability**: shm.buf must be explicitly cast to memoryview(shm.buf) to avoid GC memory leaks and BufferErrors during cleanup.
 - **Metal Objective-C bindings**: macOS Objective-C message forwarding on Linux will crash with AttributeError. Ensure Metal endpoints are correctly guarded by platform checks (sys.platform == 'darwin').
+### Lessons Learned (Added by Build Agent)
+- **Testing Illusion & Mocked Boundaries**: Tests must not mock external systems (C-compiler, decoder resolver) without corresponding E2E integration tests exercising the real components, as this mathematically masks catastrophic cross-component failures.
+- **IPC Zombie Crash**: Replacing `os.killpg` with `os.kill` is insufficient to prevent all `pytest-xdist` node down deadlocks; unhandled C++ exceptions or POSIX pipe deadlocks in parallel workers still cause `OSError: cannot send (already closed?)`.
+- **E2E Allocator Fraud**: Tests must not compile empty C files (e.g. `int main() { return 0; }`) to bypass missing toolchains, as this decouples allocator memory bounds from real kernels.
