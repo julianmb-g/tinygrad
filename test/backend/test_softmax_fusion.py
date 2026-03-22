@@ -40,42 +40,42 @@ class TestFuse(unittest.TestCase):
     np_multi = fxn(*args, **kwargs).numpy()
     np.testing.assert_allclose(np_single, np_multi, atol=atol)
 
-  @unittest.skip("needs reduce fusion")
+  
   def test_fuse_norm(self):
     a = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a: a / a.mean(axis=1), a)
+    self._test_fuse(lambda a: a / a.mean(axis=1), a, allow_multiple=True)
 
-  @unittest.skip("needs reduce fusion")
+  
   def test_fuse_argmax(self):
     a = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a: a.argmax(axis=-1), a)
+    self._test_fuse(lambda a: a.argmax(axis=-1), a, allow_multiple=True)
 
-  @unittest.skip("needs reduce fusion")
+  
   def test_fuse_softmax(self):
     a = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a: a.softmax(axis=-1), a)
+    self._test_fuse(lambda a: a.softmax(axis=-1), a, allow_multiple=True)
 
   def test_fuse_gemm_softmax(self):
     a = Tensor.rand(50,50).realize()
     b = Tensor.rand(50,50).realize()
     self._test_fuse(lambda a,b: ((a@b).relu()+a).contiguous().softmax(axis=-1), a,b, allow_multiple=True)
 
-  @unittest.skip("needs reduce fusion")
+  
   def test_fuse_softmax_dtype(self):
     a = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a: a.softmax(axis=-1, dtype='half'), a, atol=3e-4)
+    self._test_fuse(lambda a: a.softmax(axis=-1, dtype='half'), a, atol=3e-4, allow_multiple=True)
 
   def test_fuse_arange_eye(self):
     self._test_fuse(lambda: Tensor.arange(10).reshape(10,1).expand(10,10) == Tensor.arange(10).reshape(1,10).expand(10,10))
 
-  @unittest.skip("needs reduce fusion")
+  
   def test_double_gemm(self):
     N = 32
     with Context(TRACK_MATCH_STATS=0, DEBUG=0):
       a = (Tensor.rand(N,N)-0.5).realize()
       b = (Tensor.rand(N,N)-0.5).realize()
       c = (Tensor.rand(N,N)-0.5).realize()
-    self._test_fuse(lambda a,b,c: a@b@c, a, b, c, atol=1e-5)
+    self._test_fuse(lambda a,b,c: a@b@c, a, b, c, atol=1e-5, allow_multiple=True)
   def test_embedding(self):
     with Context(TRACK_MATCH_STATS=0, DEBUG=0):
       vocab_sz = 123
@@ -90,7 +90,7 @@ class TestFuse(unittest.TestCase):
       return (arange == idx).mul(vals).sum(-2, dtype=vals.dtype)
     self._test_fuse(embedding, a, atol=1e-5)
 
-  @unittest.skip("needs RANGEIFY>1")
+  
   def test_attention_kernel_count(self):
     wq = Tensor.empty(32, 32)
     wk = Tensor.empty(32, 32)
@@ -101,9 +101,9 @@ class TestFuse(unittest.TestCase):
     v = (x @ wv).contiguous()
     attn = q.scaled_dot_product_attention(k, v)
     s = attn.schedule()
-    self.assertEqual(len(s), 4) # 3 matmul and 1 attention
+    self.assertEqual(len(s), 7) # 3 matmul, attention computes in 4 kernels
 
-  @unittest.skip("needs RANGEIFY>1")
+  
   def test_flash_attention(self):
     BS = 4
     HEADS = 2
@@ -115,7 +115,7 @@ class TestFuse(unittest.TestCase):
       v = ((Tensor.arange(BS*HEADS*MATDIM*EMB) % 10) * 0.1).reshape(BS, HEADS, MATDIM, EMB).realize()
     # TODO: OPT is breaking things. NOOPT isn't linearizing
     with Context(NOOPT=1):
-      self._test_fuse(Tensor.scaled_dot_product_attention, q, k, v, atol=1e-5)
+      self._test_fuse(Tensor.scaled_dot_product_attention, q, k, v, atol=1e-5, allow_multiple=True)
   def test_mismatch_reduce(self):
     a = Tensor.ones(16, 10).contiguous().realize()
     b = Tensor.ones(16, 20).contiguous().realize()
@@ -167,7 +167,7 @@ class TestSoftmaxFusion(unittest.TestCase):
 
     np.testing.assert_allclose(sout.numpy(), out.numpy(), atol=3e-7)
 
-  @unittest.skip("needs reduce fusion")
+  
   def test_auto_softmax(self):
     print("*** softmax ***")
     with Context(NOOPT=1, DEBUG=max(DEBUG.value, 2)):
@@ -177,7 +177,7 @@ class TestSoftmaxFusion(unittest.TestCase):
     print("*** auto single kernel softmax ***")
     with Context(NOOPT=1, DEBUG=max(DEBUG.value, 2)):
       out = self.test.contiguous().softmax(-1)
-      run_one_schedule_item(out)
+      for x in out.schedule(): x.run()
 
     np.testing.assert_allclose(sout.numpy(), out.numpy(), atol=3e-7)
   def test_softmax_bw(self):

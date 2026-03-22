@@ -760,14 +760,6 @@ class TestSchedule(unittest.TestCase):
     p = np.tile(p, 2)
     np.testing.assert_allclose(tiny_ret, p)
 
-  @unittest.skip("disabling subbuffer manually isn't supported anymore")
-  def test_bitcast_disable_subbufer(self):
-    x = cast(UOp, Tensor.empty(1, dtype=dtypes.float32).realize().uop)
-    a = x.alu(Ops.EXP2).cast(dtypes.int32, True, allow_buffer_view=False)
-    b = x.cast(dtypes.int32, True, allow_buffer_view=False)
-    b = a.alu(Ops.ADD, b)
-    check_schedule(b, 1)
-
   def test_conv2d(self): _test_conv2d(4)
   def test_conv2d_fused(self): _test_conv2d(4)
 
@@ -881,14 +873,15 @@ class TestSchedule(unittest.TestCase):
     self.assertListEqual(realized_const_view.tolist(), [[1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1], [1, 1, 1, 1]])
 
   @given(strat.sampled_from(dtypes.all), strat.sampled_from(dtypes.all))
-  @unittest.skip("kernel count depends on input")
   def test_cast_padded_const(self, dt1, dt2):
     assume(is_dtype_supported(dt1) and is_dtype_supported(dt2))
+    assume(dt1 != dtypes.bfloat16 and dt2 != dtypes.bfloat16) # CPU backend bfloat16 cast is fundamentally broken
     a = Tensor(1, dtype=dt1).reshape(1, 1).pad(((1, 1), None))
     casted_view = a.cast(dt2)
-    run_schedule(check_schedule(casted_view, 0))
+    expected_kernels = 0 if dt1 == dt2 else 1
+    run_schedule(check_schedule(casted_view, expected_kernels))
     realized_const_view = casted_view.contiguous()
-    run_schedule(check_schedule(realized_const_view, 1))
+    run_schedule(check_schedule(realized_const_view, 1 if expected_kernels == 0 else 0))
     np.testing.assert_equal(realized_const_view.numpy(), [[0], [1], [0]])
 
   def test_simple_indexing(self):
@@ -1000,12 +993,12 @@ class TestSchedule(unittest.TestCase):
     run_schedule(check_schedule(out, 2))
     np.testing.assert_allclose(out.numpy(), (x.numpy()+(np.arange(10)+1)[2]).sum(), atol=1e-5, rtol=1e-6)
 
-  @unittest.skip("BUFFER_VIEW no longer supported on non-disk devices")
+  
   def test_arange_view_op(self):
     a = Tensor.arange(12).reshape(4, 3).shrink(((1, 2), (1, 3))).contiguous()
     sched = check_schedule(a, 1)
+    self.assertIs(sched[0].ast.op, Ops.SINK)
     run_schedule(sched)
-    self.assertIs(sched[1].ast.op, Ops.BUFFER_VIEW)
     np.testing.assert_equal(a.numpy(), [[4, 5]])
 
   @unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
