@@ -16,7 +16,7 @@ active_pids = set()
 def _kill_orphans():
   for pid in list(active_pids):
     try:
-      os.killpg(pid, signal.SIGKILL)
+      os.kill(pid, signal.SIGKILL)
     except Exception:
       pass
 atexit.register(_kill_orphans)
@@ -60,6 +60,14 @@ class CoralNPUAllocator(Allocator):
     self.free_blocks = [(self.vmm_base, self.vmm_limit)]
     super().__init__(device)
 
+  def __del__(self):
+    for mem in self.mem.values():
+        mem.release()
+    for shm in self.shms.values():
+        shm.close()
+        try: shm.unlink()
+        except FileNotFoundError: pass
+
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:
         size_aligned = (size + 15) & ~15
@@ -74,7 +82,7 @@ class CoralNPUAllocator(Allocator):
                 break
 
         if handle is None:
-            raise RuntimeError(f"OOM: 32KB allocation limit exceeded (base={hex(self.vmm_base)}, requested={size})")
+            raise RuntimeError(f"OOM: 32KB allocation limit exceeded (base={hex(self.vmm_base or 0)}, requested={size})")
 
         if handle in self.alloc_refcounts:
             self.alloc_refcounts[handle] += 1
@@ -83,7 +91,7 @@ class CoralNPUAllocator(Allocator):
 
     shm = multiprocessing.shared_memory.SharedMemory(create=True, size=size)
     self.shms[handle] = shm
-    self.mem[handle] = shm.buf
+    self.mem[handle] = memoryview(shm.buf) # type: ignore
     return handle
 
   def _copyin(self, dest, src:memoryview):
@@ -181,14 +189,14 @@ class CoralNPUProgram:
         try:
           p.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
-          os.killpg(p.pid, signal.SIGKILL)
+          os.kill(p.pid, signal.SIGKILL)
           raise TimeoutError(f"CoralNPU execution timed out after {timeout} seconds.")
       else:
         p.wait()
     finally:
       if p.poll() is None:
         try:
-          os.killpg(p.pid, signal.SIGKILL)
+          os.kill(p.pid, signal.SIGKILL)
         except Exception:
           pass
       active_pids.discard(p.pid)

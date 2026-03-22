@@ -27,6 +27,7 @@ class DiskCache(unittest.TestCase):
     diskcache_put(table, "k", "getme")
     q = Queue()
     p = Process(target=remote_get, args=(table,q,"k"))
+    p.daemon = True
     p.start()
     p.join()
     self.assertEqual(q.get(), "getme")
@@ -35,6 +36,7 @@ class DiskCache(unittest.TestCase):
     table = "test_putotherprocess"
     from multiprocessing import Process
     p = Process(target=remote_put, args=(table,"k", "remote"))
+    p.daemon = True
     p.start()
     p.join()
     self.assertEqual(diskcache_get(table, "k"), "remote")
