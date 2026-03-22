@@ -102,22 +102,13 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         # Allocate adjacent tensor for the execution to write to, ensuring it doesn't overflow to handle
         handle2 = self.allocator._alloc(4, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
 
-        # Execute a dummy program that does nothing (or writes to handle2) to see if simulator clobbers handle's memory space
-        # We need a dummy simulator!
-        with tempfile.TemporaryDirectory() as tmp_bin:
-            gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
-            sim_path = os.path.join(tmp_bin, "coralnpu_v2_sim")
-            with open(gcc_path, 'w') as f:
-                f.write("#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[-1], 'w') as out: out.write('dummy elf')\n")
-            with open(sim_path, 'w') as f:
-                f.write("#!/usr/bin/env python3\nimport sys, multiprocessing.shared_memory\nshm_name = sys.argv[sys.argv.index('--shm')+1]\nshm = multiprocessing.shared_memory.SharedMemory(name=shm_name)\nshm.close()\n")
-            os.chmod(gcc_path, 0o755)
-            os.chmod(sim_path, 0o755)
-
-            with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{os.environ.get('PATH', '')}"}):
-                self.allocator.device.allocator = self.allocator
-                prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
-                prog(handle2, wait=False)
+        # Execute a program that does nothing (or writes to handle2) to see if simulator clobbers handle's memory space
+        self.allocator.device.allocator = self.allocator
+        try:
+            prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
+            prog(handle2, wait=True, timeout=15.0)
+        except FileNotFoundError:
+            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
 
         dest = bytearray(4)
         self.allocator._copyout(memoryview(dest), handle)

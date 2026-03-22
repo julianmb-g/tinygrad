@@ -1,9 +1,9 @@
-import os
-os.environ["DISABLE_COMPILER_CACHE"] = "1"
 import atexit
 import os
 import signal
 import subprocess
+
+os.environ["DISABLE_COMPILER_CACHE"] = "1"
 
 active_pids = set()
 
@@ -38,10 +38,6 @@ def teardown_worker_group():
             os.kill(pid, signal.SIGKILL)
         except OSError:
             pass
-    try:
-        os.killpg(os.getpgrp(), signal.SIGKILL)
-    except OSError:
-        pass
 
 def pytest_configure(config):
     worker_id = os.environ.get("PYTEST_XDIST_WORKER")
