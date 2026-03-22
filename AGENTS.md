@@ -62,3 +62,6 @@
 - **Hardware-Missing State Traps**: When trapping missing hardware dependencies (e.g., in `test/amd/test_roundtrip.py`), replace generic `except Exception:` blocks with explicit `except (FileNotFoundError, RuntimeError):` to prevent masking unrelated failures.
 - **Test Environment Masking via Trivial Skipping (`tinygrad`)**: Never use `@unittest.skip` to bypass tests that fail due to missing optimizations (like reduce fusion or `X * 0` folding). Instead, update the test bounds organically to match the CURRENT architecture (e.g. asserting `7` kernels instead of `4`, or passing `allow_multiple=True`). Skipping legitimate tests masks regression coverage.
 - **CPU Backend `bfloat16` Compilation Bug (`tinygrad`)**: In the CPU backend, `__bf16` casting is fundamentally broken because it compiles to C code doing `(unsigned short)(float_val)`, which truncates floats to integer values before bitcasting. Do not write test framework equality checks asserting mathematical parity for `bfloat16` on CPU until the underlying compiler bug is fixed.
+
+### Pytest Execution Parity
+- **pytest-xdist Timeouts**: When running `pytest -n auto --timeout=300`, the timeout method must explicitly be `thread` (`--timeout-method=thread`) to avoid `OSError: cannot send (already closed?)` crashes caused by parallel teardowns inside the worker pool.
