@@ -1,11 +1,12 @@
+import sys
 import unittest
-from unittest.mock import MagicMock
 
 from tinygrad import Device
 from tinygrad.uop.ops import Ops
 from tinygrad.dtype import dtypes
 
 
+@unittest.skipIf(sys.platform != 'darwin', "macOS only")
 class TestMetalGraph(unittest.TestCase):
   def setUp(self):
     from tinygrad.runtime.graph.metal import MetalGraph
