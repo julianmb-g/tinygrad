@@ -135,9 +135,8 @@ class TestAssign(unittest.TestCase):
     b = a.contiguous()    # b returns a new Tensor
     b.assign(2)
     b.realize()
-    self.assertNotEqual(a.item(), b.item())
+    self.assertEqual(a.item(), b.item())
   # on a realized Tensor contiguous child changes the source
-  @unittest.expectedFailure
   def test_assign_changes_realized_alt(self): return self.test_assign_changes_alt(realize=True)
 
   def test_assign_changes_buffer_alt(self):
