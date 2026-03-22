@@ -648,6 +648,7 @@ class IpcWorkerPool:
     for _ in range(num_workers):
       parent_conn, child_conn = multiprocessing.Pipe(duplex=True)
       p = multiprocessing.Process(target=self._worker_wrapper, args=(child_conn, target))
+      p.daemon = True
       p.start()
       _ipc_active_pids.add(p.pid)
       self.workers.append({"process": p, "conn": parent_conn, "pid": p.pid})

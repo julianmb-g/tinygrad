@@ -84,19 +84,18 @@ class CoralNPUAllocator(Allocator):
 
     shm = multiprocessing.shared_memory.SharedMemory(create=True, size=size)
     self.shms[handle] = shm
-    self.mem[handle] = (ctypes.c_char * size).from_buffer(shm.buf) # type: ignore
+    self.mem[handle] = shm.buf
     return handle
 
   def _copyin(self, dest, src:memoryview):
     if dest in self.mem:
-      ctypes.memmove(self.mem[dest], src.tobytes(), len(src))
+      self.mem[dest][:len(src)] = src
     else:
       raise ValueError(f"Invalid handle {dest}")
 
   def _copyout(self, dest:memoryview, src):
     if src in self.mem:
-      data = bytes(self.mem[src])[:len(dest)]
-      dest[:] = data
+      dest[:] = self.mem[src][:len(dest)]
     else:
       raise ValueError(f"Invalid handle {src}")
 
@@ -109,6 +108,7 @@ class CoralNPUAllocator(Allocator):
                 if opaque in self.mem:
                     size = len(self.mem[opaque])
                     size_aligned = (size + 15) & ~15
+                    self.mem[opaque].release()
                     del self.mem[opaque]
                     shm = self.shms.pop(opaque)
                     shm.close()
@@ -151,14 +151,16 @@ class CoralNPUProgram:
       src_path = f.name
     elf_path = src_path + ".elf"
     try:
-      subprocess.check_output(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path], stderr=subprocess.STDOUT)
+      subprocess.check_output(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path], stderr=subprocess.STDOUT, timeout=15.0)
+    except subprocess.TimeoutExpired as e:
+      raise RuntimeError(f"Cross-compilation timed out: {e}")
     except subprocess.CalledProcessError as e:
       raise RuntimeError(f"Cross-compilation failed: {e.output.decode()}")
     except FileNotFoundError as e:
       raise FileNotFoundError(f"Missing cross-compiler: {e}")
     return elf_path
 
-  def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=None, **kwargs):
+  def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=15.0, **kwargs):
     if getattr(self, "is_beam", False) and wait:
       return self.beam_cost
 
