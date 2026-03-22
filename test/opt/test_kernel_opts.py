@@ -7,6 +7,7 @@ from tinygrad.codegen.opt import KernelOptError, Opt, OptOps
 
 
 class TestKernelOpts(unittest.TestCase):
+  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
   def test_local_and_grouped_reduce(self):
     N = 128
     Tensor.manual_seed(1882)
@@ -53,6 +54,7 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.UPCAST, 0, 4)], # Checking how it works with upcasts
     ])
 
+  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
   def test_matmul(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -79,6 +81,7 @@ class TestKernelOpts(unittest.TestCase):
       # Full global upcast + local
       [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UPCAST, 0, 8)],
     ])
+  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
   def test_double_reduce(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -123,6 +126,7 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 4)],
       [Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 4)],
     ], apply_tc=True, atol=atol, rtol=rtol)
+  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
   def test_tensor_core_opts_locals(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -136,6 +140,7 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 0, 4)],
     ], apply_tc=True, atol=atol, rtol=rtol)
   # NOTE: the METAL test is broken, likely due to a compiler bug. passes on CI with -O0 and with default opt level locally on M3
+  @unittest.skipIf(not getattr(Device[Device.DEFAULT].renderer, "tensor_cores", False), "no tensor core available")
   def test_tensor_core_opts_group(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -273,6 +278,7 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.PADTO, 0, 32), Opt(OptOps.UPCAST, 0, 8),],
     ])
 
+  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
   def test_color_shapes_with_local(self):
     N = 32
     Tensor.manual_seed(1552)
@@ -292,6 +298,7 @@ class TestKernelOpts(unittest.TestCase):
       ([Opt(OptOps.GROUP, 0, 2),Opt(OptOps.UNROLL, 0, 0)], [("blue",32),("blue",32),("red",16),("magenta",2)]),
     ]
     helper_linearizer_opt(r, [x[0] for x in opts_shapes], color_sizes=[x[1] for x in opts_shapes])
+  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
   def test_arange_opts(self):
     a = Tensor.arange(128)
     # NOTE: arange no longer has reduce ops available for opt

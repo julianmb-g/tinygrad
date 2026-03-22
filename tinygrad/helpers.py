@@ -633,7 +633,7 @@ _ipc_active_pids = set()
 def _kill_ipc_orphans():
   for pid in list(_ipc_active_pids):
     try:
-      os.killpg(pid, signal.SIGKILL)
+      os.kill(pid, signal.SIGKILL)
     except Exception:
       pass
 atexit.register(_kill_ipc_orphans)
@@ -699,7 +699,7 @@ class IpcWorkerPool:
       try: self._send_with_timeout(w["conn"], None, 1.0)
       except Exception: pass
 
-      try: os.killpg(w["pid"], signal.SIGKILL)
+      try: os.kill(w["pid"], signal.SIGKILL)
       except Exception: pass
       _ipc_active_pids.discard(w["pid"])
       w["process"].join(timeout=1)

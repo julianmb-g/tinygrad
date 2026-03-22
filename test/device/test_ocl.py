@@ -7,6 +7,7 @@ from tinygrad.dtype import dtypes
 from tinygrad.runtime.ops_cl import CLAllocator, CLCompiler, CLDevice, CLProgram
 
 
+@unittest.skipIf(Device.DEFAULT != "CL", "only run on CL")
 class TestCLCompileCache(unittest.TestCase):
   def test_compile_cached(self):
     device = Device[Device.DEFAULT]
@@ -14,6 +15,7 @@ class TestCLCompileCache(unittest.TestCase):
     CLProgram(device, name="cached_test", lib=src.encode())
     with patch.object(CLCompiler, 'compile', side_effect=RuntimeError("compile should not be called on cache hit")):
       CLProgram(device, name="cached_test", lib=src.encode())
+@unittest.skipIf(Device.DEFAULT != "CL", "only run on CL")
 class TestCLError(unittest.TestCase):
   def test_oom(self):
     with self.assertRaises(RuntimeError) as err:

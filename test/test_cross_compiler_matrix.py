@@ -69,7 +69,7 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
 
   def test_missing_toolchain_boundary_file_not_found(self):
     with unittest.mock.patch.dict(os.environ, {"PATH": "/tmp/dummy_empty_path"}):
-      with self.assertRaises(unittest.SkipTest):
+      with self.assertRaises(FileNotFoundError):
         program = CoralNPUProgram(None, "test", b"")
         program._compile_on_host(self.src)
 

@@ -57,10 +57,11 @@ class TestCoralNPUMemory(unittest.TestCase):
         # renderer._render uses renderer.local_offsets and renderer.dtcm_bump which were populated
         name, kernel, bufs = renderer._render(uops)
         src = renderer.render_kernel(name, kernel, bufs, uops)
-        sig_match = re.search(r'extern "C" void ([a-zA-Z0-9_]+)\(\)', src)
-        func_name = sig_match.group(1) if sig_match else "compiled"
+        sig_match = re.search(r'(?:extern "C" )?void ([a-zA-Z0-9_]+)\(\)', src)
+        func_name = sig_match.group(1) if sig_match else "test"
 
-        src = src.replace(f'extern "C" void {func_name}() {{', f'extern "C" void {func_name}(void* base_ptr) {{')
+        src = src.replace(f'extern "C" void {func_name}() {{', f'void {func_name}() {{')
+        src = src.replace(f'void {func_name}() {{', f'extern "C" void {func_name}(void* base_ptr) {{')
         src = src.replace(' = (float*)(', ' = (float*)((char*)base_ptr + ')
 
         f = tempfile.NamedTemporaryFile(suffix=".cc", delete=False)
@@ -126,11 +127,12 @@ class TestCoralNPUMemory(unittest.TestCase):
         # Strip .noinit declarations since we will pass pointers directly
         src = re.sub(r'__attribute__\(\(section\("\.noinit"\)\)\) .*?;\n', '', src)
 
-        sig_match = re.search(r'extern "C" void ([a-zA-Z0-9_]+)\(\)', src)
-        func_name = sig_match.group(1) if sig_match else "compiled"
+        sig_match = re.search(r'(?:extern "C" )?void ([a-zA-Z0-9_]+)\(\)', src)
+        func_name = sig_match.group(1) if sig_match else "test"
 
         # Change signature to accept source and destination pointers
-        src = src.replace(f'extern "C" void {func_name}() {{', f'extern "C" void {func_name}(float* data0, float* data1) {{')
+        src = src.replace(f'extern "C" void {func_name}() {{', f'void {func_name}() {{')
+        src = src.replace(f'void {func_name}() {{', f'extern "C" void {func_name}(float* data0, float* data1) {{')
 
         # Compile with a strict CORAL_DMA_ASYNC implementation that enforces AXI hardware bounds
         f = tempfile.NamedTemporaryFile(suffix=".cc", delete=False)

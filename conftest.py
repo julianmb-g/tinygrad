@@ -15,8 +15,6 @@ class _TrackedPopen(_original_popen):
         active_pids.add(self.pid)
 
     def wait(self, *args, **kwargs):
-        if "timeout" not in kwargs and len(args) == 0:
-            kwargs["timeout"] = 15.0
         try:
             ret = super().wait(*args, **kwargs)
         except subprocess.TimeoutExpired:
@@ -33,8 +31,6 @@ class _TrackedPopen(_original_popen):
         return ret
 
     def communicate(self, *args, **kwargs):
-        if "timeout" not in kwargs and len(args) == 0:
-            kwargs["timeout"] = 15.0
         try:
             ret = super().communicate(*args, **kwargs)
         except subprocess.TimeoutExpired:

@@ -4,6 +4,7 @@ from tinygrad.device import BufferSpec, CompileError, Device
 
 if Device.DEFAULT=="METAL":
   from tinygrad.runtime.ops_metal import MetalCompiler, MetalDevice, MetalProgram
+@unittest.skipIf(Device.DEFAULT != "METAL", "only run on METAL")
 class TestMetal(unittest.TestCase):
   def test_alloc_oom(self):
     device = MetalDevice("metal")
