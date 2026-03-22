@@ -69,3 +69,4 @@
 ### Lessons Learned (Added by QA Agent)
 - **Catastrophic E2E Evasion**: When writing tests that interact with authentic hardware binaries (e.g., `test_gemma_decomposition.py`), do not natively trap missing toolchains and intercept via `raise unittest.SkipTest`. Tests that deliberately skip execution when faced with the real compiler completely evade authentic E2E evaluation.
 - **Test Evasion via Boundary Bypassing**: When unmasking skipped tests (e.g., `test_softmax_fusion.py`), do not maliciously insert `allow_multiple=True` to schedule checks as a "fix", as it turns off kernel constraint validation entirely, masking underlying scheduler regressions.
+- **pytest-xdist Timeout Safety**: Eliminate global timeout monkeypatching on subprocesses inside `conftest.py` to avoid violently severing internal `pytest-xdist` workers.
