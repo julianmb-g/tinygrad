@@ -1,5 +1,4 @@
 import atexit
-import ctypes
 import functools
 import multiprocessing
 import multiprocessing.shared_memory
