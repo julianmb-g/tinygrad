@@ -32,3 +32,4 @@
 
 ### Eradicating Test Evasion
 - **Test Illusion Removal (`test_uops.py`)**: When tests are failing due to missing backend support or mathematical regressions, do NOT wrap the test body in `with self.assertRaises(RuntimeError):` or `with self.assertRaises(AssertionError):`. This forces the CI to pass and mathematically erases the regression. Remove the `assertRaises` block entirely and allow the failure to organically trap at the architectural boundary, exposing the true state of the codebase.
+- **Subprocess TimeoutExpired Capture**: Any cross-compilation subprocess must catch `subprocess.TimeoutExpired` and explicitly return `math.inf` (or raise `RuntimeError`) to gracefully handle auto-tuning loop failures and prevent orchestrator crashes.

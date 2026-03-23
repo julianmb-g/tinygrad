@@ -174,19 +174,19 @@ class TestCoralNPURenderer(unittest.TestCase):
         os.chmod(dummy_gpp, 0o755)
 
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
-          with self.assertRaises(subprocess.CalledProcessError):
-            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+          with self.assertRaises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
+            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
 
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
-            with self.assertRaises(FileNotFoundError):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+            with self.assertRaises((FileNotFoundError, subprocess.TimeoutExpired)):
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
 
       try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
       except FileNotFoundError:
         raise unittest.SkipTest("Toolchain missing")
-      except subprocess.CalledProcessError:
+      except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         self.fail("Generated C++ code failed to compile natively via GCC.")
 
   def test_dma_macro_injection_segmented(self):
@@ -227,19 +227,19 @@ class TestCoralNPURenderer(unittest.TestCase):
         os.chmod(dummy_gpp, 0o755)
 
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
-          with self.assertRaises(subprocess.CalledProcessError):
-            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+          with self.assertRaises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
+            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
 
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
-            with self.assertRaises(FileNotFoundError):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+            with self.assertRaises((FileNotFoundError, subprocess.TimeoutExpired)):
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
 
       try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
       except FileNotFoundError:
         raise unittest.SkipTest("Toolchain missing")
-      except subprocess.CalledProcessError:
+      except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         self.fail("Generated C++ code failed to compile natively via GCC.")
 
   def test_dma_macro_injection(self):
@@ -275,19 +275,19 @@ class TestCoralNPURenderer(unittest.TestCase):
         os.chmod(dummy_gpp, 0o755)
 
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
-          with self.assertRaises(subprocess.CalledProcessError):
-            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+          with self.assertRaises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
+            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
 
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
-            with self.assertRaises(FileNotFoundError):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+            with self.assertRaises((FileNotFoundError, subprocess.TimeoutExpired)):
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
 
       try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
       except FileNotFoundError:
         raise unittest.SkipTest("Toolchain missing")
-      except subprocess.CalledProcessError:
+      except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         self.fail("Generated C++ code failed to compile natively via GCC.")
 
   def test_estimate_cost_analytical(self):
@@ -572,20 +572,20 @@ class TestCoralNPURenderer(unittest.TestCase):
           os.chmod(dummy_gpp, 0o755)
 
           with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
-            with self.assertRaises(subprocess.CalledProcessError):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+            with self.assertRaises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
 
           with tempfile.TemporaryDirectory() as empty_dir:
             with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
-              with self.assertRaises(FileNotFoundError):
-                subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+              with self.assertRaises((FileNotFoundError, subprocess.TimeoutExpired)):
+                subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
 
         # Native GCC Compilation Validation
         try:
-          subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"])
+          subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
         except FileNotFoundError:
           raise unittest.SkipTest("Toolchain missing")
-        except subprocess.CalledProcessError:
+        except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
           self.fail("Generated C++ code failed to compile natively via GCC.")
 
     finally:

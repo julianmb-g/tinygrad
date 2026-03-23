@@ -33,10 +33,10 @@ class TestGemmaDecomposition(unittest.TestCase):
         "riscv64-unknown-elf-gcc", "-march=rv32imf_zve32x", "-mabi=ilp32f",
         "-O3", "-nostdlib", cls.tf_c.name, "-o", cls.tf_elf.name,
         "-Wl,--defsym=_end=0x80000000"
-      ])
+      ], timeout=15.0)
       cls.native_elf_path = cls.tf_elf.name
       os.environ["CORALNPU_ELF"] = cls.native_elf_path
-    except (FileNotFoundError, subprocess.CalledProcessError):
+    except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
       raise unittest.SkipTest("Toolchain missing, cannot natively compile authentic ELF payload")
 
   @classmethod

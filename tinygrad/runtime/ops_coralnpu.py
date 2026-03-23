@@ -176,8 +176,14 @@ class CoralNPUProgram:
       return self.beam_cost
 
     if getattr(self, "fxn", None) is None:
-      self.elf_path = self._compile_on_host(self.lib.decode())
-      self.fxn = "compiled"
+      try:
+        self.elf_path = self._compile_on_host(self.lib.decode())
+        self.fxn = "compiled"
+      except RuntimeError as e:
+        if "Cross-compilation timed out" in str(e):
+          import math
+          return math.inf
+        raise
 
     cmd = ['coralnpu_v2_sim', self.elf_path]
     for buf_handle in bufs:
@@ -194,7 +200,8 @@ class CoralNPUProgram:
           p.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
           os.kill(p.pid, signal.SIGKILL)
-          raise TimeoutError(f"CoralNPU execution timed out after {timeout} seconds.")
+          import math
+          return math.inf
       else:
         p.wait()
     finally:

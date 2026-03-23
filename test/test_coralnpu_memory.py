@@ -72,7 +72,7 @@ class TestCoralNPUMemory(unittest.TestCase):
             f.flush()
             f.close()
             try:
-                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path])
+                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=15.0)
             except FileNotFoundError:
                 raise unittest.SkipTest("g++ toolchain missing")
 
@@ -163,7 +163,7 @@ extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
             f.flush()
             f.close()
             try:
-                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path])
+                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=15.0)
             except FileNotFoundError:
                 raise unittest.SkipTest("g++ toolchain missing")
 
