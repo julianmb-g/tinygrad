@@ -17,23 +17,34 @@ class TestGemmaDecomposition(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
     try:
+      subprocess.check_call(["riscv64-unknown-elf-gcc", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5.0)
+      
       from tinygrad.renderer.coralnpu import CoralNPURenderer
-      from tinygrad.uop.ops import Ops, UOp
-      from tinygrad.dtype import dtypes
+      from tinygrad.codegen import get_program
+      
+      # Explicitly construct an authentic cross-compilation pipeline utilizing CoralNPUAllocator for the Gemma layer
+      seq_len = 8
+      head_dim = 64
+      x_cpu = (Tensor.arange(1 * seq_len * 4 * head_dim, device="CPU") * 0.1).reshape(1, seq_len, 4, head_dim).realize()
+      freqs_cis_cpu = precompute_freqs_cis(head_dim, seq_len).realize()
+      
+      out_cpu = apply_rotary_emb(x_cpu, freqs_cis_cpu)
+      schedule = out_cpu.schedule()
+      sink_ast = [si.ast for si in schedule if si.ast.op.name == "SINK"][0]
+      
       renderer = CoralNPURenderer()
-      buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0) if not hasattr(Ops, 'DEFINE_LOCAL') else UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), 0)
-      src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [buf0])
-
+      prg = get_program(sink_ast, renderer)
+      
       cls.tf_c = tempfile.NamedTemporaryFile(suffix=".c", delete=False)
-      cls.tf_c.write(src.encode())
+      cls.tf_c.write(prg.src.encode())
       cls.tf_c.flush()
-
+      
       cls.tf_elf = tempfile.NamedTemporaryFile(suffix=".elf", delete=False)
       subprocess.check_call([
-        "riscv64-unknown-elf-gcc", "-march=rv32imf_zve32x", "-mabi=ilp32f",
-        "-O3", "-nostdlib", cls.tf_c.name, "-o", cls.tf_elf.name,
-        "-Wl,--defsym=_end=0x80000000"
-      ], timeout=15.0)
+          "riscv64-unknown-elf-gcc", "-march=rv32imf_zve32x", "-mabi=ilp32f",
+          "-O3", "-nostdlib", cls.tf_c.name, "-o", cls.tf_elf.name
+      ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15.0)
+      
       cls.native_elf_path = cls.tf_elf.name
       os.environ["CORALNPU_ELF"] = cls.native_elf_path
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
