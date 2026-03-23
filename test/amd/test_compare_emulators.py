@@ -466,8 +466,7 @@ class TestTinygradKernels(unittest.TestCase):
   def test_exp(self): self._test_kernel(lambda T: T.empty(1024).exp())
   def test_cross_entropy(self):
     import numpy as np
-    np.random.seed(0)
-    classes = np.random.randint(0, 10, (16,), dtype=np.int32).tolist()
+    classes = (np.arange(16) % 10).astype(np.int32).tolist()
     x_np = (np.arange(160) % 10 * 0.1).reshape(16, 10).astype(np.float32)
     self._test_kernel(lambda T: (T(x_np.tolist()).reshape(16,10) + 0).cross_entropy((T(classes).int().reshape(16) + 0)))
   def test_isinf(self): self._test_kernel(lambda T: T([float('-inf'), 0., float('inf'), 1.1]*8).isinf())
@@ -482,8 +481,7 @@ class TestTinygradKernels(unittest.TestCase):
   def test_clip_zero_one(self):
     """Test clip(0, 1) - regression for binary_crossentropy failure."""
     import numpy as np
-    np.random.seed(0)
-    x_np = np.random.uniform(-2, 2, (32, 10)).astype(np.float32).tolist()
+    x_np = ((np.arange(320) % 10) * 0.4 - 2.0).astype(np.float32).reshape(32, 10).tolist()
     self._test_kernel(lambda T: T(x_np).clip(0, 1))
   def test_mod_int64(self):
     """Test int64 modulo, especially edge cases like 1 % -1."""
@@ -496,8 +494,7 @@ class TestTinygradKernels(unittest.TestCase):
   def test_nonzero(self):
     """Test nonzero operation - counts and gathers indices of non-zero elements."""
     import numpy as np
-    np.random.seed(42)
-    x_np = np.random.rand(10, 5, 3).astype(np.float32)
+    x_np = ((np.arange(150) % 10) * 0.1).astype(np.float32).reshape(10, 5, 3)
     self._test_kernel(lambda T: (T(x_np.tolist()) > 0.5).nonzero())
   def test_softmax_argmax_fused(self):
     """Test fused softmax+argmax - tracks exp2 precision issue.
@@ -505,9 +502,8 @@ class TestTinygradKernels(unittest.TestCase):
     The fused kernel recomputes softmax inline and Python emulator's exp2 polynomial
     has up to 1 ULP error vs native exp2f, causing accumulated differences.
     """
-    import torch
-    torch.manual_seed(0)
-    x_np = torch.rand(4, 10).numpy()
+    import numpy as np
+    x_np = ((np.arange(40) % 10) * 0.1).astype(np.float32).reshape(4, 10)
     self._test_kernel(lambda T: T(x_np.tolist()).softmax(1).argmax())
 if __name__ == "__main__":
   unittest.main()
