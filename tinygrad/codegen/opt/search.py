@@ -64,7 +64,7 @@ def _time_program(p:ProgramSpec, lib:bytes, var_vals:dict[str, int], rawbufs:lis
     global_size, factor = get_test_global_size(p.global_size, max_global_size, var_vals)
     p = replace(p, global_size=global_size)
   try: car = CompiledRunner(replace(p, lib=lib))
-  except AssertionError: return [math.inf] * cnt
+  except (AssertionError, RuntimeError, TimeoutError, TimeoutException): return [math.inf] * cnt
   tms = []
   input_bufs = [rawbufs[i] for i in car.p.globals]
   for _ in range(cnt):
