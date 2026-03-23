@@ -379,8 +379,13 @@ class TestCoralNPURenderer(unittest.TestCase):
   def test_compiler_save_beam_dir(self):
     with tempfile.TemporaryDirectory() as tmpdir:
       with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": tmpdir}):
+        renderer = CoralNPURenderer()
+        src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)] if hasattr(Ops, 'PARAM') else [])
         compiler = CoralNPUCompiler()
-        compiler.compile("int main() { return 0; }")
+        try:
+          compiler.compile(src)
+        except FileNotFoundError:
+          raise unittest.SkipTest("Toolchain missing, skipping.")
         self.assertTrue(os.path.exists(os.path.join(tmpdir, "kernel_0.cc")))
 
   def test_noinit_section_generation(self):
@@ -394,8 +399,13 @@ class TestCoralNPURenderer(unittest.TestCase):
   def test_compiler_emits_linker_script(self):
     with tempfile.TemporaryDirectory() as tmpdir:
       with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": tmpdir}):
+        renderer = CoralNPURenderer()
+        src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)] if hasattr(Ops, 'PARAM') else [])
         compiler = CoralNPUCompiler()
-        compiler.compile("int main() { return 0; }")
+        try:
+          compiler.compile(src)
+        except FileNotFoundError:
+          raise unittest.SkipTest("Toolchain missing, skipping.")
         self.assertTrue(os.path.exists(os.path.join(tmpdir, "kernel_0.ld")))
         with open(os.path.join(tmpdir, "kernel_0.ld"), "r") as f:
             ld_content = f.read()

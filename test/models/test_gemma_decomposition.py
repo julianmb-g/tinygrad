@@ -14,6 +14,42 @@ FF_DIM = 1024
 
 class TestGemmaDecomposition(unittest.TestCase):
 
+  @classmethod
+  def setUpClass(cls):
+    try:
+      from tinygrad.renderer.coralnpu import CoralNPUCompiler, CoralNPURenderer
+      from tinygrad.uop.ops import Ops, UOp
+      from tinygrad.dtype import dtypes
+      renderer = CoralNPURenderer()
+      buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0) if not hasattr(Ops, 'DEFINE_LOCAL') else UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), 0)
+      src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [buf0])
+      
+      cls.tf_c = tempfile.NamedTemporaryFile(suffix=".c", delete=False)
+      cls.tf_c.write(src.encode())
+      cls.tf_c.flush()
+
+      cls.tf_elf = tempfile.NamedTemporaryFile(suffix=".elf", delete=False)
+      subprocess.check_call([
+        "riscv64-unknown-elf-gcc", "-march=rv32imf_zve32x", "-mabi=ilp32f",
+        "-O3", "-nostdlib", cls.tf_c.name, "-o", cls.tf_elf.name,
+        "-Wl,--defsym=_end=0x80000000"
+      ])
+      cls.native_elf_path = cls.tf_elf.name
+      os.environ["CORALNPU_ELF"] = cls.native_elf_path
+    except (FileNotFoundError, subprocess.CalledProcessError):
+      raise unittest.SkipTest("Toolchain missing, cannot natively compile authentic ELF payload")
+
+  @classmethod
+  def tearDownClass(cls):
+    if hasattr(cls, 'tf_c'):
+      cls.tf_c.close()
+      if os.path.exists(cls.tf_c.name): os.unlink(cls.tf_c.name)
+    if hasattr(cls, 'tf_elf'):
+      cls.tf_elf.close()
+      if os.path.exists(cls.tf_elf.name): os.unlink(cls.tf_elf.name)
+    if "CORALNPU_ELF" in os.environ:
+      del os.environ["CORALNPU_ELF"]
+
   def test_gemma_rmsnorm(self):
     dim = HIDDEN_DIM
     x_cpu = ((Tensor.arange(1 * 16 * dim, device="CPU") % 10) * 0.1).reshape(1, 16, dim).realize()
@@ -33,8 +69,6 @@ class TestGemmaDecomposition(unittest.TestCase):
       except RuntimeError as e:
         if "math.h: No such file" in str(e) or "implicit declaration of function" in str(e):
           raise unittest.SkipTest("CORALNPU bare-metal compiler lacks math.h support for sqrt/sin/cos")
-        elif "VMM base address" in str(e):
-          raise unittest.SkipTest("Toolchain or authentic ELF missing")
         raise
       except FileNotFoundError as e:
         if "coralnpu_v2_sim" in str(e):
@@ -68,8 +102,6 @@ class TestGemmaDecomposition(unittest.TestCase):
           except RuntimeError as e:
             if "Active floating-point variable allocations exceeded cap" in str(e):
               raise unittest.SkipTest("Active floating-point variable allocations exceeded cap")
-            elif "VMM base address" in str(e):
-              raise unittest.SkipTest("Toolchain or authentic ELF missing")
             else:
               raise
 
@@ -93,8 +125,6 @@ class TestGemmaDecomposition(unittest.TestCase):
       except RuntimeError as e:
         if "math.h: No such file" in str(e) or "implicit declaration of function" in str(e):
           raise unittest.SkipTest("CORALNPU bare-metal compiler lacks math.h support for sqrt/sin/cos")
-        elif "VMM base address" in str(e):
-          raise unittest.SkipTest("Toolchain or authentic ELF missing")
         raise
       except FileNotFoundError as e:
         if "coralnpu_v2_sim" in str(e):

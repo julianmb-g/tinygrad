@@ -98,3 +98,5 @@
 
 
 - **Deterministic Verification Data Types**: When replacing random uniform arrays with deterministic `np.arange()` datasets for vector logic tests (e.g., to validate structural bounds), always explicitly cast the resulting array to `np.float32` (or the target datatype) via `.astype(np.float32)` before reshaping and converting to a list. Default numpy arithmetic generates float64 which can cause type mismatches downstream in backend simulation tests.
+- **Dummy Compilation Shell Evasion**: When writing compiler tests (e.g., `test_compiler_save_beam_dir`), DO NOT bypass the cross-compiler by passing `int main() { return 0; }` to `compiler.compile()`. Natively invoke the renderer to construct a real `UOp` payload and pass the generated source to organically test the compiler infrastructure.
+- **VMM Base Address Evasion**: Do not trap `RuntimeError` regarding `VMM base address` with a `SkipTest` in E2E validation tests (like `test_gemma_decomposition.py`). Let architectural boundaries organically fail during execution.
