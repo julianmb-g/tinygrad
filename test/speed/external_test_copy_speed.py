@@ -13,6 +13,8 @@ class TestCopySpeed(unittest.TestCase):
 
   def testCopySHMtoDefault(self):
     s = shared_memory.SharedMemory(name="test_X", create=True, size=N*N*4)
+    view = memoryview(s.buf)
+    view.release()
     s.close()
     if CI and not OSX:
       t = Tensor.empty(N, N, device="disk:/dev/shm/test_X").realize()

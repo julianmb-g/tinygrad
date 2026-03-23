@@ -161,6 +161,8 @@ def batch_load_resnet(batch_size=64, val=False, shuffle=True, seed=None, pad_fir
     q_out.close()
     # shutdown processes
     for p in procs: p.join()
+    view = memoryview(shm.buf)
+    view.release()
     shm.close()
     try:
       shm.unlink()
@@ -342,7 +344,9 @@ def batch_load_unet3d(preprocessed_dataset_dir:Path, batch_size:int=6, val:bool=
     # shutdown processes
     for proc in procs: proc.join()
 
+    memoryview(shm_x.buf).release()
     shm_x.close()
+    memoryview(shm_y.buf).release()
     shm_y.close()
     try:
       shm_x.unlink()
@@ -494,12 +498,17 @@ def batch_load_retinanet(dataset, val:bool, base_dir:Path, batch_size:int=32, sh
     # shutdown processes
     for proc in procs: proc.join()
 
+    memoryview(shm_imgs.buf).release()
     shm_imgs.close()
 
     if not val:
+      memoryview(shm_boxes.buf).release()
       shm_boxes.close()
+      memoryview(shm_labels.buf).release()
       shm_labels.close()
+      memoryview(shm_matches.buf).release()
       shm_matches.close()
+      memoryview(shm_anchors.buf).release()
       shm_anchors.close()
 
     try:

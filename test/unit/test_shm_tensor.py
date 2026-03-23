@@ -13,7 +13,10 @@ class TestRawShmBuffer(unittest.TestCase):
     t = ((Tensor.arange(2*2*2) % 10) * 0.1).reshape(2, 2, 2).realize()
 
     # copy to shm
-    shm_name = (s := shared_memory.SharedMemory(create=True, size=t.nbytes())).name
+    s = shared_memory.SharedMemory(create=True, size=t.nbytes())
+    shm_name = s.name
+    view = memoryview(s.buf) # type: ignore
+    view.release()
     s.close()
     t_shm = t.to(f"disk:shm:{shm_name}").realize()
 
@@ -28,7 +31,10 @@ class TestRawShmBuffer(unittest.TestCase):
     t = ((Tensor.arange(2048*128*8) % 10) * 0.1).reshape(2048, 128, 8).realize()
 
     # copy to shm
-    shm_name = (s := shared_memory.SharedMemory(create=True, size=t.nbytes())).name
+    s = shared_memory.SharedMemory(create=True, size=t.nbytes())
+    shm_name = s.name
+    view = memoryview(s.buf) # type: ignore
+    view.release()
     s.close()
     t_shm = t.to(f"disk:shm:{shm_name}").realize()
 

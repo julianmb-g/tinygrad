@@ -64,6 +64,8 @@ class CoralNPUAllocator(Allocator):
     for mem in self.mem.values():
         mem.release()
     for shm in self.shms.values():
+        view = memoryview(shm.buf)
+        view.release()
         shm.close()
         try: shm.unlink()
         except FileNotFoundError: pass
@@ -118,6 +120,8 @@ class CoralNPUAllocator(Allocator):
                     self.mem[opaque].release()
                     del self.mem[opaque]
                     shm = self.shms.pop(opaque)
+                    view = memoryview(shm.buf)
+                    view.release()
                     shm.close()
                     try: shm.unlink()
                     except FileNotFoundError: pass
