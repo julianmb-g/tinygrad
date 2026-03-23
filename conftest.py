@@ -18,11 +18,11 @@ def pytest_configure(config):
     if worker_id is not None:
         os.setpgrp()
         atexit.register(teardown_worker_group)
-
-import subprocess
-original_popen = subprocess.Popen
-class TrackedPopen(original_popen):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        active_pids.add(self.pid)
-subprocess.Popen = TrackedPopen
+        
+        import subprocess
+        original_popen = subprocess.Popen
+        class TrackedPopen(original_popen):
+            def __init__(self, *args, **kwargs):
+                super().__init__(*args, **kwargs)
+                active_pids.add(self.pid)
+        subprocess.Popen = TrackedPopen
