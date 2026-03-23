@@ -196,12 +196,12 @@ class TestFetch(unittest.TestCase):
     from PIL import Image
     img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False)
     with Image.open(img) as pimg:
-      assert pimg.size == (77, 77), pimg.size
+      self.assertEqual(pimg.size, (77, 77))
   def test_fetch_subdir(self):
     from PIL import Image
     img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False, subdir="images")
     with Image.open(img) as pimg:
-      assert pimg.size == (77, 77), pimg.size
+      self.assertEqual(pimg.size, (77, 77))
     assert img.parent.name == "images"
   def test_fetch_gunzip_valid(self):
     # compare fetch(gunzip=True) to fetch(gunzip=False) plus decompressing afterwards

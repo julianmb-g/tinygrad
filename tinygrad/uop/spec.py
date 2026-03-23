@@ -42,7 +42,7 @@ shared_spec = PatternMatcher([
   (UPat(Ops.DEFINE_VAR, name="x"), lambda x: isinstance(x.arg[1], int) and isinstance(x.arg[2], int)),
 
   # ALUs: most ALUs have all matching dtypes, except CMPLT, CMPNE, and WHERE
-  (UPat(Ops.WHERE, name="w", src=(UPat.var("c"), UPat.var("x"), UPat.var("y"))), lambda w,c,x,y: w.dtype == x.dtype == y.dtype and (c.dtype.scalar() == dtypes.bool or (c.dtype.itemsize == w.dtype.itemsize and getattr(c.dtype, "count", 1) == getattr(w.dtype, "count", 1)))),
+  (UPat(Ops.WHERE, name="w", src=(UPat.var("c"), UPat.var("x"), UPat.var("y"))), lambda w,c,x,y: w.dtype == x.dtype == y.dtype and (c.dtype.scalar() == dtypes.bool or (c.dtype.itemsize == w.dtype.itemsize and getattr(c.dtype, "count", 1) == getattr(w.dtype, "count", 1)))),  # noqa: E501
   (UPat((Ops.CMPLT, Ops.CMPNE, Ops.CMPEQ), dtype=dtypes.bool, src=(UPat.var("x"), UPat.var("y"))), lambda x,y: x.dtype.base == y.dtype.base),
   # and SHL/SHR, the shift distance can be an int
   (UPat((Ops.SHL, Ops.SHR), src=(UPat.var("x"), UPat.var("y")), name="a"), lambda a,x,y: a.dtype == x.dtype and y.dtype in (x.dtype, dtypes.uint)),

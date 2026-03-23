@@ -158,7 +158,7 @@ class CoralNPUProgram:
       src_path = f.name
     elf_path = src_path + ".elf"
     try:
-      subprocess.check_output(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path], stderr=subprocess.STDOUT, timeout=15.0)
+      subprocess.check_output(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path], stderr=subprocess.STDOUT, timeout=15.0)  # noqa: E501
     except subprocess.TimeoutExpired as e:
       raise RuntimeError(f"Cross-compilation timed out: {e}")
     except subprocess.CalledProcessError as e:

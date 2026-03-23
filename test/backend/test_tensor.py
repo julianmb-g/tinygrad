@@ -358,7 +358,7 @@ class TestTinygrad(unittest.TestCase):
 
   def test_element_size(self):
     for _, dtype in DTYPES_DICT.items():
-      assert dtype.itemsize == ((Tensor.arange(3) % 10) * 0.1).reshape(3).cast(dtype).element_size(), f"Tensor.element_size() not matching Tensor.dtype.itemsize for {dtype}"
+      assert dtype.itemsize == ((Tensor.arange(3) % 10) * 0.1).reshape(3).cast(dtype).element_size(), f"Tensor.element_size() not matching Tensor.dtype.itemsize for {dtype}"  # noqa: E501
 
   def test_deepwalk_ctx_check(self):
     layer = Tensor.uniform(1, 1, requires_grad=True)

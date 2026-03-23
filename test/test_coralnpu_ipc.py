@@ -110,7 +110,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
-            src = b"void write_success(void* ptr, int val, int size) { volatile char* vptr = (volatile char*)ptr; for(int i=0; i<size; i++) vptr[i] = val; }"
+            src = b"void write_success(void* ptr, int val, int size) { volatile char* vptr = (volatile char*)ptr; for(int i=0; i<size; i++) vptr[i] = val; }"  # noqa: E501
             program = CoralNPUProgram(self.device, "write_success", src)
             program(handle, vals=(65, 3), timeout=15.0)
             out = bytearray(3)

@@ -826,7 +826,6 @@ class TestMultiTensor(unittest.TestCase):
       t_clone += 1
       self.assertNotEqual(t_clone.tolist(), t.tolist())
 
-  
   def test_multi_const_folding(self):
     with Context(TRACK_MATCH_STATS=0):
       a = Tensor.arange(3).realize()

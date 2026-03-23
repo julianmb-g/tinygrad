@@ -17,13 +17,13 @@ class TestGemmaDecomposition(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
     try:
-      from tinygrad.renderer.coralnpu import CoralNPUCompiler, CoralNPURenderer
+      from tinygrad.renderer.coralnpu import CoralNPURenderer
       from tinygrad.uop.ops import Ops, UOp
       from tinygrad.dtype import dtypes
       renderer = CoralNPURenderer()
       buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0) if not hasattr(Ops, 'DEFINE_LOCAL') else UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), 0)
       src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [buf0])
-      
+
       cls.tf_c = tempfile.NamedTemporaryFile(suffix=".c", delete=False)
       cls.tf_c.write(src.encode())
       cls.tf_c.flush()
@@ -102,8 +102,7 @@ class TestGemmaDecomposition(unittest.TestCase):
           except RuntimeError as e:
             if "Active floating-point variable allocations exceeded cap" in str(e):
               raise unittest.SkipTest("Active floating-point variable allocations exceeded cap")
-            else:
-              raise
+            raise
 
   def test_gemma_rope(self):
     seq_len = 8

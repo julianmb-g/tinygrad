@@ -442,8 +442,8 @@ class TestContribOnnxOps(TestOnnxOps):
     left_padding_mask = np.concatenate([end_positions, start_positions])
 
     base_inps = {
-      "input": (np.arange(math.prod((batch_size, seq_len, input_hidden_size,))) % 10 * 0.1).reshape(batch_size, seq_len, input_hidden_size).astype(np.float32),
-      "weights": (np.arange(math.prod((input_hidden_size, hidden_size * 3,))) % 10 * 0.1).reshape(input_hidden_size, hidden_size * 3).astype(np.float32),
+      "input": (np.arange(math.prod((batch_size, seq_len, input_hidden_size,))) % 10 * 0.1).reshape(batch_size, seq_len, input_hidden_size).astype(np.float32),  # noqa: E501
+      "weights": (np.arange(math.prod((input_hidden_size, hidden_size * 3,))) % 10 * 0.1).reshape(input_hidden_size, hidden_size * 3).astype(np.float32),  # noqa: E501
       # bias is required in ORT (segfaults otherwise), eventhough docs says it's optional
       "bias": (np.arange(math.prod((hidden_size * 2 + v_hidden_size,))) % 10 * 0.1).reshape(hidden_size * 2 + v_hidden_size).astype(np.float32),
     }
@@ -463,7 +463,7 @@ class TestContribOnnxOps(TestOnnxOps):
       # e.g. mask_index = [[0, 0, 1, 0, 1, 1, 1, 1], [0, 0, 1, 0, 1, 1, 1, 1]]
       # will need mask[:, :, 0:1, 0:1] = True
       ({"mask_index": np.array([[1, 0, 1, 0, 1, 1, 1, 1], [1, 0, 1, 0, 1, 1, 1, 1]], dtype=np.int32)}, {"unidirectional": 1}),
-      ({ "weights": (np.arange(math.prod((input_hidden_size, hidden_size + hidden_size + 128,))) % 10 * 0.1).reshape(input_hidden_size, hidden_size + hidden_size + 128).astype(np.float32),
+      ({ "weights": (np.arange(math.prod((input_hidden_size, hidden_size + hidden_size + 128,))) % 10 * 0.1).reshape(input_hidden_size, hidden_size + hidden_size + 128).astype(np.float32),  # noqa: E501
          "bias": (np.arange(math.prod((hidden_size + hidden_size + 128,))) % 10 * 0.1).reshape(hidden_size + hidden_size + 128).astype(np.float32)},
        {"qkv_hidden_sizes": [hidden_size, hidden_size, 128]}),
       # TODO: past is not tested. ORT gives type error for input

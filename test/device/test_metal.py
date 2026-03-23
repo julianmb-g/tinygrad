@@ -41,7 +41,9 @@ class TestMetal(unittest.TestCase):
     compiler = MetalCompiler()
     compiled = compiler.compile("""
   #include <metal_stdlib>
-  kernel void r_5(device int* data0, const device int* data1, uint3 gid [[threadgroup_position_in_grid]], uint3 lid [[thread_position_in_threadgroup]]){
+  kernel void r_5(device int* data0, const device int* data1,
+                  uint3 gid [[threadgroup_position_in_grid]],
+                  uint3 lid [[thread_position_in_threadgroup]]){
     data0[0] = 0;
   }
   """)

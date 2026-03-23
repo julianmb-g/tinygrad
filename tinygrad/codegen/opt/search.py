@@ -208,7 +208,7 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
       b_ret = _try_compile((0, s), compiler=dev.compiler)
       if b_ret[1] is not None:
         try:
-          b_tms = _time_program(b_ret[1][0], b_ret[1][1], var_vals, rawbufs, early_stop=1.0, allow_test_size=allow_test_size, clear_l2=hasattr(dev, 'invalidate_caches'), dev_timeout=getenv("BEAM_DEV_TIMEOUT", 1))
+          b_tms = _time_program(b_ret[1][0], b_ret[1][1], var_vals, rawbufs, early_stop=1.0, allow_test_size=allow_test_size, clear_l2=hasattr(dev, 'invalidate_caches'), dev_timeout=getenv("BEAM_DEV_TIMEOUT", 1))  # noqa: E501
           baseline_cycles = min(b_tms)
           beam[0] = (s, baseline_cycles)
         except Exception:

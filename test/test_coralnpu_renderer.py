@@ -140,7 +140,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
 
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
       tu = index.parse(f.name, args=['-std=c++11'])
@@ -163,7 +163,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -216,7 +216,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -264,7 +264,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn("WAIT_DMA_READY();", body)
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -380,7 +380,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     with tempfile.TemporaryDirectory() as tmpdir:
       with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": tmpdir}):
         renderer = CoralNPURenderer()
-        src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)] if hasattr(Ops, 'PARAM') else [])
+        src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)] if hasattr(Ops, 'PARAM') else [])  # noqa: E501
         compiler = CoralNPUCompiler()
         try:
           compiler.compile(src)
@@ -400,7 +400,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     with tempfile.TemporaryDirectory() as tmpdir:
       with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": tmpdir}):
         renderer = CoralNPURenderer()
-        src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)] if hasattr(Ops, 'PARAM') else [])
+        src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], [UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)] if hasattr(Ops, 'PARAM') else [])  # noqa: E501
         compiler = CoralNPUCompiler()
         try:
           compiler.compile(src)

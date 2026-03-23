@@ -18,7 +18,7 @@ def pytest_configure(config):
     if worker_id is not None:
         os.setpgrp()
         atexit.register(teardown_worker_group)
-        
+
         import subprocess
         original_popen = subprocess.Popen
         class TrackedPopen(original_popen):

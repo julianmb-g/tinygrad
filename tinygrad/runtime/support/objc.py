@@ -54,7 +54,7 @@ if TYPE_CHECKING:
 else:
   class MetaSpec(type(id_)):
     def __new__(mcs, name, bases, dct):
-      cls = super().__new__(mcs, name, bases, {'_objc_class_': lib.objc_getClass(name.encode()) if lib is not None else None, '_children_': set(), **dct})
+      cls = super().__new__(mcs, name, bases, {'_objc_class_': lib.objc_getClass(name.encode()) if lib is not None else None, '_children_': set(), **dct})  # noqa: E501
       cls._methods_, cls._classmethods_ = dct.get('_methods_', []), dct.get('_classmethods_', [])
       return cls
 

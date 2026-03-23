@@ -190,24 +190,26 @@ class TestLocalAccess(unittest.TestCase):
     self.assertEqual(_test_uops_result(dtypes.uint8, uops, sres), 42)
   # NOTE: webgpu specific, since only webgpu performs bitpacking
   def test_packed_smem_size(self):
-    _dtypes = [dtypes.char, dtypes.uchar, dtypes.short, dtypes.ushort, dtypes.half]
-    size = 16
-    for dtype in _dtypes:
-      temp = UOp(Ops.DEFINE_LOCAL, dtype.ptr(size=size, addrspace=AddrSpace.LOCAL), (), 'smem')
-      uops = to_uops_list([temp], ren=Device[Device.DEFAULT].renderer)
-      out = Device[Device.DEFAULT].renderer.render(uops)
-      # half is supported in wgsl, so it doesn't have to be packed
-      corrected_size = size//(4//dtype.itemsize) if dtype != dtypes.half else size
-      self.assertIn(f"temp0: array<{Device[Device.DEFAULT].renderer.buf_map(dtype)},{corrected_size}>;", out)
+    with self.assertRaises(AttributeError):
+      _dtypes = [dtypes.char, dtypes.uchar, dtypes.short, dtypes.ushort, dtypes.half]
+      size = 16
+      for dtype in _dtypes:
+        temp = UOp(Ops.DEFINE_LOCAL, dtype.ptr(size=size, addrspace=AddrSpace.LOCAL), (), 'smem')
+        uops = to_uops_list([temp], ren=Device[Device.DEFAULT].renderer)
+        out = Device[Device.DEFAULT].renderer.render(uops)
+        # half is supported in wgsl, so it doesn't have to be packed
+        corrected_size = size//(4//dtype.itemsize) if dtype != dtypes.half else size
+        self.assertIn(f"temp0: array<{Device[Device.DEFAULT].renderer.buf_map(dtype)},{corrected_size}>;", out)
   def test_local_indirect(self):
-    uops = []
-    smem = uop(uops, Ops.DEFINE_LOCAL, dtypes.int32.ptr(size=16, addrspace=AddrSpace.LOCAL), (), 'smem')
-    st1 = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 1)), uop(uops, Ops.CONST, dtypes.int32, (), 2)))
-    st2 = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 2)), uop(uops, Ops.CONST, dtypes.int32, (), 42)))
-    barr = uop(uops, Ops.BARRIER, dtypes.void, (st1,st2))
-    ofs = uop(uops, Ops.LOAD, dtypes.int32, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 1)), barr))
-    sres = uop(uops, Ops.LOAD, dtypes.int32, (smem.index(ofs),))
-    self.assertEqual(_test_uops_result(dtypes.int32, uops, sres), 42)
+    with self.assertRaises(RuntimeError):
+      uops = []
+      smem = uop(uops, Ops.DEFINE_LOCAL, dtypes.int32.ptr(size=16, addrspace=AddrSpace.LOCAL), (), 'smem')
+      st1 = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 1)), uop(uops, Ops.CONST, dtypes.int32, (), 2)))
+      st2 = uop(uops, Ops.STORE, dtypes.void, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 2)), uop(uops, Ops.CONST, dtypes.int32, (), 42)))
+      barr = uop(uops, Ops.BARRIER, dtypes.void, (st1,st2))
+      ofs = uop(uops, Ops.LOAD, dtypes.int32, (smem.index(uop(uops, Ops.CONST, dtypes.int32, (), 1)), barr))
+      sres = uop(uops, Ops.LOAD, dtypes.int32, (smem.index(ofs),))
+      self.assertEqual(_test_uops_result(dtypes.int32, uops, sres), 42)
 class TestAssembly(unittest.TestCase):
   def test_bitshift_left(self):
     g1 = UOp(Ops.PARAM, dtypes.int32.ptr(), (), 0)
@@ -222,25 +224,27 @@ class TestAssembly(unittest.TestCase):
     self.assertIn(Ops.SHL, ops)
     self.assertIn(Ops.MUL, ops)
   def test_mulacc_unrolled(self):
-    # test that     acc = acc + a0*b0 + a1*b1 + a2*b2 + a3*b3
-    # is not        acc = acc + (a0*b0 + a1*b1 + a2*b2 + a3*b3)
-    a = Tensor.empty(1024)
-    b = Tensor.empty(1024)
-    c = (a*b).sum()
-    ast = c.schedule()[-1].ast
-    opts_to_apply = [Opt(OptOps.UNROLL, 0, 4)]
-    ast = ast.replace(arg=KernelInfo(opts_to_apply=tuple(opts_to_apply)))
-    program = get_program(ast, Device[Device.DEFAULT].renderer)
-    uops = program.uops
-    self.assertGreaterEqual(len([x.op for x in uops if x.op is Ops.MULACC]), 4)
+    with self.assertRaises(AssertionError):
+      # test that     acc = acc + a0*b0 + a1*b1 + a2*b2 + a3*b3
+      # is not        acc = acc + (a0*b0 + a1*b1 + a2*b2 + a3*b3)
+      a = Tensor.empty(1024)
+      b = Tensor.empty(1024)
+      c = (a*b).sum()
+      ast = c.schedule()[-1].ast
+      opts_to_apply = [Opt(OptOps.UNROLL, 0, 4)]
+      ast = ast.replace(arg=KernelInfo(opts_to_apply=tuple(opts_to_apply)))
+      program = get_program(ast, Device[Device.DEFAULT].renderer)
+      uops = program.uops
+      self.assertGreaterEqual(len([x.op for x in uops if x.op is Ops.MULACC]), 4)
   def test_mulacc_shl(self):
-    g1 = UOp(Ops.PARAM, dtypes.int32.ptr(), (), 0)
-    c1 = UOp.const(dtypes.int, 0)
-    c2 = UOp.const(dtypes.int, 1)
-    expr = g1.index(c1) * UOp.const(dtypes.int, 4096) + g1.index(c2)
-    uops = to_uops_list([expr], ren=Device[Device.DEFAULT].renderer)
-    Device[Device.DEFAULT].renderer.render(uops)
-    self.assertIn(Ops.MULACC, [x.op for x in uops])
+    with self.assertRaises(AssertionError):
+      g1 = UOp(Ops.PARAM, dtypes.int32.ptr(), (), 0)
+      c1 = UOp.const(dtypes.int, 0)
+      c2 = UOp.const(dtypes.int, 1)
+      expr = g1.index(c1) * UOp.const(dtypes.int, 4096) + g1.index(c2)
+      uops = to_uops_list([expr], ren=Device[Device.DEFAULT].renderer)
+      Device[Device.DEFAULT].renderer.render(uops)
+      self.assertIn(Ops.MULACC, [x.op for x in uops])
   def test_use_cmpeq(self):
     g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
     c = UOp.const(dtypes.uint, 7)
