@@ -10,6 +10,9 @@ from tinygrad.tensor import _METADATA
 class TestTensorMetadata(unittest.TestCase):
   def setUp(self) -> None:
     _METADATA.set(None)
+    from tinygrad.uop.ops import UOpMetaClass, all_metadata
+    UOpMetaClass.ucache.clear()
+    all_metadata.clear()
     self._ctx = Context(SCACHE=0)
     self._ctx.__enter__()
   def tearDown(self) -> None:
@@ -34,19 +37,22 @@ class TestTensorMetadata(unittest.TestCase):
     assert out.uop.metadata is not None
     self.assertEqual(out.uop.metadata[0].name, "matmul")
     si = out.schedule()[-1]
-    self.assertEqual(len(si.metadata), 0)
+    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(si.metadata[0].name, "matmul")
   def test_relu(self):
     x = Tensor.rand(3, requires_grad=True)
     out = x.relu()
     assert out.uop.metadata is not None
     self.assertEqual(out.uop.metadata[0].name, "relu")
     si = out.schedule()[-1]
-    self.assertEqual(len(si.metadata), 0)
+    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(si.metadata[0].name, "relu")
   def test_assign(self):
     x = Tensor.empty(10, 10).realize()
     x.assign(Tensor.ones(10, 10).contiguous())
     si = x.schedule()[-1]
-    self.assertEqual(len(si.metadata), 0)
+    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(si.metadata[0].name, "assign")
   def test_complex(self):
     x = Tensor.rand(3, requires_grad=True)
     y = Tensor.rand(3, requires_grad=True)
@@ -58,7 +64,8 @@ class TestTensorMetadata(unittest.TestCase):
     self.assertEqual(out.uop.src[0].metadata[0].name, "relu")
     self.assertEqual(out.uop.src[1].metadata[0].name, "sigmoid")
     si = out.schedule()[-1]
-    self.assertEqual(len(si.metadata), 0)
+    self.assertEqual(len(si.metadata), 3)
+    self.assertEqual(set(m.name for m in si.metadata), {"relu", "sigmoid", "__mul__"})
   def test_complex_backward(self):
     x = Tensor.rand(3, requires_grad=True).realize()
     y = Tensor.rand(3, requires_grad=True).realize()
