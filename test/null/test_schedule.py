@@ -148,12 +148,13 @@ class TestSimpleSchedule(unittest.TestCase):
 class TestSchedule(unittest.TestCase):
   def test_error_on_device_mismatch(self):
     a = Tensor.empty(10)
-    b = Tensor.empty(10, device="CPU")
+    b = Tensor.empty(10, device="EXT")
     c = a+b
     with self.assertRaisesRegex(RuntimeError, "all buffers must be on the same device"): check_schedule(c, 1)
+
   def test_error_on_device_mismatch_alt(self):
     a = Tensor.empty(10)
-    b = Tensor.empty((1,), device="CPU").expand(10).contiguous()
+    b = Tensor.empty((1,), device="EXT").expand(10).contiguous()
     c = a+b
     with self.assertRaisesRegex(RuntimeError, "all buffers must be on the same device"): check_schedule(c, 2)
   def test_rand(self):
