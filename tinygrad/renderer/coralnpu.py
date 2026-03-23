@@ -595,7 +595,7 @@ class CoralNPURenderer(CStyleLanguage):
   device = "CORALNPU"
   # Use extern "C" to avoid name mangling, making it easy to call from the shim
   kernel_typedef = 'extern "C" void'
-  buffer_prefix = ""
+  buffer_prefix = "__attribute__((section(\".noinit\"))) "
   arg_int_prefix = "const int"
 
   # GCC vector_size does not support .x, .y, .z. Must use [0], [1], [2].

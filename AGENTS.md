@@ -3,6 +3,7 @@
 ## Lessons Learned
 
 ### Architecture Quirks
+- **C-Runtime .bss Wipeout Vulnerability**: Prioritize `.noinit` buffer declarations (e.g., `__attribute__((section(".noinit"))) `) for large DMA core weights mapped to external memory. This prevents the C-runtime (`crt0`) from wiping out pre-loaded external buffers during boot initialization.
 - **AXI4 Protocol Bounds**: AXI bursts for tensor fetches (>4KB) must be segmented to strictly align to and not cross 4KB physical address boundaries.
 - **Pytest-Xdist Node Down Prevention (Self-Kill)**: When implementing `atexit` hooks inside a pytest worker to clear child processes, do NOT use `os.killpg(os.getpgrp(), signal.SIGKILL)`. A pytest worker running `os.setpgrp()` makes itself the group leader. Executing `killpg` on its own group abruptly terminates the pytest worker via `SIGKILL`, bypassing graceful teardown and causing the `pytest-xdist` master to throw a catastrophic `[gwX] node down: Not properly terminated` error. Only iterate and kill the specific tracked child process IDs (e.g. `Popen.pid`).
 - **VMM Bump Allocator Memory Leak**: Linear accumulation without reuse guarantees OOM on sequential executions. Update the VMM spec to implement true memory lifecycle (e.g., arena resets per-inference or tensor address ref-counting).
