@@ -8,6 +8,8 @@ from tinygrad.tensor import Tensor
 from tinygrad.device import Device
 from tinygrad.engine.realize import get_runner
 from extra.models.gemma import GemmaRMSNorm, GemmaMLP, precompute_freqs_cis, apply_rotary_emb
+from tinygrad.renderer.coralnpu import CoralNPURenderer
+from tinygrad.codegen import get_program
 
 HIDDEN_DIM = 256
 FF_DIM = 1024
@@ -18,33 +20,30 @@ class TestGemmaDecomposition(unittest.TestCase):
   def setUpClass(cls):
     try:
       subprocess.check_call(["riscv64-unknown-elf-gcc", "--version"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=5.0)
-      
-      from tinygrad.renderer.coralnpu import CoralNPURenderer
-      from tinygrad.codegen import get_program
-      
+
       # Explicitly construct an authentic cross-compilation pipeline utilizing CoralNPUAllocator for the Gemma layer
       seq_len = 8
       head_dim = 64
       x_cpu = (Tensor.arange(1 * seq_len * 4 * head_dim, device="CPU") * 0.1).reshape(1, seq_len, 4, head_dim).realize()
       freqs_cis_cpu = precompute_freqs_cis(head_dim, seq_len).realize()
-      
+
       out_cpu = apply_rotary_emb(x_cpu, freqs_cis_cpu)
       schedule = out_cpu.schedule()
       sink_ast = [si.ast for si in schedule if si.ast.op.name == "SINK"][0]
-      
+
       renderer = CoralNPURenderer()
       prg = get_program(sink_ast, renderer)
-      
+
       cls.tf_c = tempfile.NamedTemporaryFile(suffix=".c", delete=False)
       cls.tf_c.write(prg.src.encode())
       cls.tf_c.flush()
-      
+
       cls.tf_elf = tempfile.NamedTemporaryFile(suffix=".elf", delete=False)
       subprocess.check_call([
           "riscv64-unknown-elf-gcc", "-march=rv32imf_zve32x", "-mabi=ilp32f",
           "-O3", "-nostdlib", cls.tf_c.name, "-o", cls.tf_elf.name
       ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15.0)
-      
+
       cls.native_elf_path = cls.tf_elf.name
       os.environ["CORALNPU_ELF"] = cls.native_elf_path
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
@@ -74,17 +73,8 @@ class TestGemmaDecomposition(unittest.TestCase):
       rmsnorm.weight = rmsnorm_cpu.weight.to("CORALNPU")
       out = rmsnorm(x)
 
-      try:
-        out.realize()
-        np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
-      except RuntimeError as e:
-        if "math.h: No such file" in str(e) or "implicit declaration of function" in str(e):
-          raise unittest.SkipTest("CORALNPU bare-metal compiler lacks math.h support for sqrt/sin/cos")
-        raise
-      except FileNotFoundError as e:
-        if "coralnpu_v2_sim" in str(e):
-          raise unittest.SkipTest("Simulator missing, skipping.")
-        raise
+      out.realize()
+      np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
 
   def test_gemma_geglu(self):
     hidden_dim = HIDDEN_DIM
@@ -108,12 +98,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       schedule = out.schedule()
       for si in schedule:
         if si.ast.op.name == "SINK":
-          try:
-            get_runner(Device.DEFAULT, si.ast)
-          except RuntimeError as e:
-            if "Active floating-point variable allocations exceeded cap" in str(e):
-              raise unittest.SkipTest("Active floating-point variable allocations exceeded cap")
-            raise
+          get_runner(Device.DEFAULT, si.ast)
 
   def test_gemma_rope(self):
     seq_len = 8
@@ -129,17 +114,8 @@ class TestGemmaDecomposition(unittest.TestCase):
       freqs_cis = freqs_cis_cpu.to("CORALNPU")
       out = apply_rotary_emb(x, freqs_cis)
 
-      try:
-        out.realize()
-        np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
-      except RuntimeError as e:
-        if "math.h: No such file" in str(e) or "implicit declaration of function" in str(e):
-          raise unittest.SkipTest("CORALNPU bare-metal compiler lacks math.h support for sqrt/sin/cos")
-        raise
-      except FileNotFoundError as e:
-        if "coralnpu_v2_sim" in str(e):
-          raise unittest.SkipTest("Simulator missing, skipping.")
-        raise
+      out.realize()
+      np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
 
 if __name__ == '__main__':
   unittest.main()
