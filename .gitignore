@@ -68,3 +68,6 @@ mutants
 .mutmut-cache
 dagre/
 graphlib/
+script.py
+test_spsc.cpp
+diagnostics/

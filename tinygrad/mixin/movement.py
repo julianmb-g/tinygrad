@@ -77,7 +77,7 @@ class MovementMixin:
     new_shape = tuple(from_ if to == -1 or to is None else to for from_, to in zip(*(_align_left(self.shape, argfix(shape, *args)))))
     return self._broadcast_to(new_shape)
 
-  def reshape(self, shape, *args) -> Self:
+  def reshape(self, shape, *args, **kwargs) -> Self:
     """
     Returns a tensor with the same data as the original tensor but with a different shape.
     `shape` can be passed as a tuple or as separate arguments.
@@ -87,6 +87,9 @@ class MovementMixin:
     print(t.reshape(2, 3).numpy())
     ```
     """
+    device = kwargs.pop("device", None)
+    if kwargs:
+      raise TypeError(f"MovementMixin.reshape() got an unexpected keyword argument '{next(iter(kwargs))}'")
     # resolve None and args
     new_shape = tuple([s if s is not None else self.shape[i] for i, s in enumerate(argfix(shape, *args))])
     # resolve -1
@@ -97,7 +100,10 @@ class MovementMixin:
     if prod(self.shape) != prod(new_shape):
       raise ValueError(f"size mismatch, can't reshape ({self.shape}) -> ({new_shape})")
     ret = self._mop(Ops.RESHAPE, arg=new_shape)
-    return self if ret.shape == self.shape else ret
+    ret = self if ret.shape == self.shape else ret
+    if device is not None and getattr(ret, "device", None) != device:
+      ret = getattr(ret, "to")(device)
+    return ret
 
   def shrink(self, arg: tuple[tuple[sint, sint] | None, ...]) -> Self:
     """
