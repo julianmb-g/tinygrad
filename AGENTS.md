@@ -13,3 +13,7 @@
 
 ### Pipeline Safety & Graceful Degradation
 - **Missing Hardware Simulators:** Always wrap hardware simulator executions (like `out.realize()`) with `try... except FileNotFoundError` to ensure the CI pipeline degrades gracefully rather than crashing outright when the compiled simulator binary is missing.
+
+### IMAGE=2 CPU Fallback & Devectorization
+- **IMAGE=2 Pointer Math Syntax Faults:** When `IMAGE=2` is used (meaning hardware `ImageDType` is simulated as a linear `float*` on the CPU), the `devectorizer.py` AST generator MUST replace `ImageDType` with `PtrDType(float)` (e.g. `image_dtype.base.ptr()`) rather than converting the 1D channel index `x` into an `int2` vector. Failing to convert the index back to a linear offset results in fatal native C compiler faults (`cannot convert between vector and non-scalar values ('float *' and 'int2')`) during pointer arithmetic. 
+- **Upcasting Vector Image Stores:** For normal image environments (`IMAGE!=2`), if the compiler fails to group scalar pixel stores during Beam Search, the `Ops.STORE` node's value must be upcasted explicitly to `vec(4)` before emitting to `write_imagef`. Failure to do so throws an `AssertionError` ("if an image store isn't upcasted to 4") since openCL cannot perform a read-modify-write channel mask natively.
