@@ -11,4 +11,5 @@
 ### API Contracts
 
 ### Multi-Agent Artifact Review
+[FLAG: stale] duplicate of global rule
 - **Review Ledger Deduplication & Formatting**: The `REVIEW.md` artifact must strictly adhere to the `Quote-Impact-Action` format and `Tier 1/Tier 2` severity tiering.
