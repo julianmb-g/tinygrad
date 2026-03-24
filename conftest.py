@@ -20,8 +20,7 @@ def teardown_worker_group():
             pass
 
 def pytest_configure(config):
-    worker_id = os.environ.get("PYTEST_XDIST_WORKER")
-    if worker_id is not None:
+    if getattr(config, "workerinput", None) is not None:
         os.setpgrp()
         atexit.register(teardown_worker_group)
 
