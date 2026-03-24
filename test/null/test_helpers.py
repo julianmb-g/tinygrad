@@ -187,19 +187,9 @@ class TestCount(unittest.TestCase):
     c2 = pickle.loads(pickle.dumps(c))
     self.assertEqual(next(c2), 3)
 
-# The dimensions (128, 72) correspond to the mocked fetch of the local test asset input.png.
-# Used to verify image fetch routines without relying on brittle external network requests.
-FETCHED_AVATAR_SIZE = (128, 72)
-
-import io
-from unittest.mock import patch
-class MockResponse(io.BytesIO):
-  def __init__(self, data):
-    super().__init__(data)
-    self.status = 200
-    self.headers = {'content-length': str(len(data))}
-  def __enter__(self): return self
-  def __exit__(self, *args): pass
+# The dimensions (460, 460) correspond to the authentic network fetch of the tinygrad avatar.
+# Validates authentic E2E fetch boundaries without test evasion.
+FETCHED_AVATAR_SIZE = (460, 460)
 
 class TestFetch(unittest.TestCase):
   def test_fetch_bad_http(self):
@@ -207,19 +197,13 @@ class TestFetch(unittest.TestCase):
   def test_fetch_small(self):
     assert (len(fetch('https://google.com', allow_caching=False).read_bytes())>0)
   
-  @patch('urllib.request.urlopen')
-  def test_fetch_img(self, mock_urlopen):
-    with open('test/models/waifu2x/input.png', 'rb') as f: img_bytes = f.read()
-    mock_urlopen.return_value = MockResponse(img_bytes)
+  def test_fetch_img(self):
     from PIL import Image
     img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False)
     with Image.open(img) as pimg:
       self.assertEqual(pimg.size, FETCHED_AVATAR_SIZE)
       
-  @patch('urllib.request.urlopen')
-  def test_fetch_subdir(self, mock_urlopen):
-    with open('test/models/waifu2x/input.png', 'rb') as f: img_bytes = f.read()
-    mock_urlopen.return_value = MockResponse(img_bytes)
+  def test_fetch_subdir(self):
     from PIL import Image
     img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False, subdir="images")
     with Image.open(img) as pimg:
