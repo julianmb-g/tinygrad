@@ -1,6 +1,12 @@
 import atexit
 import os
 import signal
+import multiprocessing
+
+try:
+    multiprocessing.set_start_method("spawn", force=True)
+except RuntimeError:
+    pass
 
 os.environ["DISABLE_COMPILER_CACHE"] = "1"
 

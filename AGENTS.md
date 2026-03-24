@@ -12,6 +12,7 @@
 
 ### Build Dependencies
 - **PyBind11 Out-of-Band Isolation**: Native PyBind11 bindings inside the Python tuning loop cause crashes. Extract and wrap calls via `multiprocessing` workers using zero-copy shared memory.
+- **Multiprocessing Start Method**: When integrating PyBind11 C++ state across multi-agent or pytest-xdist pipelines, NEVER rely on the default Linux `fork()` method, as forking C++ extensions silently deadlocks the worker pools. Always enforce `multiprocessing.set_start_method("spawn", force=True)` globally in testing entrypoints (`conftest.py`).
 
 ### Testing & E2E Validation
 - **API Contract Breakages**: Do not silently remove `device` kwargs from `reshape` without providing a compatible ABI fallback or updating all downstream tests, as this triggers sweeping integration failures. Inject hardware keywords natively into generator constructors (`Tensor.arange(..., device=X)`).
