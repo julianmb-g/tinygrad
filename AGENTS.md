@@ -37,3 +37,7 @@
 - **Test Integrity (Non-Deterministic Padding)**: Avoid uninitialized `Tensor.empty` which generates non-deterministic memory garbage (`NaN`s) causing CI validation failures. Explicitly initialize datasets deterministically (`Tensor.full`, `math.prod(shape)`). Bound scaling input tensors (e.g., `% 10 * 0.1`) to prevent FP16 mathematical overflows. Array initializations must mathematically evaluate to the correct flattened target size without modulo padding that crashes reshaping.
 - **Test Math Dependencies**: Ensure `import math` is present at the top level to prevent `NameError` crashes when mathematically generating tensor shapes. `math.prod` must be fed valid tuples (e.g., `(1, 1, 32, 32, 32)`), not generic shapes that evaluate to size 1.
 - **Unsupported Backend Feature Testing**: Tests asserting linearizer functionality that natively requires specific backends (e.g. `MetalRenderer()`) MUST use `unittest.SkipTest("Reason")` to organically trap the boundary rather than abruptly crashing.
+
+### QA & Testing Mandates
+- **E2E Testing Illusions**: Never patch or mock external system interactions (like `urllib.request.urlopen` for network fetches) in E2E tests with local files. A corresponding uncached E2E network execution must run natively to validate real network sockets.
+- **Pytest-Xdist Deadlocks**: `OSError: cannot send (already closed?)` is a hallmark of a master node deadlock, typically caused by globally monkeypatching `subprocess.Popen` in test configuration, or a parallel worker crashing mid-flight.
