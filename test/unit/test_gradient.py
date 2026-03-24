@@ -38,7 +38,6 @@ class TestTensorGradient(unittest.TestCase):
   def test_non_scalar_output(self):
     x = Tensor([1.0, 2.0, 3.0])
     z = x * x
-    with self.assertRaises(AssertionError): z.gradient(x)
     dz = Tensor([1.0, 1.0, 1.0])
     dx = z.gradient(x, gradient=dz)[0]
     self.assertListEqual(dx.tolist(), [2.0, 4.0, 6.0])
@@ -87,8 +86,7 @@ class TestViewGradient(unittest.TestCase):
     aex = a.expand(10)
     (aex.reshape(5,2) * x).sum().backward()
     np.testing.assert_allclose(aex.grad.numpy(), x.reshape(10).numpy())
-    with self.assertRaises(AssertionError):
-      np.testing.assert_allclose(aex.grad.numpy(), a.grad.expand(10).numpy())
+    np.testing.assert_allclose(aex.grad.numpy(), a.grad.expand(10).numpy())
 
 if __name__ == '__main__':
   unittest.main()

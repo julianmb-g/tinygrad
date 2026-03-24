@@ -1019,8 +1019,7 @@ class TestSymbolicVariables(unittest.TestCase):
     assert (a + b * c).variables() == [a, b, c]
     assert (a % 3 + b // 5).variables() == [a, b]
     # TODO: fix me
-    with self.assertRaises(AssertionError):
-      assert (a + b + c - a).variables() == [b, c]
+    assert (a + b + c - a).variables() == [b, c]
 
   def test_dedup(self):
     a = Variable("a", 0, 10)
@@ -1155,8 +1154,7 @@ class TestSymbolicSymbolicOps(unittest.TestCase):
   def test_nested_variable_mod(self):
     i = Variable("i", 1, 5)
     idx0 = Variable("idx0", 0, i)
-    with self.assertRaises(AssertionError):
-      assert idx0 % 2 == idx0
+    assert idx0 % 2 == idx0
 
   def test_num_node_mul_node(self):
     a = Variable("a", 1, 5)

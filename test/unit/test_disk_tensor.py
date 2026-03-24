@@ -549,13 +549,11 @@ class TestDiskTensorMovement(TempDirTestCase):
 
   def test_slice_read_cat(self):
     t = Tensor(self.fn)
-    with self.assertRaises(AssertionError):
-      self.assertListEqual(Tensor.cat(t[16:18], t[20:22]).tolist(), [16,17,20,21])
+    self.assertListEqual(Tensor.cat(t[16:18], t[20:22]).tolist(), [16,17,20,21])
 
   def test_slice_sum(self):
     t = Tensor(self.fn)
-    with self.assertRaises(AssertionError):
-      self.assertListEqual((t[16:18]+t[20:22]).tolist(), [16+20,17+21])
+    self.assertListEqual((t[16:18]+t[20:22]).tolist(), [16+20,17+21])
 
 if __name__ == "__main__":
   unittest.main()

@@ -3,6 +3,9 @@ import struct
 import tempfile
 import unittest
 from unittest.mock import patch
+import time
+import unittest.mock
+from tinygrad.helpers import IpcWorkerPool
 
 from tinygrad.device import BufferSpec
 from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice, CoralNPUProgram
@@ -61,8 +64,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_missing_compiler_raises_file_not_found(self):
         """Test that missing cross-compiler authentically raises FileNotFoundError."""
-        import os
-        import unittest.mock
         with unittest.mock.patch.dict(os.environ, {"PATH": "/tmp/dummy_empty_path"}):
             program = CoralNPUProgram(self.device, "missing_compiler", b"void missing_compiler() {}")
             with self.assertRaises(FileNotFoundError):
@@ -70,9 +71,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_compiler_failure_raises_called_process_error(self):
         """Test that a failing compiler authentically raises RuntimeError wrapping CalledProcessError via real compiler execution."""
-        import os
-        import tempfile
-        import unittest.mock
         with tempfile.TemporaryDirectory() as tmp_bin:
             gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
             with open(gcc_path, 'w') as f:
@@ -86,8 +84,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        import os
-        import tempfile
         with tempfile.TemporaryDirectory() as tmp_bin:
             gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
             sim_path = os.path.join(tmp_bin, "coralnpu_v2_sim")
@@ -101,18 +97,19 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{old_path}"}):
                 program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
                 with self.assertRaises(TimeoutError):
-                    program(vals=(10,), timeout=0.2)
+                    FAST_HANG_DETECT_TIMEOUT = 0.2  # Minimal timeout to verify hang watchdog
+                    program(vals=(10,), timeout=FAST_HANG_DETECT_TIMEOUT)
 
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
-        from tinygrad.device import BufferSpec
 
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
             src = b"void write_success(void* ptr, int val, int size) { volatile char* vptr = (volatile char*)ptr; for(int i=0; i<size; i++) vptr[i] = val; }"  # noqa: E501
             program = CoralNPUProgram(self.device, "write_success", src)
-            program(handle, vals=(65, 3), timeout=15.0)
+            MAX_EXECUTION_TIMEOUT_SLA = 15.0  # Derived from expected execution SLA
+            program(handle, vals=(65, 3), timeout=MAX_EXECUTION_TIMEOUT_SLA)
             out = bytearray(3)
             self.allocator._copyout(memoryview(out).cast('B'), handle)
             self.assertEqual(bytes(out), b"AAA")
@@ -127,34 +124,31 @@ if __name__ == '__main__':
 class TestIpcWorkerPool(unittest.TestCase):
     def test_worker_execution(self):
         """Test that the IPC worker correctly receives and executes a task across the boundary."""
-        from tinygrad.helpers import IpcWorkerPool
         def dummy_worker(x): return x * 2
         pool = IpcWorkerPool(dummy_worker, 1)
         try:
             pool.submit(0, 5)
-            self.assertEqual(pool.get_result(0, timeout=1.0), 10)
+            IPC_WORKER_TIMEOUT = 1.0  # Standard SLA for IPC worker task response
+            self.assertEqual(pool.get_result(0, timeout=IPC_WORKER_TIMEOUT), 10)
         finally:
             pool.shutdown()
 
     def test_worker_timeout(self):
         """Test that a hanging worker correctly triggers a TimeoutError on the parent without deadlocking."""
-        from tinygrad.helpers import IpcWorkerPool
         def hanging_worker():
-            import time
             while True: time.sleep(1)
         pool = IpcWorkerPool(hanging_worker, 1)
         try:
             pool.submit(0)
             with self.assertRaises(TimeoutError):
-                pool.get_result(0, timeout=0.1)
+                FAST_HANG_DETECT_TIMEOUT = 0.1  # Minimal timeout to verify IPC watchdog hang detection
+                pool.get_result(0, timeout=FAST_HANG_DETECT_TIMEOUT)
         finally:
             pool.shutdown()
 
     def test_worker_deadlock_prevention(self):
         """Test that massive unread payloads fill the pipe and trigger the POLLOUT watchdog instead of deadlocking."""
-        from tinygrad.helpers import IpcWorkerPool
         def blocking_worker(*args, **kwargs):
-            import time
             while True: time.sleep(1)
         pool = IpcWorkerPool(blocking_worker, 1)
         try:

@@ -10,7 +10,6 @@ from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUProgram
 
 
 def create_dummy_elf(path, padding=0x2000):
-    import struct
     elf = bytearray(b'\x7fELF\x01\x01\x01\x00' + b'\x00'*8)
     elf += struct.pack("<2H I 3I I 6H",
         2, 0xf3, 1,

@@ -1160,7 +1160,7 @@ class TestFusionOp(unittest.TestCase):
     for _ in range(23): c = c + c
     sched3 = c.schedule()
     self.assertEqual(sched1[-1].ast, sched2[-1].ast)
-    with self.assertRaises(AssertionError): self.assertEqual(sched1[-1].ast, sched3[-1].ast)
+    self.assertNotEqual(sched1[-1].ast, sched3[-1].ast)
     self.assertLess(time.perf_counter()-st, 2.0)
 
   def test_recursive_pad(self):
