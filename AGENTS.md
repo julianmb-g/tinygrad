@@ -20,3 +20,7 @@
 
 ### Test Evasion & Error Masking
 - **Compilation Failure Masking**: Do not catch `subprocess.CalledProcessError` in test suites (e.g., `test_tiny.py`) to bypass or skip failing tests. If the underlying C/C++ compiler throws syntax or compilation faults during AST generation or payload execution, it must be allowed to organically fail the test. Catching these errors mathematically erases invalid cross-component execution bugs from the CI runner, presenting a false "green" build. Only expected missing environment dependencies (like `FileNotFoundError` for missing payloads or toolchains) should trigger a `SkipTest`.
+# Tinygrad Submodule Lessons Learned
+
+### Eager Graph Realization and Boundary Trapping
+- **Recursion Limits:** When building deep cyclic computational graphs, explicitly calling `.realize()` within the loop prevents unbound AST explosion and fixes depth limit bounds. Any tests validating this behavior MUST strictly forbid `SkipTest` and organically trap `RecursionError` natively via `assertRaises` if testing the negative case, proving the architectural constraint without masking it.
