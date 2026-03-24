@@ -24,3 +24,5 @@
 
 ### Eager Graph Realization and Boundary Trapping
 - **Recursion Limits:** When building deep cyclic computational graphs, explicitly calling `.realize()` within the loop prevents unbound AST explosion and fixes depth limit bounds. Any tests validating this behavior MUST strictly forbid `SkipTest` and organically trap `RecursionError` natively via `assertRaises` if testing the negative case, proving the architectural constraint without masking it.
+- **Architectural Identity in Renderers:** When implementing new hardware renderers (like `ClangJITRenderer`), ensure hardware-specific attributes like `@property def arch(self)` and `@property def buf_map(self)` are properly implemented to prevent `AttributeError`s during backend-agnostic tests that inspect layout boundaries (e.g. `test_packed_smem_size`).
+- **Device-Specific Testing Bounds:** If a test inherently validates device-specific behavior (e.g., bitpacking only present in WEBGPU), it must actively skip using `@unittest.skipIf(Device.DEFAULT != "WEBGPU", ...)` to prevent raising false-positive `AssertionError`s when parsing output on `CPU` or `CORALNPU` devices.

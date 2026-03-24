@@ -188,7 +188,7 @@ class TestLocalAccess(unittest.TestCase):
     barr = uop(uops, Ops.BARRIER, dtypes.void, (st,))
     sres = smem.after(barr).index(uop(uops, Ops.CONST, dtypes.int32, (), 0))
     self.assertEqual(_test_uops_result(dtypes.uint8, uops, sres), 42)
-  # NOTE: webgpu specific, since only webgpu performs bitpacking
+  @unittest.skipIf(Device.DEFAULT != "WEBGPU", "webgpu specific")
   def test_packed_smem_size(self):
     _dtypes = [dtypes.char, dtypes.uchar, dtypes.short, dtypes.ushort, dtypes.half]
     size = 16
