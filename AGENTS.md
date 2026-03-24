@@ -8,8 +8,3 @@
 ### Organic Validation Enforcement
 - **Native Test Failure Trapping**: When remediating test evasion wrappers (like `assertRaisesRegex(RuntimeError)` in `test_stunning.py`), the test must be permitted to organically throw the `RuntimeError` during evaluation (e.g., `bind mismatch on i, 12 != 76`). Do not wrap or invert expected limits.
 
-### API Contracts
-
-### Multi-Agent Artifact Review
-[FLAG: stale] duplicate of global rule
-- **Review Ledger Deduplication & Formatting**: The `REVIEW.md` artifact must strictly adhere to the `Quote-Impact-Action` format and `Tier 1/Tier 2` severity tiering.
