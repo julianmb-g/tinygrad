@@ -27,9 +27,8 @@ class TestStunning(unittest.TestCase):
     nv = a[12].cat(a[76]).tolist()
 
     vi = Variable('i', 0, a.shape[0]-1)
-    with self.assertRaisesRegex(RuntimeError, "bind mismatch on"):
-      wv = a[vi.bind(12)].cat(a[vi.bind(76)]).tolist()
-      self.assertListEqual(nv, wv)
+    wv = a[vi.bind(12)].cat(a[vi.bind(76)]).tolist()
+    self.assertListEqual(nv, wv)
 
   def test_simple_train(self, steps=6, bs=4, adam=True):
     X_train, Y_train, _, _ = nn.datasets.mnist()
