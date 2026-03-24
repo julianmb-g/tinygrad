@@ -150,7 +150,7 @@ class TestTiny(unittest.TestCase):
     import subprocess
     try:
       with Context(BEAM=1, IGNORE_BEAM_CACHE=1): self.test_image()
-    except (subprocess.CalledProcessError, FileNotFoundError) as e:
+    except FileNotFoundError as e:
       raise unittest.SkipTest(f"IMAGE unsupported natively: {e}")
 
 if __name__ == '__main__':
