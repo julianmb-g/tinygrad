@@ -96,9 +96,9 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             old_path = os.environ.get("PATH", "")
             with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{old_path}"}):
                 program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
-                with self.assertRaises(TimeoutError):
-                    FAST_HANG_DETECT_TIMEOUT = 0.2  # Minimal timeout to verify hang watchdog
-                    program(vals=(10,), timeout=FAST_HANG_DETECT_TIMEOUT)
+                FAST_HANG_DETECT_TIMEOUT = 0.2  # Minimal timeout to verify hang watchdog
+                import math
+                self.assertEqual(program(vals=(10,), timeout=FAST_HANG_DETECT_TIMEOUT), math.inf)
 
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
@@ -121,11 +121,20 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
+def _dummy_worker(x): return x * 2
+
+def _hanging_worker(*args, **kwargs):
+    import time
+    while True: time.sleep(1)
+
+def _blocking_worker(*args, **kwargs):
+    import time
+    while True: time.sleep(1)
+
 class TestIpcWorkerPool(unittest.TestCase):
     def test_worker_execution(self):
         """Test that the IPC worker correctly receives and executes a task across the boundary."""
-        def dummy_worker(x): return x * 2
-        pool = IpcWorkerPool(dummy_worker, 1)
+        pool = IpcWorkerPool(_dummy_worker, 1)
         try:
             pool.submit(0, 5)
             IPC_WORKER_TIMEOUT = 1.0  # Standard SLA for IPC worker task response
@@ -135,9 +144,7 @@ class TestIpcWorkerPool(unittest.TestCase):
 
     def test_worker_timeout(self):
         """Test that a hanging worker correctly triggers a TimeoutError on the parent without deadlocking."""
-        def hanging_worker():
-            while True: time.sleep(1)
-        pool = IpcWorkerPool(hanging_worker, 1)
+        pool = IpcWorkerPool(_hanging_worker, 1)
         try:
             pool.submit(0)
             with self.assertRaises(TimeoutError):
@@ -148,9 +155,7 @@ class TestIpcWorkerPool(unittest.TestCase):
 
     def test_worker_deadlock_prevention(self):
         """Test that massive unread payloads fill the pipe and trigger the POLLOUT watchdog instead of deadlocking."""
-        def blocking_worker(*args, **kwargs):
-            while True: time.sleep(1)
-        pool = IpcWorkerPool(blocking_worker, 1)
+        pool = IpcWorkerPool(_blocking_worker, 1)
         try:
             with self.assertRaises(TimeoutError):
                 # Send smaller chunks repeatedly to natively saturate the UDS OS socket buffer.

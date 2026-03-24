@@ -192,7 +192,10 @@ class CoralNPUProgram:
     for v in vals:
       cmd.extend(["--val", str(v)])
 
-    p = subprocess.Popen(cmd, preexec_fn=os.setpgrp)
+    try:
+      p = subprocess.Popen(cmd, preexec_fn=os.setpgrp)
+    except FileNotFoundError as e:
+      raise FileNotFoundError(f"Hardware simulator missing: {e}")
     active_pids.add(p.pid)
     try:
       if timeout is not None:
