@@ -17,7 +17,6 @@
 
 ### Python Code Style & Testing
 - **150-Character Line Limit Refactoring (Ruff E501)**: When formatting long dictionary comprehensions or lambda operator mappings to conform strictly to bounds, extract them into multi-line structures rather than relying on horizontal squashing.
-- **Google Python Style Guide Enforcement**: All Python imports must strictly reside at the top of the file. Inline or deferred imports (e.g., inside function bodies or class methods) create tight coupling and are forbidden. Also, ensure trailing whitespaces are stripped via linters like `ruff`.
 - **Ruff E501 in Subprocess Calls**: Extract inline subprocess command lists (e.g., `["hipcc", "-c", ...]`) into dedicated multi-line variable declarations prior to `subprocess.run()` invocation to natively resolve 150-character limit violations without using `# noqa`.
 
 ### Testing & E2E Validation
@@ -32,7 +31,6 @@
 - **NaN Validation in Memory Captures**: When restoring `before` memory assertions, preserve `math.isnan` logic alongside restored assertions to prevent tests from spuriously breaking during Python memory dump equality checks.
 - **OpenCL Backend Cross-Compilation Trap**: Do not feed OpenCL-specific types (`write_only`, `sampler_t`) into C target compilers. Map backend type `'l'` correctly to `int64` or `long` in C-style renderers.
 - **Operation Count Bounds Enforcement**: Enforcing operation bounds (e.g. `< 1`) that assume `WMMA` execution on `AMD` fails on `CPU`. Ensure `ops_scale` degrades gracefully so performance bounds degrade deterministically.
-- **Pytest Worker Exhaustion**: Never use `-n auto` in pytest configuration files (e.g. `run_all_tests.py`, github workflows) as it can cause fatal timeouts, CPU starvation, and undetected infinite loops by over-subscribing workers (e.g., spawning 128 workers). Strictly enforce a maximum of 4 parallel workers globally (e.g. `-n 4`).
 - **Renderer Architectural Identity**: When extending C-style renderers (`ClangJITRenderer`), ensure `arch` property is explicitly defined (e.g., `arch = "CORALNPU"`). Do not hardcode renderer strings like "CORALNPU" into general optimizers; use `getattr(self.ren, "max_upcast", <default>)`.
 - **SQLite Caching & Pytest Xdist Locking**: Concurrent access to shared SQLite layers (`compile_clang_jit`) causes database locking. Mandate isolated database connections scaled per-worker (`PYTEST_XDIST_WORKER`), use WAL journaling, and strictly ensure in-memory table registries are flushed correctly during cache clears.
 - **Test Fidelity via Bounds Checking Preservation**: Deleting `np.iinfo` float-to-int bounds checks natively forces testing framework assertions onto C/C++ Undefined Behavior. Do not delete organic constraints.
