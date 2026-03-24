@@ -1,3 +1,4 @@
+from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import ctypes
 import math
 import os
@@ -72,7 +73,7 @@ class TestCoralNPUMemory(unittest.TestCase):
             f.flush()
             f.close()
             try:
-                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=15.0)
+                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=kDefaultCompilationTimeoutS)
             except FileNotFoundError:
                 raise unittest.SkipTest("g++ toolchain missing")
 
@@ -163,7 +164,7 @@ extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
             f.flush()
             f.close()
             try:
-                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=15.0)
+                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=kDefaultCompilationTimeoutS)
             except FileNotFoundError:
                 raise unittest.SkipTest("g++ toolchain missing")
 

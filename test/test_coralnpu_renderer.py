@@ -1,3 +1,4 @@
+from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import os
 import re
 import struct
@@ -175,15 +176,15 @@ class TestCoralNPURenderer(unittest.TestCase):
 
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
           with self.assertRaises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
-            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
 
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises((FileNotFoundError, subprocess.TimeoutExpired)):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
 
       try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
       except FileNotFoundError:
         raise unittest.SkipTest("Toolchain missing")
       except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
@@ -228,15 +229,15 @@ class TestCoralNPURenderer(unittest.TestCase):
 
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
           with self.assertRaises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
-            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
 
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises((FileNotFoundError, subprocess.TimeoutExpired)):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
 
       try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
       except FileNotFoundError:
         raise unittest.SkipTest("Toolchain missing")
       except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
@@ -276,15 +277,15 @@ class TestCoralNPURenderer(unittest.TestCase):
 
         with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
           with self.assertRaises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
-            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+            subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
 
         with tempfile.TemporaryDirectory() as empty_dir:
           with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
             with self.assertRaises((FileNotFoundError, subprocess.TimeoutExpired)):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
 
       try:
-        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+        subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
       except FileNotFoundError:
         raise unittest.SkipTest("Toolchain missing")
       except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
@@ -573,16 +574,16 @@ class TestCoralNPURenderer(unittest.TestCase):
 
           with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
             with self.assertRaises((subprocess.CalledProcessError, subprocess.TimeoutExpired)):
-              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+              subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
 
           with tempfile.TemporaryDirectory() as empty_dir:
             with unittest.mock.patch.dict(os.environ, {"PATH": empty_dir}):
               with self.assertRaises((FileNotFoundError, subprocess.TimeoutExpired)):
-                subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+                subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
 
         # Native GCC Compilation Validation
         try:
-          subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=15.0)
+          subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
         except FileNotFoundError:
           raise unittest.SkipTest("Toolchain missing")
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):

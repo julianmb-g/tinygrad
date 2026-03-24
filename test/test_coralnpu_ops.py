@@ -1,3 +1,4 @@
+from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import math
 import os
 import struct
@@ -105,7 +106,7 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         self.allocator.device.allocator = self.allocator
         try:
             prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
-            prog(handle2, wait=True, timeout=15.0)
+            prog(handle2, wait=True, timeout=kDefaultCompilationTimeoutS)
         except FileNotFoundError:
             raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
 

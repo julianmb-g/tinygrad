@@ -12,6 +12,8 @@ import tempfile
 from tinygrad.device import Allocator, BufferSpec, Compiled, CompilerSet
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 
+kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks while allowing sufficient time for cross-compiling complex models during Beam Search auto-tuning.
+
 active_pids = set()
 def _kill_orphans():
   for pid in list(active_pids):
@@ -162,7 +164,7 @@ class CoralNPUProgram:
       src_path = f.name
     elf_path = src_path + ".elf"
     try:
-      subprocess.check_output(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path], stderr=subprocess.STDOUT, timeout=15.0)  # noqa: E501
+      subprocess.check_output(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path], stderr=subprocess.STDOUT, timeout=kDefaultCompilationTimeoutS)  # noqa: E501
     except subprocess.TimeoutExpired as e:
       raise RuntimeError(f"Cross-compilation timed out: {e}")
     except subprocess.CalledProcessError as e:
@@ -171,7 +173,7 @@ class CoralNPUProgram:
       raise FileNotFoundError(f"Missing cross-compiler: {e}")
     return elf_path
 
-  def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=15.0, **kwargs):
+  def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=kDefaultCompilationTimeoutS, **kwargs):
     if getattr(self, "is_beam", False) and wait:
       return self.beam_cost
 

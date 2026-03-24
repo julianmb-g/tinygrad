@@ -1,3 +1,4 @@
+from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import os
 import unittest
 import subprocess
@@ -42,7 +43,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       subprocess.check_call([
           "riscv64-unknown-elf-gcc", "-march=rv32imf_zve32x", "-mabi=ilp32f",
           "-O3", "-nostdlib", cls.tf_c.name, "-o", cls.tf_elf.name
-      ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15.0)
+      ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=kDefaultCompilationTimeoutS)
 
       cls.native_elf_path = cls.tf_elf.name
       os.environ["CORALNPU_ELF"] = cls.native_elf_path
