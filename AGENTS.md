@@ -34,3 +34,6 @@
 - **UOpMetaClass Caching & Metadata Bleed**: Because `all_metadata` is tracked out-of-band and the core `UOpMetaClass.__call__` caches nodes based purely on `(op, dtype, src, arg, tag)`, structurally identical execution graphs (e.g. `Ops.MUL` from unrelated matrix computations in different unit tests) will hit the cache. If the unique `.tag` property is stripped or not utilized, metadata attached via `TRACEMETA` wrapper in prior tests will organically bleed into subsequent isolated tests, causing false assertions like `len(si.metadata) == 2` instead of `1`. To isolate unit tests tracking metadata, explicitly clear `UOpMetaClass.ucache` and `all_metadata` in `setUp()`.
 
 
+# Lessons Learned (Tinygrad)
+- **Auto-Tuner Concurrency:** The Tinygrad auto-tuner is explicitly allowed to use Python `multiprocessing.Process` pools. The strict IPC/Worker Pool ban applies only to the C++ Map-Elites Fuzzer, not to Tinygrad.
+- **DTCM Double-Buffering Mathematical Closure:** The 28KB `AddrSpace.LOCAL` allocation must explicitly account for all segments, including the 4KB output/accumulator boundary to prevent silent `.bss` overlap or capacity evasion.
