@@ -33,3 +33,6 @@
 
 ### AST Metadata Persistence & Cache Leaks
 - **UOpMetaClass Caching & Metadata Bleed**: Because `all_metadata` is tracked out-of-band and the core `UOpMetaClass.__call__` caches nodes based purely on `(op, dtype, src, arg, tag)`, structurally identical execution graphs (e.g. `Ops.MUL` from unrelated matrix computations in different unit tests) will hit the cache. If the unique `.tag` property is stripped or not utilized, metadata attached via `TRACEMETA` wrapper in prior tests will organically bleed into subsequent isolated tests, causing false assertions like `len(si.metadata) == 2` instead of `1`. To isolate unit tests tracking metadata, explicitly clear `UOpMetaClass.ucache` and `all_metadata` in `setUp()`.- **Garbage Collection Deadlocks**: Python objects throwing KeyError or AttributeError in their __del__ methods will violently crash pytest parallel workers. Wrap cleanup logic in try except (AttributeError, KeyError): pass.
+
+### Test Preservation
+- **Test Erasure Evasion Ban**: Never completely delete failing test files (e.g. `test/unit/test_eager_bounds.py`) to bypass failing boundaries like `RecursionError`. Tests must be fixed or properly preserved to ensure continued boundary verification. Catastrophic test erasure is a Tier 1 evasion tactic.
