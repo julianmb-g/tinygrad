@@ -37,3 +37,4 @@
 # Lessons Learned (Tinygrad)
 - **Auto-Tuner Concurrency:** The Tinygrad auto-tuner is explicitly allowed to use Python `multiprocessing.Process` pools. The strict IPC/Worker Pool ban applies only to the C++ Map-Elites Fuzzer, not to Tinygrad.
 - **DTCM Double-Buffering Mathematical Closure:** The 28KB `AddrSpace.LOCAL` allocation must explicitly account for all segments, including the 4KB output/accumulator boundary to prevent silent `.bss` overlap or capacity evasion.
+- **Pytest Worker Exhaustion:** Never use `-n auto` in pytest configuration files (e.g. `run_all_tests.py`, github workflows) as it can cause fatal timeouts, CPU starvation, and undetected infinite loops by over-subscribing workers (e.g., spawning 128 workers). Strictly enforce a maximum of 4 parallel workers globally (e.g. `-n 4`).

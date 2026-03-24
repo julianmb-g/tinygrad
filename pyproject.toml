@@ -150,6 +150,7 @@ follow_imports = "skip"
 
 
 [tool.pytest.ini_options]
+addopts = "-n 4"
 norecursedirs = [
   "extra",
   ".hypothesis",

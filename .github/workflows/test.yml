@@ -110,7 +110,7 @@ jobs:
     - name: Test ResNet-18
       run: DEBUG=2 python3 extra/torch_backend/example.py
     - name: custom tests
-      run: python3 -m pytest -n auto extra/torch_backend/test.py --durations=20
+      run: python3 -m pytest -n 4 extra/torch_backend/test.py --durations=20
     - name: Test one op in torch tests
       run: DEBUG=2 python3 extra/torch_backend/torch_tests.py TestTinyBackendPRIVATEUSE1.test_unary_log_tiny_float32
     - name: Test Ops with TINY_BACKEND
@@ -333,7 +333,7 @@ jobs:
         deps: testing_unit
         python-version: '3.14'
     - name: Test SPEC=2
-      run: SPEC=2 pytest --maxfail=10 -n auto --durations=30 test/unit test/backend test/opt --ignore test/backend/test_custom_kernel.py --ignore test/unit/test_hashing.py --timeout 60 -k "not test_setitem_big" --splits 2 --group ${{ matrix.group }}
+      run: SPEC=2 pytest --maxfail=10 -n 4 --durations=30 test/unit test/backend test/opt --ignore test/backend/test_custom_kernel.py --ignore test/unit/test_hashing.py --timeout 60 -k "not test_setitem_big" --splits 2 --group ${{ matrix.group }}
 
   fuzzing:
     name: Fuzzing
@@ -671,7 +671,7 @@ jobs:
       - name: Run AMD renderer tests (AMD:LLVM)
         run: DEV=AMD:LLVM python -m pytest -n=auto test/amd/ --durations 20
       - name: Run SQTT profiling tests
-        run: PROFILE=1 SQTT=1 python3 -m pytest -n=auto test/amd/test_sqtt_profiler.py
+        run: PROFILE=1 SQTT=1 python3 -m pytest -n 4 test/amd/test_sqtt_profiler.py
       - name: Run AMD emulated tests on NULL backend
         env:
           AMD: 0
@@ -751,7 +751,7 @@ jobs:
       - name: Run disk copy tests
         run: python -m pytest test/unit/test_disk_tensor.py -k test_copy_from_disk
       - name: Run TRANSCENDENTAL math
-        run: TRANSCENDENTAL=2 python -m pytest -n=auto test/backend/test_ops.py::TestOps::test_sin test/backend/test_ops.py::TestOps::test_cos test/backend/test_ops.py::TestOps::test_tan test/backend/test_ops.py::TestOps::test_exp test/backend/test_ops.py::TestOps::test_log --durations=20
+        run: TRANSCENDENTAL=2 python -m pytest -n 4 test/backend/test_ops.py::TestOps::test_sin test/backend/test_ops.py::TestOps::test_cos test/backend/test_ops.py::TestOps::test_tan test/backend/test_ops.py::TestOps::test_exp test/backend/test_ops.py::TestOps::test_log --durations=20
       - name: Run process replay tests
         uses: ./.github/actions/process-replay
 
@@ -785,7 +785,7 @@ jobs:
           DEBUG=5 FORWARD_ONLY=1 python3 test/test_tiny.py TestTiny.test_plus
       - name: Run pytest (cuda)
         # skip multitensor because it's slow
-        run: python -m pytest -n=auto test/backend --ignore test/backend/test_multitensor.py --durations=20
+        run: python -m pytest -n 4 test/backend --ignore test/backend/test_multitensor.py --durations=20
       - name: Run TestOps.test_add with PMA
         run: VIZ=-1 PMA=1 DEBUG=5 python3 test/backend/test_ops.py TestOps.test_add
       - name: Run process replay tests
@@ -818,9 +818,9 @@ jobs:
           python3 -c "from tinygrad import Device; assert Device.DEFAULT in ['CPU','CL'], Device.DEFAULT"
           DEBUG=5 FORWARD_ONLY=1 python3 test/test_tiny.py TestTiny.test_plus
       - name: Run pytest (${{ matrix.backend }})
-        run: python -m pytest -n=auto test/backend --durations=20
+        run: python -m pytest -n 4 test/backend --durations=20
       - name: Run TRANSCENDENTAL math
-        run: TRANSCENDENTAL=2 python -m pytest -n=auto test/backend/test_ops.py::TestOps::test_sin test/backend/test_ops.py::TestOps::test_cos test/backend/test_ops.py::TestOps::test_tan test/backend/test_ops.py::TestOps::test_exp test/backend/test_ops.py::TestOps::test_log --durations=20
+        run: TRANSCENDENTAL=2 python -m pytest -n 4 test/backend/test_ops.py::TestOps::test_sin test/backend/test_ops.py::TestOps::test_cos test/backend/test_ops.py::TestOps::test_tan test/backend/test_ops.py::TestOps::test_exp test/backend/test_ops.py::TestOps::test_log --durations=20
       - name: Run process replay tests
         uses: ./.github/actions/process-replay
 
@@ -867,14 +867,14 @@ jobs:
         DEV: AMD
         FORWARD_ONLY: 1
       run: |
-        python3 -m pytest -n=auto test/device/test_hcq.py test/test_tiny.py --durations=20
+        python3 -m pytest -n 4 test/device/test_hcq.py test/test_tiny.py --durations=20
     - name: Run pytest (amd with llvm backend)
       env:
         MOCKGPU: 1
         DEV: "AMD:LLVM"
         FORWARD_ONLY: 1
       run: |
-        python -m pytest -n=auto test/device/test_hcq.py test/test_tiny.py test/device/test_amd_llvm.py --durations=20
+        python -m pytest -n 4 test/device/test_hcq.py test/test_tiny.py test/device/test_amd_llvm.py --durations=20
     - name: Run pytest (ptx)
       env:
         MOCKGPU: 1
@@ -883,7 +883,7 @@ jobs:
         # TODO: failing due to library loading error
         CAPTURE_PROCESS_REPLAY: 0
       run: |
-        python3 -m pytest -n=auto test/device/test_hcq.py test/test_tiny.py --durations=20
+        python3 -m pytest -n 4 test/device/test_hcq.py test/test_tiny.py --durations=20
     - name: Run process replay tests
       uses: ./.github/actions/process-replay
 
@@ -949,7 +949,7 @@ jobs:
           python -c "from tinygrad import Device; assert Device.DEFAULT == {'LLVM':'CPU','LVP':'CPU'}.get(x:='${{ matrix.backend }}'.upper(), x), Device.DEFAULT"
           DEBUG=4 python3 test/test_tiny.py TestTiny.test_plus
       - name: Run pytest (${{ matrix.backend }})
-        run: python3 -m pytest -n=auto test/backend --durations=20
+        run: python3 -m pytest -n 4 test/backend --durations=20
       - name: Run process replay tests
         uses: ./.github/actions/process-replay
       - name: Run macOS-specific unit test
@@ -982,7 +982,7 @@ jobs:
       - name: Run unit tests
         if: matrix.backend=='llvm'
         # test_newton_schulz hits RecursionError
-        run: python -m pytest -n=auto test/unit/ --ignore=test/unit/test_disk_tensor.py --ignore=test/unit/test_tar.py --ignore=test/unit/test_linalg.py --durations=20
+        run: python -m pytest -n 4 test/unit/ --ignore=test/unit/test_disk_tensor.py --ignore=test/unit/test_tar.py --ignore=test/unit/test_linalg.py --durations=20
       - name: Run NULL backend tests
         if: matrix.backend=='llvm'
         shell: bash
@@ -991,7 +991,7 @@ jobs:
         shell: bash
         run: |
           python -c "from tinygrad import Device; assert Device.DEFAULT == {'LLVM':'CPU'}.get(x:='${{ matrix.backend }}'.upper(), x), Device.DEFAULT"
-          python -m pytest -n=auto test/test_tiny.py test/backend/test_ops.py --durations=20
+          python -m pytest -n 4 test/test_tiny.py test/backend/test_ops.py --durations=20
 
 # ****** Compile-only Tests ******
 
@@ -1021,7 +1021,7 @@ jobs:
         run: |
           python -c "from tinygrad import Device; assert Device.DEFAULT == 'NULL'"
           DEBUG=4 python3 test/backend/test_ops.py TestOps.test_add
-          python -m pytest -n=auto test/backend/test_ops.py --durations=20
+          python -m pytest -n 4 test/backend/test_ops.py --durations=20
   qcomclcompiletests:
     name: Compile-only (QCOM CL)
     runs-on: ubuntu-24.04-arm
@@ -1044,4 +1044,4 @@ jobs:
         run: |
           python -c "from tinygrad import Device; assert Device.DEFAULT == 'NULL'"
           DEBUG=4 python3 test/backend/test_ops.py TestOps.test_add
-          python -m pytest -n=auto test/backend/test_ops.py --durations=20
+          python -m pytest -n 4 test/backend/test_ops.py --durations=20
