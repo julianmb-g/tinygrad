@@ -13,21 +13,31 @@ os.environ["DISABLE_COMPILER_CACHE"] = "1"
 active_pids = set()
 
 def teardown_worker_group():
-    for pid in list(active_pids):
-        try:
-            os.kill(pid, signal.SIGKILL)
-        except OSError:
-            pass
+    try:
+        for pid in list(active_pids):
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except OSError:
+                pass
+    except (AttributeError, KeyError):
+        pass
 
 def pytest_configure(config):
     if getattr(config, "workerinput", None) is not None:
         os.setpgrp()
         atexit.register(teardown_worker_group)
 
+        import pytest
         import subprocess
+        m = pytest.MonkeyPatch()
         original_popen = subprocess.Popen
         class TrackedPopen(original_popen):
             def __init__(self, *args, **kwargs):
                 super().__init__(*args, **kwargs)
                 active_pids.add(self.pid)
-        subprocess.Popen = TrackedPopen
+        m.setattr(subprocess, "Popen", TrackedPopen)
+        config.worker_monkeypatch = m
+
+def pytest_unconfigure(config):
+    if hasattr(config, "worker_monkeypatch"):
+        config.worker_monkeypatch.undo()

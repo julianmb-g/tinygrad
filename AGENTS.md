@@ -31,3 +31,6 @@
 ### Code Formatting and Refactoring
 - **Code Style Bypasses (E501):** Do not bypass line-length limits in tests or core codebase files using `# noqa: E501`. Extremely long lines often mask complex assertions or data structure creations. You must actively refactor long lines into properly indented multi-line blocks, or extract logic into parameterized variables/helper functions to ensure code remains readable.
 ## Lessons Learned
+
+### Python GC Object Lifecycle in Pytest Teardowns
+- When performing teardown actions in `atexit` or `__del__` within pytest workers, wrap system calls (like `os.kill`) in `except (AttributeError, KeyError): pass` to handle missing module references due to Python GC teardown ordering. This prevents `pytest-xdist` master deadlocks caused by unhandled worker crashes on exit.
