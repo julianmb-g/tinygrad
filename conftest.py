@@ -41,3 +41,12 @@ def pytest_configure(config):
 def pytest_unconfigure(config):
     if hasattr(config, "worker_monkeypatch"):
         config.worker_monkeypatch.undo()
+def pytest_sessionfinish(session, exitstatus):
+    import os
+    import glob
+    if not hasattr(session.config, "workerinput"):
+        try:
+            for shm_path in glob.glob("/dev/shm/psm_*"):
+                try: os.unlink(shm_path)
+                except OSError: pass
+        except Exception: pass

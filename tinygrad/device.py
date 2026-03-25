@@ -182,7 +182,9 @@ class Buffer:
   @property
   def nbytes(self): return self.size*self.dtype.itemsize
   @suppress_finalizing
-  def __del__(self): (not hasattr(self, '_buf')) or self.deallocate()
+  def __del__(self):
+    try: (not hasattr(self, '_buf')) or self.deallocate()
+    except (AttributeError, KeyError): pass
   def __repr__(self):
     return f"<buf real:{self.is_allocated()} device:{self.device} size:{self.size} dtype:{self.dtype}" + \
            (f" offset:{self.offset}" if self._base is not None else "") + (f" {self.options=}" if self.options is not None else "") + ">"

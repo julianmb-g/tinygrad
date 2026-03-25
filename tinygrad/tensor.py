@@ -202,7 +202,9 @@ class Tensor(OpMixin):
     all_tensors[weakref.ref(self)] = None
 
   @suppress_finalizing
-  def __del__(self): all_tensors.pop(weakref.ref(self), None)
+  def __del__(self):
+    try: all_tensors.pop(weakref.ref(self), None)
+    except (AttributeError, KeyError): pass
 
   def _apply_uop(self, fxn:Callable[..., UOp], *x:Tensor, extra_args=(), **kwargs) -> Tensor:
     srcs = (self,)+x

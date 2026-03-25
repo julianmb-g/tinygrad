@@ -66,14 +66,23 @@ class CoralNPUAllocator(Allocator):
     super().__init__(device)
 
   def __del__(self):
-    for mem in self.mem.values():
-        mem.release()
-    for shm in self.shms.values():
-        view = memoryview(shm.buf)
-        view.release()
-        shm.close()
-        try: shm.unlink()
-        except FileNotFoundError: pass
+    try:
+      for mem in getattr(self, 'mem', {}).values():
+          mem.release()
+      for shm in getattr(self, 'shms', {}).values():
+          try:
+            view = memoryview(shm.buf)
+            view.release()
+          except Exception: pass
+          try:
+            shm.close()
+            import os
+            try: os.unlink(f"/dev/shm/{shm.name}")
+            except OSError: pass
+            try: shm.unlink()
+            except FileNotFoundError: pass
+          except Exception: pass
+    except (AttributeError, KeyError): pass
 
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:
