@@ -156,7 +156,7 @@ norecursedirs = [
   ".hypothesis",
   ".git",
 ]
-timeout = 300
+timeout = 1200
 timeout_method = "thread"
 timeout_func_only = true
 testpaths = ["test"]

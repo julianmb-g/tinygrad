@@ -631,11 +631,14 @@ def init_c_process_group():
 
 _ipc_active_pids = set()
 def _kill_ipc_orphans():
-  for pid in list(_ipc_active_pids):
-    try:
-      os.kill(pid, signal.SIGKILL)
-    except Exception:
-      pass
+  try:
+    for pid in list(_ipc_active_pids):
+      try:
+        os.kill(pid, signal.SIGKILL)
+      except Exception:
+        pass
+  except (AttributeError, KeyError, TypeError):
+    pass
 atexit.register(_kill_ipc_orphans)
 
 class IpcWorkerPool:

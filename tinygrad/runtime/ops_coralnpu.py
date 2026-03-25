@@ -16,11 +16,14 @@ kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks 
 
 active_pids = set()
 def _kill_orphans():
-  for pid in list(active_pids):
-    try:
-      os.kill(pid, signal.SIGKILL)
-    except Exception:
-      pass
+  try:
+    for pid in list(active_pids):
+      try:
+        os.kill(pid, signal.SIGKILL)
+      except Exception:
+        pass
+  except (AttributeError, KeyError, TypeError):
+    pass
 atexit.register(_kill_orphans)
 
 
