@@ -34,3 +34,6 @@
 
 ### Python GC Object Lifecycle in Pytest Teardowns
 - When performing teardown actions in `atexit` or `__del__` within pytest workers, wrap system calls (like `os.kill`) in `except (AttributeError, KeyError): pass` to handle missing module references due to Python GC teardown ordering. This prevents `pytest-xdist` master deadlocks caused by unhandled worker crashes on exit.
+
+### Pytest-Xdist IPC Deadlocks and Monkeypatching
+- When resolving `pytest-xdist` master deadlocks (`OSError: cannot send (already closed?)`), ensure that any global monkeypatching (e.g. `subprocess.Popen`) is safely applied using `pytest.MonkeyPatch()` and scoped strictly inside `pytest_configure` using `if getattr(config, "workerinput", None) is not None:`. Additionally, handle Python GC teardown object lifecycle issues gracefully by wrapping `atexit` loops in `except (AttributeError, KeyError): pass` to prevent teardown crashes that mimic deadlocks.
