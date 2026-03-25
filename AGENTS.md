@@ -50,3 +50,6 @@
 
 ### Python ExceptionGroup Trapping
 - **ExceptionGroup Trapping for Hardware Boundaries**: When a test evaluates hardware interface instantiation (like `Device["NV"]`), it must gracefully handle missing interfaces. In Python 3.11, the pipeline throws an `ExceptionGroup` when multiple interface probes fail (e.g., PCI and NVIDIACTL missing). Tests must explicitly catch `ExceptionGroup` to natively raise `unittest.SkipTest("hardware unsupported")` rather than masking failures with broad `except Exception:` blocks or completely crashing.
+
+### API Contract Preservation
+- **Legacy Keyword Arguments (`UOp.cast`)**: When refactoring or cleaning up core APIs like `UOp.cast` or `UOp.bitcast`, ensure legacy keyword arguments (like `allow_buffer_view` or `bitcast`) are strictly preserved via `**kwargs` or safe fallbacks to prevent cascading API contract breakages for downstream users and tests.
