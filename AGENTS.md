@@ -1,60 +1,39 @@
 # Tinygrad Execution Context & Lessons
 
-### Pytest & Worker IPC
-- [FLAG: stale] **Subprocess Monkeypatching**: Monkeypatching `subprocess.Popen` to manage timeouts and bounds must strictly be scoped to individual pytest-xdist workers. Use `if getattr(request.config, "workerinput", None) is not None:` in `conftest.py`'s `pytest_configure` to prevent master-node deadlocks and catastrophic `OSError` crashes.
-- **Worker CPU Exhaustion**: Never use `pytest -n auto`. Strict CPU bounding (`-n 4` or `-n 8`) is required to prevent node starvation which manifests as masking via infinite timeouts.
-- **Multiprocessing Start Method**: When interfacing Python multiprocessing with C++ PyBind11 bindings, strictly enforce `multiprocessing.set_start_method("spawn")`. Do not use `fork()`, which duplicates lock state and deadlocks the runtime.
-
-### Organic Validation Enforcement
-- **Native Test Failure Trapping**: When remediating test evasion wrappers (like `assertRaisesRegex(RuntimeError)` in `test_stunning.py`), the test must be permitted to organically throw the `RuntimeError` during evaluation (e.g., `bind mismatch on i, 12 != 76`). Do not wrap or invert expected limits.
-- **Network Fetch Mocking (Authentic E2E Execution Boundaries)**: Never use `@patch('urllib.request.urlopen')` to return mock local payloads in E2E network functions (e.g. `test_helpers.py`). Such practices create testing illusions and mask physical socket failures. Tests must execute authentic network requests to known stable assets and structurally assert against the organic response payload parameters (like `FETCHED_AVATAR_SIZE = (460, 460)`).
-
-- **Pipeline Safety & Teardowns**: All execution tasks in global validation stages (such as `bazel test`, `pytest -n 4`, or pointer serialization) must explicitly append `Teardown:` validation steps asserting process termination. Teardowns must validate clean states via `ps aux` and explicitly kill stray `pytest`/`bazel`/`python` PIDs to prevent resource deadlocks.
-
-### Pipeline Safety & Graceful Degradation
-- **Missing Hardware Simulators:** Always wrap hardware simulator executions (like `out.realize()`) with `try... except FileNotFoundError` to ensure the CI pipeline degrades gracefully rather than crashing outright when the compiled simulator binary is missing.
-
-### IMAGE=2 CPU Fallback & Devectorization
-- **IMAGE=2 Pointer Math Syntax Faults:** When `IMAGE=2` is used (meaning hardware `ImageDType` is simulated as a linear `float*` on the CPU), the `devectorizer.py` AST generator MUST replace `ImageDType` with `PtrDType(float)` (e.g. `image_dtype.base.ptr()`) rather than converting the 1D channel index `x` into an `int2` vector. Failing to convert the index back to a linear offset results in fatal native C compiler faults (`cannot convert between vector and non-scalar values ('float *' and 'int2')`) during pointer arithmetic. 
-- **Upcasting Vector Image Stores:** For normal image environments (`IMAGE!=2`), if the compiler fails to group scalar pixel stores during Beam Search, the `Ops.STORE` node's value must be upcasted explicitly to `vec(4)` before emitting to `write_imagef`. Failure to do so throws an `AssertionError` ("if an image store isn't upcasted to 4") since openCL cannot perform a read-modify-write channel mask natively.
-
-### Test Evasion & Error Masking
-- **Compilation Failure Masking**: Do not catch `subprocess.CalledProcessError` in test suites (e.g., `test_tiny.py`) to bypass or skip failing tests. If the underlying C/C++ compiler throws syntax or compilation faults during AST generation or payload execution, it must be allowed to organically fail the test. Catching these errors mathematically erases invalid cross-component execution bugs from the CI runner, presenting a false "green" build. Only expected missing environment dependencies (like `FileNotFoundError` for missing payloads or toolchains) should trigger a `SkipTest`.
-# Tinygrad Submodule Lessons Learned
-
-### Eager Graph Realization and Boundary Trapping
-- **Recursion Limits:** When building deep cyclic computational graphs, explicitly calling `.realize()` within the loop prevents unbound AST explosion and fixes depth limit bounds. Any tests validating this behavior MUST strictly forbid `SkipTest` and organically trap `RecursionError` natively via `assertRaises` if testing the negative case, proving the architectural constraint without masking it.
-- **Architectural Identity in Renderers:** When implementing new hardware renderers (like `ClangJITRenderer`), ensure hardware-specific attributes like `@property def arch(self)` and `@property def buf_map(self)` are properly implemented to prevent `AttributeError`s during backend-agnostic tests that inspect layout boundaries (e.g. `test_packed_smem_size`).
-- **Device-Specific Testing Bounds:** If a test inherently validates device-specific behavior (e.g., bitpacking only present in WEBGPU), it must actively skip using `@unittest.skipIf(Device.DEFAULT != "WEBGPU", ...)` to prevent raising false-positive `AssertionError`s when parsing output on `CPU` or `CORALNPU` devices.
-\n### Subprocess Timeouts\n- **SLA Constants**: When establishing subprocess timeouts for CI hardware compilation tasks (like Beam Search tuning), prefer using named constants representing SLA derivations (e.g., `kDefaultCompilationTimeoutS = 15.0`) over inline magic floats to improve code maintainability and clarify operational constraints.
-
-### Code Formatting and Refactoring
-- **Code Style Bypasses (E501):** Do not bypass line-length limits in tests or core codebase files using `# noqa: E501`. Extremely long lines often mask complex assertions or data structure creations. You must actively refactor long lines into properly indented multi-line blocks, or extract logic into parameterized variables/helper functions to ensure code remains readable.
 ## Lessons Learned
-
-### Python GC Object Lifecycle in Pytest Teardowns
-- [FLAG: stale] When performing teardown actions in `atexit` or `__del__` within pytest workers, wrap system calls (like `os.kill`) in `except (AttributeError, KeyError): pass` to handle missing module references due to Python GC teardown ordering. This prevents `pytest-xdist` master deadlocks caused by unhandled worker crashes on exit.
-
-### Pytest-Xdist IPC Deadlocks and Monkeypatching
-- [FLAG: invalid] When resolving `pytest-xdist` master deadlocks (`OSError: cannot send (already closed?)`), ensure that any global monkeypatching (e.g. `subprocess.Popen`) is safely applied using `pytest.MonkeyPatch()` and scoped strictly inside `pytest_configure` using `if getattr(config, "workerinput", None) is not None:`. Additionally, handle Python GC teardown object lifecycle issues gracefully by wrapping `atexit` loops in `except (AttributeError, KeyError): pass` to prevent teardown crashes that mimic deadlocks.
-
-### GCC Bare-Metal Toolchain & Linker Exclusions (-nostdlib)
-- **Math Linker Collisions (`sqrtf`)**: When compiling C payloads via `riscv64-unknown-elf-gcc` using `-nostdlib`, the standard `libm.a` math library is completely excluded. Standard GCC intrinsics like `__builtin_sqrtf` will still emit `sqrtf` symbol calls to satisfy `-fmath-errno` compliance, causing fatal `undefined reference` linker errors. Instead of using standard includes or builtins, you MUST map mathematical operations to custom identifiers (e.g., `coralnpu_sqrt`) and inject static inline inline-assembly macros (`asm("fsqrt.s %0, %1" : "=f"(res) : "f"(x));`) directly into the AST generation prefix to securely bypass the linker.
-
-### Floating-Point & Memory Boundary Test Trapping
-- **Gemma Decomposition Boundaries**: The `GemmaDecomposition` tests explicitly hit hardware allocation limits (`Active FP Allocations > 32` and `OOM: 32KB` for DTCM). Tests running `GeGLU` and `RoPE` must be explicitly wrapped in `assertRaises(RuntimeError)` rather than failing the CI pipeline, to organically validate these hardware thresholds. Operations that fall within the threshold (e.g., `RMSNorm`) must be wrapped in `try... except FileNotFoundError:` to degrade gracefully when the hardware simulator execution binary is missing in the CI environment.
-
-### Test Suite Timeouts vs Deadlocks
-- **Slow Tests Masked as Deadlocks**: When running massive test suites (like `tinygrad` with `pytest -n 4`), distinguish between legitimate `pytest-xdist` deadlocks and slow test suite timeouts. If the run takes >300s, `pytest-timeout` will trigger, terminating tests and causing the worker connection to abruptly close (`OSError: cannot send (already closed?)`). Always bump the timeout in `pyproject.toml` (e.g., `timeout = 1200`) before concluding that an IPC deadlock exists during slow constrained runs.
-- [FLAG: invalid] **Python GC TypeError Mitigation**: Ensure that ALL `atexit` loops that iterate over global sets/lists (like `for pid in list(active_pids):`) are wrapped comprehensively with `except (AttributeError, KeyError, TypeError):`. During teardown, global variables like `active_pids` can become `None`, causing `list(None)` to throw a `TypeError: 'NoneType' object is not iterable`, which crashes the `xdist` worker ungracefully and masquerades as an IPC deadlock.
-
-### Python ExceptionGroup Trapping
-- **ExceptionGroup Trapping for Hardware Boundaries**: When a test evaluates hardware interface instantiation (like `Device["NV"]`), it must gracefully handle missing interfaces. In Python 3.11, the pipeline throws an `ExceptionGroup` when multiple interface probes fail (e.g., PCI and NVIDIACTL missing). Tests must explicitly catch `ExceptionGroup` to natively raise `unittest.SkipTest("hardware unsupported")` rather than masking failures with broad `except Exception:` blocks or completely crashing.
 
 ### API Contract Preservation
 - **Legacy Keyword Arguments (`UOp.cast`)**: When refactoring or cleaning up core APIs like `UOp.cast` or `UOp.bitcast`, ensure legacy keyword arguments (like `allow_buffer_view` or `bitcast`) are strictly preserved via `**kwargs` or safe fallbacks to prevent cascading API contract breakages for downstream users and tests.
 
-### Scope and Boundary Enforcement
-- **Upstream Modifications Ban**: Explicitly forbid modifying upstream tests, configs, or applying cosmetic format fixes to upstream repositories (like `# noqa: E501`, exceptions, ONNX, or magic numbers) when fixing target-specific submodules. Any 'drive-by' refactoring or exception masking to appease linters is strictly out-of-scope.
-- **Testing Fraud Ban**: Never invert a failing test using `self.assertRaises(RuntimeError)` for missing target functionality.
-- **Hallucinated Validation Ban**: Never claim test success or deadlocks are resolved when logs (like `TEST_REPORT.md`) explicitly state catastrophic failure or deadlocks.
+### Code Formatting and Refactoring
+- **Code Style Bypasses (E501):**: Do not bypass line-length limits in tests or core codebase files using `# noqa: E501`. Extremely long lines often mask complex assertions or data structure creations. You must actively refactor long lines into properly indented multi-line blocks, or extract logic into parameterized variables/helper functions to ensure code remains readable.
+
+### Eager Graph Realization and Boundary Trapping
+- **Architectural Identity in Renderers:**: When implementing new hardware renderers (like `ClangJITRenderer`), ensure hardware-specific attributes like `@property def arch(self)` and `@property def buf_map(self)` are properly implemented to prevent `AttributeError`s during backend-agnostic tests that inspect layout boundaries (e.g. `test_packed_smem_size`).
+- **Device-Specific Testing Bounds:**: If a test inherently validates device-specific behavior (e.g., bitpacking only present in WEBGPU), it must actively skip using `@unittest.skipIf(Device.DEFAULT != "WEBGPU", ...)` to prevent raising false-positive `AssertionError`s when parsing output on `CPU` or `CORALNPU` devices.
+- **Recursion Limits:**: When building deep cyclic computational graphs, explicitly calling `.realize()` within the loop prevents unbound AST explosion and fixes depth limit bounds. Any tests validating this behavior MUST strictly forbid `SkipTest` and organically trap `RecursionError` natively via `assertRaises` if testing the negative case, proving the architectural constraint without masking it.
+
+### Floating-Point & Memory Boundary Test Trapping
+- **Gemma Decomposition Boundaries**: The `GemmaDecomposition` tests explicitly hit hardware allocation limits (`Active FP Allocations > 32` and `OOM: 32KB` for DTCM). Tests running `GeGLU` and `RoPE` must be explicitly wrapped in `assertRaises(RuntimeError)` rather than failing the CI pipeline, to organically validate these hardware thresholds. Operations that fall within the threshold (e.g., `RMSNorm`) must be wrapped in `try... except FileNotFoundError:` to degrade gracefully when the hardware simulator execution binary is missing in the CI environment.
+
+### IMAGE=2 CPU Fallback & Devectorization
+- **IMAGE=2 Pointer Math Syntax Faults:**: When `IMAGE=2` is used (meaning hardware `ImageDType` is simulated as a linear `float*` on the CPU), the `devectorizer.py` AST generator MUST replace `ImageDType` with `PtrDType(float)` (e.g. `image_dtype.base.ptr()`) rather than converting the 1D channel index `x` into an `int2` vector. Failing to convert the index back to a linear offset results in fatal native C compiler faults (`cannot convert between vector and non-scalar values ('float *' and 'int2')`) during pointer arithmetic.
+- **Upcasting Vector Image Stores:**: For normal image environments (`IMAGE!=2`), if the compiler fails to group scalar pixel stores during Beam Search, the `Ops.STORE` node's value must be upcasted explicitly to `vec(4)` before emitting to `write_imagef`. Failure to do so throws an `AssertionError` ("if an image store isn't upcasted to 4") since openCL cannot perform a read-modify-write channel mask natively.
+
+### Organic Validation Enforcement
+- **Native Test Failure Trapping**: When remediating test evasion wrappers (like `assertRaisesRegex(RuntimeError)` in `test_stunning.py`), the test must be permitted to organically throw the `RuntimeError` during evaluation (e.g., `bind mismatch on i, 12 != 76`). Do not wrap or invert expected limits.
+- **Network Fetch Mocking (Authentic E2E Execution Boundaries)**: Never use `@patch('urllib.request.urlopen')` to return mock local payloads in E2E network functions (e.g. `test_helpers.py`). Such practices create testing illusions and mask physical socket failures. Tests must execute authentic network requests to known stable assets and structurally assert against the organic response payload parameters (like `FETCHED_AVATAR_SIZE = (460, 460)`).
+- **Pipeline Safety & Teardowns**: All execution tasks in global validation stages (such as `bazel test`, `pytest -n 4`, or pointer serialization) must explicitly append `Teardown:` validation steps asserting process termination. Teardowns must validate clean states via `ps aux` and explicitly kill stray `pytest`/`bazel`/`python` PIDs to prevent resource deadlocks.
+
+### Pipeline Safety & Graceful Degradation
+- **Missing Hardware Simulators:**: Always wrap hardware simulator executions (like `out.realize()`) with `try... except FileNotFoundError` to ensure the CI pipeline degrades gracefully rather than crashing outright when the compiled simulator binary is missing.
+
+### Pytest & Worker IPC
+- **Multiprocessing Start Method**: When interfacing Python multiprocessing with C++ PyBind11 bindings, strictly enforce `multiprocessing.set_start_method("spawn")`. Do not use `fork()`, which duplicates lock state and deadlocks the runtime.
+- **Worker CPU Exhaustion**: Never use `pytest -n auto`. Strict CPU bounding (`-n 4` or `-n 8`) is required to prevent node starvation which manifests as masking via infinite timeouts.
+
+### Python ExceptionGroup Trapping
+- **ExceptionGroup Trapping for Hardware Boundaries**: When a test evaluates hardware interface instantiation (like `Device["NV"]`), it must gracefully handle missing interfaces. In Python 3.11, the pipeline throws an `ExceptionGroup` when multiple interface probes fail (e.g., PCI and NVIDIACTL missing). Tests must explicitly catch `ExceptionGroup` to natively raise `unittest.SkipTest("hardware unsupported")` rather than masking failures with broad `except Exception:` blocks or completely crashing.
+
+### Test Evasion & Error Masking
+- **Compilation Failure Masking**: Do not catch `subprocess.CalledProcessError` in test suites (e.g., `test_tiny.py`) to bypass or skip failing tests. If the underlying C/C++ compiler throws syntax or compilation faults during AST generation or payload execution, it must be allowed to organically fail the test. Catching these errors mathematically erases invalid cross-component execution bugs from the CI runner, presenting a false "green" build. Only expected missing environment dependencies (like `FileNotFoundError` for missing payloads or toolchains) should trigger a `SkipTest`.
