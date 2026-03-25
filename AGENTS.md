@@ -1,7 +1,7 @@
 # Tinygrad Execution Context & Lessons
 
 ### Pytest & Worker IPC
-- **Subprocess Monkeypatching**: Monkeypatching `subprocess.Popen` to manage timeouts and bounds must strictly be scoped to individual pytest-xdist workers. Use `if getattr(request.config, "workerinput", None) is not None:` in `conftest.py`'s `pytest_configure` to prevent master-node deadlocks and catastrophic `OSError` crashes.
+- [FLAG: stale] **Subprocess Monkeypatching**: Monkeypatching `subprocess.Popen` to manage timeouts and bounds must strictly be scoped to individual pytest-xdist workers. Use `if getattr(request.config, "workerinput", None) is not None:` in `conftest.py`'s `pytest_configure` to prevent master-node deadlocks and catastrophic `OSError` crashes.
 - **Worker CPU Exhaustion**: Never use `pytest -n auto`. Strict CPU bounding (`-n 4` or `-n 8`) is required to prevent node starvation which manifests as masking via infinite timeouts.
 - **Multiprocessing Start Method**: When interfacing Python multiprocessing with C++ PyBind11 bindings, strictly enforce `multiprocessing.set_start_method("spawn")`. Do not use `fork()`, which duplicates lock state and deadlocks the runtime.
 
@@ -33,10 +33,10 @@
 ## Lessons Learned
 
 ### Python GC Object Lifecycle in Pytest Teardowns
-- When performing teardown actions in `atexit` or `__del__` within pytest workers, wrap system calls (like `os.kill`) in `except (AttributeError, KeyError): pass` to handle missing module references due to Python GC teardown ordering. This prevents `pytest-xdist` master deadlocks caused by unhandled worker crashes on exit.
+- [FLAG: stale] When performing teardown actions in `atexit` or `__del__` within pytest workers, wrap system calls (like `os.kill`) in `except (AttributeError, KeyError): pass` to handle missing module references due to Python GC teardown ordering. This prevents `pytest-xdist` master deadlocks caused by unhandled worker crashes on exit.
 
 ### Pytest-Xdist IPC Deadlocks and Monkeypatching
-- When resolving `pytest-xdist` master deadlocks (`OSError: cannot send (already closed?)`), ensure that any global monkeypatching (e.g. `subprocess.Popen`) is safely applied using `pytest.MonkeyPatch()` and scoped strictly inside `pytest_configure` using `if getattr(config, "workerinput", None) is not None:`. Additionally, handle Python GC teardown object lifecycle issues gracefully by wrapping `atexit` loops in `except (AttributeError, KeyError): pass` to prevent teardown crashes that mimic deadlocks.
+- [FLAG: invalid] When resolving `pytest-xdist` master deadlocks (`OSError: cannot send (already closed?)`), ensure that any global monkeypatching (e.g. `subprocess.Popen`) is safely applied using `pytest.MonkeyPatch()` and scoped strictly inside `pytest_configure` using `if getattr(config, "workerinput", None) is not None:`. Additionally, handle Python GC teardown object lifecycle issues gracefully by wrapping `atexit` loops in `except (AttributeError, KeyError): pass` to prevent teardown crashes that mimic deadlocks.
 
 ### GCC Bare-Metal Toolchain & Linker Exclusions (-nostdlib)
 - **Math Linker Collisions (`sqrtf`)**: When compiling C payloads via `riscv64-unknown-elf-gcc` using `-nostdlib`, the standard `libm.a` math library is completely excluded. Standard GCC intrinsics like `__builtin_sqrtf` will still emit `sqrtf` symbol calls to satisfy `-fmath-errno` compliance, causing fatal `undefined reference` linker errors. Instead of using standard includes or builtins, you MUST map mathematical operations to custom identifiers (e.g., `coralnpu_sqrt`) and inject static inline inline-assembly macros (`asm("fsqrt.s %0, %1" : "=f"(res) : "f"(x));`) directly into the AST generation prefix to securely bypass the linker.
@@ -46,7 +46,7 @@
 
 ### Test Suite Timeouts vs Deadlocks
 - **Slow Tests Masked as Deadlocks**: When running massive test suites (like `tinygrad` with `pytest -n 4`), distinguish between legitimate `pytest-xdist` deadlocks and slow test suite timeouts. If the run takes >300s, `pytest-timeout` will trigger, terminating tests and causing the worker connection to abruptly close (`OSError: cannot send (already closed?)`). Always bump the timeout in `pyproject.toml` (e.g., `timeout = 1200`) before concluding that an IPC deadlock exists during slow constrained runs.
-- **Python GC TypeError Mitigation**: Ensure that ALL `atexit` loops that iterate over global sets/lists (like `for pid in list(active_pids):`) are wrapped comprehensively with `except (AttributeError, KeyError, TypeError):`. During teardown, global variables like `active_pids` can become `None`, causing `list(None)` to throw a `TypeError: 'NoneType' object is not iterable`, which crashes the `xdist` worker ungracefully and masquerades as an IPC deadlock.
+- [FLAG: invalid] **Python GC TypeError Mitigation**: Ensure that ALL `atexit` loops that iterate over global sets/lists (like `for pid in list(active_pids):`) are wrapped comprehensively with `except (AttributeError, KeyError, TypeError):`. During teardown, global variables like `active_pids` can become `None`, causing `list(None)` to throw a `TypeError: 'NoneType' object is not iterable`, which crashes the `xdist` worker ungracefully and masquerades as an IPC deadlock.
 
 ### Python ExceptionGroup Trapping
 - **ExceptionGroup Trapping for Hardware Boundaries**: When a test evaluates hardware interface instantiation (like `Device["NV"]`), it must gracefully handle missing interfaces. In Python 3.11, the pipeline throws an `ExceptionGroup` when multiple interface probes fail (e.g., PCI and NVIDIACTL missing). Tests must explicitly catch `ExceptionGroup` to natively raise `unittest.SkipTest("hardware unsupported")` rather than masking failures with broad `except Exception:` blocks or completely crashing.
