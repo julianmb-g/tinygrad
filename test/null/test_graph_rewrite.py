@@ -62,32 +62,32 @@ class TestFoldingAndReduction(unittest.TestCase):
     const1 = UOp.const(dtypes.int32, 5)
     const2 = UOp.const(dtypes.int32, 10)
     const3 = UOp.const(dtypes.int32, 20)
-    optimized_sink = apply_rewrite((const1 + const2 + const3).reduce(Ops.ADD))
+    optimized_sink = apply_rewrite((const1 + const2 + const3).reduce(arg=Ops.ADD))
     expected_sum = 5 + 10 + 20
     self.assertEqual(optimized_sink.arg, expected_sum)
   def test_full_graph_rewrite_reduction_with_unused_range(self):
     const1 = UOp.const(dtypes.int32, 15)
     const2 = UOp.const(dtypes.int32, 25)
-    rng = UOp.range(10, idx=0)
-    optimized_sink = apply_rewrite((const1 + const2).reduce(Ops.ADD, rng))
+    rng = UOp.range(10, 0)
+    optimized_sink = apply_rewrite((const1 + const2).reduce(rng, arg=Ops.ADD))
     expected_sum = 10 * (15 + 25)
     self.assertEqual(optimized_sink.arg, expected_sum)
   def test_full_graph_rewrite_range_reduction(self):
-    simple_range = UOp.range(5, idx=0)
-    optimized_sink = apply_rewrite(simple_range.reduce(Ops.ADD, simple_range))
+    simple_range = UOp.range(5, 0)
+    optimized_sink = apply_rewrite(simple_range.reduce(simple_range, arg=Ops.ADD))
     expected_sum = sum(range(5))
     self.assertEqual(optimized_sink.arg, expected_sum)
   def test_full_graph_rewrite_simple_reduction_folding(self):
-    simple_range = UOp.range(4, idx=0)
+    simple_range = UOp.range(4, 0)
     add_uop = simple_range + UOp.const(dtypes.int32, 1)
-    optimized_sink = apply_rewrite(add_uop.reduce(Ops.ADD, simple_range))
+    optimized_sink = apply_rewrite(add_uop.reduce(simple_range, arg=Ops.ADD))
     expected_sum = sum(i + 1 for i in range(4))
     self.assertEqual(optimized_sink.arg, expected_sum)
   def test_full_graph_rewrite_nested_loop_collapse(self):
     outer_range = UOp.range(8, 0)
     inner_range = UOp.range(4, 1)
     expr = (outer_range * 10) + inner_range
-    optimized_reduce_uop = apply_rewrite(expr.reduce(Ops.ADD, outer_range, inner_range))
+    optimized_reduce_uop = apply_rewrite(expr.reduce(outer_range, inner_range, arg=Ops.ADD))
     self.assertEqual(optimized_reduce_uop.op, Ops.CONST)
     self.assertEqual(optimized_reduce_uop.arg, sum((i * 10) + j for i in range(8) for j in range(4)))
 class TestModuloAndDivisionFolding(unittest.TestCase):
