@@ -40,3 +40,6 @@
 
 ### Pytest-xdist & IPC Deadlocks
 - **Master Deadlock Pipeline Crash**: The `pytest-xdist` IPC worker teardown crashes (`OSError: cannot send`) are fatal parallel worker synchronization failures. Ensure proper Python GC object lifecycle logic (`except (AttributeError, KeyError): pass`) is used to isolate and resolve teardown deadlocks, preventing the entire test suite from failing. Furthermore, when dealing with `multiprocessing.shared_memory.SharedMemory` segments, properly catch `OSError` and `FileNotFoundError` during unlinking or releasing the `memoryview(shm.buf)` during teardown hooks or object `__del__` methods.
+
+### Pytest-xdist IPC Teardown Deadlocks
+To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensure explicit shared memory release (`memoryview(shm.buf).release()`) and gracefully trap Python GC exceptions (`AttributeError`, `KeyError`) within `__del__` teardown lifecycle methods.
