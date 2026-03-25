@@ -51,7 +51,10 @@ def helper_test(nm, gen, model, max_memory_allowed, max_kernels_allowed, expecte
       if val.size > 10:
         val = np.array([val.mean(), val.max(), val.min()])
       try:
-        expected_arr = np.array(expected_out, dtype=np.float32) if not isinstance(expected_out, list) and np.isscalar(expected_out) else np.array(expected_out)  # noqa: E501
+        if not isinstance(expected_out, list) and np.isscalar(expected_out):
+          expected_arr = np.array(expected_out, dtype=np.float32)
+        else:
+          expected_arr = np.array(expected_out)
         assert val.shape == expected_arr.shape, f"Shape mismatch: val shape {val.shape} != expected_out shape {expected_arr.shape}"
         np.testing.assert_allclose(val, expected_arr, atol=1e-4, rtol=1e-4)
         print(f"{nm} output OK!")
@@ -69,7 +72,10 @@ def helper_test(nm, gen, model, max_memory_allowed, max_kernels_allowed, expecte
       assert kernels_used <= max_kernels_allowed, f"{nm} used more than {max_kernels_allowed} kernels, it used {kernels_used}"
       assert (max_kernels_allowed - kernels_used) / max_kernels_allowed < 0.2, f"{max_kernels_allowed=} is too far from {kernels_used=} used"
     if all_jitted:
-      assert kernels_used is not None and (kernels_used > 0 and kernels_used == GlobalCounters.kernel_count or (kernels_used <= GlobalCounters.kernel_count and getattr(Device[Device.DEFAULT], "graph", None))), f"only {kernels_used} out of {GlobalCounters.kernel_count} were jitted"  # noqa: E501
+      assert kernels_used is not None, "kernels_used must not be None"
+      is_match = kernels_used > 0 and kernels_used == GlobalCounters.kernel_count
+      is_graph = kernels_used <= GlobalCounters.kernel_count and getattr(Device[Device.DEFAULT], "graph", None)
+      assert is_match or is_graph, f"only {kernels_used} out of {GlobalCounters.kernel_count} were jitted"
 
 class TestRealWorld(unittest.TestCase):
   def setUp(self):
@@ -93,7 +99,11 @@ class TestRealWorld(unittest.TestCase):
     derandomize_model(model)
     @TinyJit
     def test(t, t2): return model(t, Tensor([801]), t2).realize()
-    helper_test("test_sd", lambda: (((Tensor.arange(1*4*32*32)%10)*0.1).reshape(1, 4, 32, 32).cast(dtypes.float32), ((Tensor.arange(1*77*params["ctx_dim"])%10)*0.1).reshape(1, 77, params["ctx_dim"]).cast(dtypes.float32)), test, 0.0105, 460, expected_out=[0.07505496, 0.18881409, -0.05983206])  # noqa: E501
+    def get_sd_inputs():
+      img = ((Tensor.arange(1*4*32*32)%10)*0.1).reshape(1, 4, 32, 32).cast(dtypes.float32)
+      ctx = ((Tensor.arange(1*77*params["ctx_dim"])%10)*0.1).reshape(1, 77, params["ctx_dim"]).cast(dtypes.float32)
+      return img, ctx
+    helper_test("test_sd", get_sd_inputs, test, 0.0105, 460, expected_out=[0.07505496, 0.18881409, -0.05983206])
   def test_unet_resblock(self):
     model = [ResBlock(16, 24, 16) for _ in range(4)]
     derandomize_model(model)
@@ -101,7 +111,11 @@ class TestRealWorld(unittest.TestCase):
     def test(t, t2):
       for l in model: t = l(t, t2)
       return t.realize()
-    helper_test("test_unet_resblock", lambda: (((Tensor.arange(4*16*8*8)%10)*0.1).reshape(4, 16, 8, 8).cast(dtypes.float32), ((Tensor.arange(1*24)%10)*0.1).reshape(1, 24).cast(dtypes.float32)), test, 0.0002, 37, expected_out=[1.1154178, 2.4336586, -0.01451139])  # noqa: E501
+    def get_unet_inputs():
+      img = ((Tensor.arange(4*16*8*8)%10)*0.1).reshape(4, 16, 8, 8).cast(dtypes.float32)
+      ctx = ((Tensor.arange(1*24)%10)*0.1).reshape(1, 24).cast(dtypes.float32)
+      return img, ctx
+    helper_test("test_unet_resblock", get_unet_inputs, test, 0.0002, 37, expected_out=[1.1154178, 2.4336586, -0.01451139])
 
   def test_llama(self):
     dtypes.default_float = dtypes.float16
@@ -141,7 +155,9 @@ class TestRealWorld(unittest.TestCase):
         optimizer.step()
         return loss.realize()
 
-      helper_test("train_mnist", lambda: (((Tensor.arange(BS*1*28*28)%10)*0.1).reshape(BS, 1, 28, 28).cast(dtypes.float32),), train, 0.0105, 116, expected_out=1.8422501)  # noqa: E501
+      def get_mnist_inputs():
+        return (((Tensor.arange(BS*1*28*28)%10)*0.1).reshape(BS, 1, 28, 28).cast(dtypes.float32),)
+      helper_test("train_mnist", get_mnist_inputs, train, 0.0105, 116, expected_out=1.8422501)
 
   @slow
   def test_forward_cifar(self):
@@ -152,7 +168,9 @@ class TestRealWorld(unittest.TestCase):
       derandomize_model(model)
       @TinyJit
       def run(X): return model(X).realize()
-      helper_test("forward_cifar", lambda: (((Tensor.arange(BS*3*32*32)%10)*0.1).reshape(BS, 3, 32, 32).cast(dtypes.float32),), run, 0.0325, 30, expected_out=[0.3623826, 0.51155293, 0.2839802])  # noqa: E501
+      def get_cifar_inputs():
+        return (((Tensor.arange(BS*3*32*32)%10)*0.1).reshape(BS, 3, 32, 32).cast(dtypes.float32),)
+      helper_test("forward_cifar", get_cifar_inputs, run, 0.0325, 30, expected_out=[0.3623826, 0.51155293, 0.2839802])
 
   @slow
   def test_train_cifar(self):
@@ -171,7 +189,9 @@ class TestRealWorld(unittest.TestCase):
         optimizer.step()
         return loss.realize()
 
-      helper_test("train_cifar", lambda: (((Tensor.arange(BS*3*32*32)%10)*0.1).reshape(BS, 3, 32, 32).cast(dtypes.float32),), train, 0.110, 159, expected_out=0.35809016)  # noqa: E501
+      def get_train_cifar_inputs():
+        return (((Tensor.arange(BS*3*32*32)%10)*0.1).reshape(BS, 3, 32, 32).cast(dtypes.float32),)
+      helper_test("train_cifar", get_train_cifar_inputs, train, 0.110, 159, expected_out=0.35809016)
 
   def test_train_cifar_hyp(self):
     dtypes.default_float = dtypes.float16

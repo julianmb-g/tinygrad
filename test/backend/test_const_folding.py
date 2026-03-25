@@ -82,7 +82,9 @@ class TestReduceOpsConstFolding(unittest.TestCase):
   def test_zero_size_ops_realized(self):
     for reduceop in [lambda x:x.prod(), lambda x:x.sum()]:
       _check_ast_count(0, reduceop((Tensor.randn(0, 1)+1).realize()))
-      np.testing.assert_equal(reduceop((((Tensor.arange(math.prod(shape:=(0, 1))) % 10) * 0.1).reshape(shape)+1).realize()).numpy(), reduceop(np.empty(shape)))  # noqa: E501
+      shape = (0, 1)
+      val = (((Tensor.arange(math.prod(shape)) % 10) * 0.1).reshape(shape)+1).realize()
+      np.testing.assert_equal(reduceop(val).numpy(), reduceop(np.empty(shape)))
 
   def test_zero_size_realize_folded(self):
     # non contiguous folded output doesn't realize
