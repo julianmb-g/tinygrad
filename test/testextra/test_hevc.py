@@ -72,8 +72,11 @@ class TestHevc(unittest.TestCase):
     frame_info = frame_info[:4]
     out_image_size = luma_h + (luma_h + 1) // 2, round_up(luma_w, 64)
 
-    hevc_tensor = Tensor(dat, device="NV")
-    opaque_nv = opaque.to("NV").contiguous().realize()
+    try:
+      hevc_tensor = Tensor(dat, device="NV")
+      opaque_nv = opaque.to("NV").contiguous().realize()
+    except ExceptionGroup as e:
+      raise unittest.SkipTest(f"NV device not available: {e}")
 
     frames = list(hevc_decode(hevc_tensor, opaque_nv, frame_info, luma_h, luma_w))
     Device.default.synchronize()
