@@ -43,3 +43,9 @@
 
 ### Pytest-xdist IPC Teardown Deadlocks
 To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensure explicit shared memory release (`memoryview(shm.buf).release()`) and gracefully trap Python GC exceptions (`AttributeError`, `KeyError`) within `__del__` teardown lifecycle methods.
+# Tinygrad Development Lessons
+
+### pytest-xdist IPC Teardown Deadlocks
+- When running `pytest -n auto` or `-n 4`, the pipeline can fatally crash with an `OSError: cannot send (already closed?)` if worker nodes die during teardown.
+- **Root Cause**: `multiprocessing.shared_memory.SharedMemory` closures in `tinygrad/runtime/ops_coralnpu.py` (`__del__` methods) or `conftest.py` teardown hooks that utilize blanket `except Exception: pass`.
+- **Resolution**: You must replace blanket exception swallowing with explicit traps for `(AttributeError, KeyError, OSError, FileNotFoundError)` to allow the Python Garbage Collector to tear down the shared memory without killing the worker process abruptly.
