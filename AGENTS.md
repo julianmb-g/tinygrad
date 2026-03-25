@@ -53,3 +53,8 @@
 
 ### API Contract Preservation
 - **Legacy Keyword Arguments (`UOp.cast`)**: When refactoring or cleaning up core APIs like `UOp.cast` or `UOp.bitcast`, ensure legacy keyword arguments (like `allow_buffer_view` or `bitcast`) are strictly preserved via `**kwargs` or safe fallbacks to prevent cascading API contract breakages for downstream users and tests.
+
+### Scope and Boundary Enforcement
+- **Upstream Modifications Ban**: Explicitly forbid modifying upstream tests, configs, or applying cosmetic format fixes to upstream repositories (like `# noqa: E501`, exceptions, ONNX, or magic numbers) when fixing target-specific submodules. Any 'drive-by' refactoring or exception masking to appease linters is strictly out-of-scope.
+- **Testing Fraud Ban**: Never invert a failing test using `self.assertRaises(RuntimeError)` for missing target functionality.
+- **Hallucinated Validation Ban**: Never claim test success or deadlocks are resolved when logs (like `TEST_REPORT.md`) explicitly state catastrophic failure or deadlocks.
