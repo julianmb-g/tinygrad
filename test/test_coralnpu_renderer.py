@@ -60,11 +60,11 @@ class TestCoralNPURenderer(unittest.TestCase):
     idx = UOp(Ops.CONST, dtypes.int, (), 0)
 
     vec_srcs = []
-    for i in range(33):
+    for i in range(29):
       ld = UOp(Ops.LOAD, dtypes.float, (buf0, UOp(Ops.CONST, dtypes.int, (), i)), None)
       vec_srcs.append(ld)
 
-    vec = UOp(Ops.VECTORIZE, dtypes.float.vec(33), tuple(vec_srcs), None)
+    vec = UOp(Ops.VECTORIZE, dtypes.float.vec(29), tuple(vec_srcs), None)
     uops = [buf0, idx] + vec_srcs + [vec]
 
     with self.assertRaisesRegex(RuntimeError, "AST upcast limit exceeded"):
