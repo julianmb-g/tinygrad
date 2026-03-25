@@ -30,3 +30,4 @@
 
 ### Code Formatting and Refactoring
 - **Code Style Bypasses (E501):** Do not bypass line-length limits in tests or core codebase files using `# noqa: E501`. Extremely long lines often mask complex assertions or data structure creations. You must actively refactor long lines into properly indented multi-line blocks, or extract logic into parameterized variables/helper functions to ensure code remains readable.
+## Lessons Learned
