@@ -49,4 +49,4 @@ def pytest_sessionfinish(session, exitstatus):
             for shm_path in glob.glob("/dev/shm/psm_*"):
                 try: os.unlink(shm_path)
                 except OSError: pass
-        except Exception: pass
+        except (AttributeError, KeyError, OSError, FileNotFoundError): pass

@@ -20,7 +20,7 @@ def _kill_orphans():
     for pid in list(active_pids):
       try:
         os.kill(pid, signal.SIGKILL)
-      except Exception:
+      except OSError:
         pass
   except (AttributeError, KeyError, TypeError):
     pass
@@ -73,15 +73,15 @@ class CoralNPUAllocator(Allocator):
           try:
             view = memoryview(shm.buf)
             view.release()
-          except Exception: pass
+          except (AttributeError, KeyError, OSError, FileNotFoundError): pass
           try:
             shm.close()
             import os
             try: os.unlink(f"/dev/shm/{shm.name}")
-            except OSError: pass
+            except (AttributeError, KeyError, OSError, FileNotFoundError): pass
             try: shm.unlink()
             except FileNotFoundError: pass
-          except Exception: pass
+          except (AttributeError, KeyError, OSError, FileNotFoundError): pass
     except (AttributeError, KeyError): pass
 
   def _alloc(self, size:int, options:BufferSpec):
@@ -225,7 +225,7 @@ class CoralNPUProgram:
       if p.poll() is None:
         try:
           os.kill(p.pid, signal.SIGKILL)
-        except Exception:
+        except OSError:
           pass
       active_pids.discard(p.pid)
 
