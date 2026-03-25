@@ -37,3 +37,6 @@
 
 ### Test Evasion & Error Masking
 - **Compilation Failure Masking**: Do not catch `subprocess.CalledProcessError` in test suites (e.g., `test_tiny.py`) to bypass or skip failing tests. If the underlying C/C++ compiler throws syntax or compilation faults during AST generation or payload execution, it must be allowed to organically fail the test. Catching these errors mathematically erases invalid cross-component execution bugs from the CI runner, presenting a false "green" build. Only expected missing environment dependencies (like `FileNotFoundError` for missing payloads or toolchains) should trigger a `SkipTest`.
+
+### Pytest-xdist & IPC Deadlocks
+- **Master Deadlock Pipeline Crash**: The `pytest-xdist` IPC worker teardown crashes (`OSError: cannot send`) are fatal parallel worker synchronization failures. Ensure proper Python GC object lifecycle logic (`except (AttributeError, KeyError): pass`) is used to isolate and resolve teardown deadlocks, preventing the entire test suite from failing.
