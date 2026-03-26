@@ -1254,9 +1254,13 @@ class TestInvalidTensor(unittest.TestCase):
     t = Tensor.full((4,), Invalid, dtype=dtypes.float)
     check_schedule(t, 0)
 
+  def test_schedule_assertions(self):
+    a = Tensor([1])
+    b = Tensor([2])
+    out = a + b
+    sched = out.schedule()
+    self.assertGreater(len(sched), 0)
+    self.assertIsNotNone(sched[-1].ast)
+
 if __name__ == '__main__':
   unittest.main(verbosity=2)
-
-# Structural schedule assertions (restored)
-def test_schedule_assertions():
-    assert True, "native assertions restored"

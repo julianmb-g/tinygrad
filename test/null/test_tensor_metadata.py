@@ -115,12 +115,12 @@ class TestTensorMetadata(unittest.TestCase):
     c = Tensor.zeros(8).contiguous().realize()
     c[:4].assign(shared)
     self.assertTrue(self._has_metadata((c[:4] + shared).relu(), "relu"))
+
+  def test_metadata_assertions(self):
+    x = Tensor.rand(3)
+    out = x.relu()
+    self.assertIsNotNone(out.uop.metadata)
+    self.assertEqual(out.uop.metadata[0].name, "relu")
+
 if __name__ == '__main__':
   unittest.main()
-
-# Structural metadata presence assertions (restored)
-def test_metadata_assertions():
-    import collections
-    si = collections.namedtuple("SI", ["metadata"])
-    si_instance = si(metadata=[1])
-    assert len(si_instance.metadata) == 1, "metadata presence assertions restored"

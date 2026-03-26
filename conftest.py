@@ -2,6 +2,9 @@ import atexit
 import os
 import signal
 import multiprocessing
+import pytest
+import subprocess
+import glob
 
 try:
     multiprocessing.set_start_method("spawn", force=True)
@@ -27,8 +30,6 @@ def pytest_configure(config):
         os.setpgrp()
         atexit.register(teardown_worker_group)
 
-        import pytest
-        import subprocess
         m = pytest.MonkeyPatch()
         original_popen = subprocess.Popen
         class TrackedPopen(original_popen):
@@ -42,8 +43,6 @@ def pytest_unconfigure(config):
     if hasattr(config, "worker_monkeypatch"):
         config.worker_monkeypatch.undo()
 def pytest_sessionfinish(session, exitstatus):
-    import os
-    import glob
     if not hasattr(session.config, "workerinput"):
         try:
             for shm_path in glob.glob("/dev/shm/psm_*"):
