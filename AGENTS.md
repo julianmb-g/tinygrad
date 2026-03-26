@@ -71,3 +71,7 @@ To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensur
 
 ### Testing Evasion Remediation
 - **Assertion Evasion Ban**: When remediating testing fraud (removing `assertRaises(AssertionError)` decorators/wrappers), the test must naturally fail and trap the architectural bound natively rather than being mathematically inverted to mask the error and register as a false "green" build.
+
+### Tautological Test Masking & Linter Evasion
+- **Linter Evasion (E501)**: Do not attempt to bypass `ruff` line-length checks using `# noqa: E501` combined with aggressive one-liners, lambdas, or walrus operators. Tests must unroll the logic cleanly into readable blocks. Inline PyBind11 imports are the ONLY permitted deviations from top-level imports.
+- **Tautological Mocking**: Replacing deleted pipeline tests with tautological tests (e.g. `assert True` or mock assertions) completely bypasses test verification and provides false security. Tests must interact with authentic targets natively.
