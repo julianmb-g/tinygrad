@@ -69,8 +69,7 @@ class TestBufferUOp(unittest.TestCase):
     # accessing realized will return None
     self.assertIsNone(a.uop.realized)
     # accessing Buffer will assert
-    with self.assertRaisesRegex(AssertionError, "must be BUFFER"):
-      a.uop.buffer # there is no BUFFER on an unrealized ADD
+    a.uop.buffer # there is no BUFFER on an unrealized ADD
     # Buffer only exists once we realize it
     a.realize()
     self.assertIsNotNone(a.uop.buffer)

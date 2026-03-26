@@ -68,3 +68,6 @@ To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensur
 
 ### Test Erasure Reversal Completeness
 - **Secondary Masking Lines**: When restoring tests or assertions meant to organically fail (e.g. metadata presence asserts), ensure that ALL associated lines (such as `bw = [m for m in si.metadata if m.backward]`) are uncommented, not just the primary assertion, to ensure test coverage boundaries are fully restored.
+
+### Testing Evasion Remediation
+- **Assertion Evasion Ban**: When remediating testing fraud (removing `assertRaises(AssertionError)` decorators/wrappers), the test must naturally fail and trap the architectural bound natively rather than being mathematically inverted to mask the error and register as a false "green" build.
