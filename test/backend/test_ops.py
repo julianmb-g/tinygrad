@@ -1383,9 +1383,7 @@ class TestOps(unittest.TestCase):
     helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[np.arange(0,8*12,dtype=np.float32).reshape(8,12),
                                                                          np.arange(8*12,8*12+12*16,dtype=np.float32).reshape(12,16)])
   def test_small_gemm_eye(self):
-    val1 = (np.arange(0,8*12,dtype=np.float32).reshape(8,12) * 0.1).astype(np.float32)
-    val2 = (np.arange(0,12*16,dtype=np.float32).reshape(12,16) * 0.2).astype(np.float32)
-    helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[val1, val2])
+    helper_test_op(None, lambda x,y: x.matmul(y), lambda x,y: x@y, vals=[(np.arange(0,8*12,dtype=np.float32).reshape(8,12) * 0.1).astype(np.float32), (np.arange(0,12*16,dtype=np.float32).reshape(12,16) * 0.2).astype(np.float32)])  # noqa: E501
   def test_gemm_fp16(self):
     val1 = ((np.arange(64*32, dtype=np.float32).reshape(64,32) % 10) * 0.1).astype(np.float32)
     val2 = ((np.arange(32*16, dtype=np.float32).reshape(32,16) % 12) * 0.2).astype(np.float32)
