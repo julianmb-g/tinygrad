@@ -59,3 +59,6 @@ To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensur
 ### Evasion Tactic Remediation (Test Fraud Prevention)
 - **Parameter Mutation Evasion (`allow_multiple=True`)**: Never inject configuration bypasses like `allow_multiple=True` into test parameters to mask execution regressions (e.g., kernel count inflation). Tests must organically validate the exact boundary configurations.
 - **Organic Failure Restorations**: When remediating testing fraud (removing `expectedFailure` decorators or `assertRaises` wrappers), the test must naturally fail and trap the architectural bound natively rather than being masked to register as a false "green" build.
+
+### Graph Rewrite Organic Evaluation
+- **KeyError Mappings vs Organic Integration**: When writing E2E validation tests for graph rewrite limits (like `test_sin_to_sqrt_organic_trap`), do not rely on missing unmapped components in dictionaries to organically mask limits (such as `promo_lattice` hitting `KeyError: dtypes.index`). Instead, instantiate variables with robust parameters (`dtype=dtypes.float`) and utilize `PatternMatcher` directly via `graph_rewrite` to force the AST boundary natively. This guarantees the architectural limit (`RuntimeError: infinite loop in graph_rewrite`) traps the evaluation organically rather than bypassing validation limits.
