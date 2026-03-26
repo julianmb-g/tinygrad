@@ -990,7 +990,9 @@ class CoralNPURenderer(CStyleLanguage):
     buf_names = [name for name, _ in bufs]
     prefix.append(f"// BUF_NAMES: {','.join(buf_names)}")
 
-    prefix.append("#include <stdint.h>\nstatic inline float coralnpu_sqrt(float x) { float res; asm(\"fsqrt.s %0, %1\" : \"=f\"(res) : \"f\"(x)); return res; }")
+    prefix.append('#include <stdint.h>\\n'
+                  'static inline float coralnpu_sqrt(float x) { '
+                  'float res; asm("fsqrt.s %0, %1" : "=f"(res) : "f"(x)); return res; }')
     # Add vector typedefs for GCC
     for dt in uops_to_dtypes(uops):
       if dt.count > 1:

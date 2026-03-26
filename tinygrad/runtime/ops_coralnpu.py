@@ -1,5 +1,6 @@
 import atexit
 import functools
+import math
 import multiprocessing
 import multiprocessing.shared_memory
 import os
@@ -12,7 +13,7 @@ import tempfile
 from tinygrad.device import Allocator, BufferSpec, Compiled, CompilerSet
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 
-kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks while allowing sufficient time for cross-compiling complex models during Beam Search auto-tuning.
+kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks while allowing sufficient time for cross-compiling complex models.
 
 active_pids = set()
 def _kill_orphans():
@@ -76,7 +77,6 @@ class CoralNPUAllocator(Allocator):
           except (AttributeError, KeyError, OSError, FileNotFoundError): pass
           try:
             shm.close()
-            import os
             try: os.unlink(f"/dev/shm/{shm.name}")
             except (AttributeError, KeyError, OSError, FileNotFoundError): pass
             try: shm.unlink()
@@ -176,7 +176,9 @@ class CoralNPUProgram:
       src_path = f.name
     elf_path = src_path + ".elf"
     try:
-      subprocess.check_output(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path], stderr=subprocess.STDOUT, timeout=kDefaultCompilationTimeoutS)  # noqa: E501
+      subprocess.check_output(
+          ['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path],
+          stderr=subprocess.STDOUT, timeout=kDefaultCompilationTimeoutS)
     except subprocess.TimeoutExpired as e:
       raise RuntimeError(f"Cross-compilation timed out: {e}")
     except subprocess.CalledProcessError as e:
@@ -195,7 +197,6 @@ class CoralNPUProgram:
         self.fxn = "compiled"
       except RuntimeError as e:
         if "Cross-compilation timed out" in str(e):
-          import math
           return math.inf
         raise
 
@@ -217,7 +218,6 @@ class CoralNPUProgram:
           p.wait(timeout=timeout)
         except subprocess.TimeoutExpired:
           os.kill(p.pid, signal.SIGKILL)
-          import math
           return math.inf
       else:
         p.wait()
