@@ -39,11 +39,7 @@ class TestOnnxModel(unittest.TestCase):
   def _test_model(self, fn, input_name, input_new, debug=False):
     run_onnx = OnnxRunner(fn)
     print("onnx loaded")
-    from test.models.test_efficientnet import _LABELS, preprocess
-    import pathlib
-    from PIL import Image
-    chicken_img = Image.open(pathlib.Path(__file__).parent / 'efficientnet/Chicken.jpg')
-    car_img = Image.open(pathlib.Path(__file__).parent / 'efficientnet/car.jpg')
+    from test.models.test_efficientnet import _LABELS, car_img, chicken_img, preprocess
 
     def run(img):
       inputs = {input_name: preprocess(img, new=input_new)}

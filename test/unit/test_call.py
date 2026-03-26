@@ -70,7 +70,9 @@ class TestCall(unittest.TestCase):
     Tensor.realize(a, b)
 
     # we define a gemm function
-    c = Tensor.call(a, b, fxn=(a.as_param(0) @ b.as_param(1)).uop)
+    x = UOp.param(0, dtypes.float, shape=(M, K))
+    y = UOp.param(1, dtypes.float, shape=(K, N))
+    c = Tensor.call(a, b, fxn=x@y)
 
     np.testing.assert_allclose(c.numpy(), a.numpy() @ b.numpy(), rtol=1e-5, atol=1e-6)
   def test_call_complex_backward_auto(self):

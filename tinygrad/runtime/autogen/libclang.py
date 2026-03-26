@@ -8,8 +8,7 @@ from tinygrad.helpers import OSX
 from tinygrad.runtime.support import c
 from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
 
-import glob
-dll = c.DLL('libclang', '/opt/homebrew/opt/llvm@20/lib/libclang.dylib' if OSX else ['clang-20', 'clang', 'clang-14', 'clang-15', 'clang-16', 'clang-17', 'clang-18', 'clang-19'], extra_paths=glob.glob('/usr/lib/llvm-*/lib'))
+dll = c.DLL('libclang', '/opt/homebrew/opt/llvm@20/lib/libclang.dylib' if OSX else ['clang-20', 'clang'])
 CXIndex: TypeAlias = ctypes.c_void_p
 class struct_CXTargetInfoImpl(ctypes.Structure): pass
 CXTargetInfo: TypeAlias = c.POINTER[struct_CXTargetInfoImpl]
