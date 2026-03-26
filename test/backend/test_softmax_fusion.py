@@ -31,10 +31,10 @@ def single_kernel_softmax(x_in:Tensor, axis=-1, dtype:DTypeLike|None=None) -> Te
 def run_one_schedule_item(out): get_single_element(out.schedule()).run()
 
 class TestFuse(unittest.TestCase):
-  def _test_fuse(self, fxn, *args, atol=1e-6, allow_multiple=False, **kwargs):
+  def _test_fuse(self, fxn, *args, atol=1e-6, **kwargs):
     GlobalCounters.reset()
     out_single = fxn(*args, **kwargs)
-    if not allow_multiple: run_one_schedule_item(out_single)
+    run_one_schedule_item(out_single)
     np_single = out_single.numpy()
     GlobalCounters.reset()
     np_multi = fxn(*args, **kwargs).numpy()
