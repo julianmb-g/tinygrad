@@ -49,3 +49,6 @@ To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensur
 - When running `pytest -n auto` or `-n 4`, the pipeline can fatally crash with an `OSError: cannot send (already closed?)` if worker nodes die during teardown.
 - **Root Cause**: `multiprocessing.shared_memory.SharedMemory` closures in `tinygrad/runtime/ops_coralnpu.py` (`__del__` methods) or `conftest.py` teardown hooks that utilize blanket `except Exception: pass`.
 - **Resolution**: You must replace blanket exception swallowing with explicit traps for `(AttributeError, KeyError, OSError, FileNotFoundError)` to allow the Python Garbage Collector to tear down the shared memory without killing the worker process abruptly.
+
+### Refactoring & Testing Boundaries
+- **Test Integrity during Refactoring**: When extracting magic numbers or refactoring test scripts, ensure you do not inadvertently "fix" or alter the fundamental limits the test is evaluating. Tests meant to organically expose architectural defects (like `bind mismatch`) must remain organically failing to ensure valid E2E boundary trapping. Do not change variable names or test logic to make these structurally failing tests pass.

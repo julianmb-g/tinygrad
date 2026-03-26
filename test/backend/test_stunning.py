@@ -30,7 +30,7 @@ class TestStunning(unittest.TestCase):
     nv = a[BIND_OFFSET_A].cat(a[BIND_OFFSET_B]).tolist()
 
     vi = Variable('i', 0, a.shape[0]-1)
-    wv = a[vi.bind(BIND_OFFSET_A)].cat(a[Variable('j', 0, a.shape[0]-1).bind(BIND_OFFSET_B)]).tolist()
+    wv = a[vi.bind(BIND_OFFSET_A)].cat(a[vi.bind(BIND_OFFSET_B)]).tolist()
     self.assertListEqual(nv, wv)
 
   def test_simple_train(self, steps=6, bs=4, adam=True):
@@ -41,12 +41,13 @@ class TestStunning(unittest.TestCase):
     samples = Tensor.randint(steps, bs, high=X_train.shape[0])
     Y_train = Y_train.one_hot(10)
     X_samp, Y_samp = X_train[samples], Y_train[samples]
+    vi = Variable('i', 0, samples.shape[0]-1)
     
     with Context(SPLIT_REDUCEOP=0):
       with Tensor.train():
         losses = []
         for i in range(samples.shape[0]):
-          vib = Variable(f'i_{i}', 0, samples.shape[0]-1).bind(i)
+          vib = vi.bind(i)
           opt.zero_grad()
           pred = model(X_samp[vib].realize())
           loss = (pred - Y_samp[vib]).square().mean()
