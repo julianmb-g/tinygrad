@@ -291,14 +291,7 @@ class ClangJITRenderer(ClangRenderer):
   def __init__(self):
     from tinygrad.runtime.support.compiler_cpu import ClangJITCompiler
     self.compiler = ClangJITCompiler()
-
-  @property
-  def arch(self):
-    return "CORALNPU"
-
-  @property
-  def buf_map(self):
-    return lambda dt: self.type_map.get(dt.base, dt.name)
+    self.arch = "CORALNPU"
 
 class OpenCLRenderer(CStyleLanguage):
   device = "CL"
