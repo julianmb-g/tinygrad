@@ -35,3 +35,6 @@
 - **Tautological Mocking**: Replacing deleted pipeline tests with tautological tests (e.g. `assert True` or mock assertions) completely bypasses test verification and provides false security. Tests must interact with authentic targets natively.
 - **Upcasting Vector Image Stores**: For normal image environments (`IMAGE!=2`), if the compiler fails to group scalar pixel stores during Beam Search, the `Ops.STORE` node's value must be upcasted explicitly to `vec(4)` before emitting to `write_imagef`. Failure to do so throws an `AssertionError` ("if an image store isn't upcasted to 4") since OpenCL cannot perform a read-modify-write channel mask natively. Failure to do so throws an `AssertionError` ("if an image store isn't upcasted to 4") since openCL cannot perform a read-modify-write channel mask natively.
 
+
+### Linter Remediation & Test Fraud
+- **Linter Remediation vs Test Fraud**: When remediating linter errors (like `F841` unused variable), ensure that the variable isn't simply deleted if it was originally intended for a critical structural assertion (e.g., `np.testing.assert_allclose(out.numpy(), expected_out)`). Deleting the assertion to satisfy the linter mathematically eviscerates the test boundary. Always restore the validation check.
