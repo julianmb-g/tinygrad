@@ -62,3 +62,6 @@ To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensur
 
 ### Graph Rewrite Organic Evaluation
 - **KeyError Mappings vs Organic Integration**: When writing E2E validation tests for graph rewrite limits (like `test_sin_to_sqrt_organic_trap`), do not rely on missing unmapped components in dictionaries to organically mask limits (such as `promo_lattice` hitting `KeyError: dtypes.index`). Instead, instantiate variables with robust parameters (`dtype=dtypes.float`) and utilize `PatternMatcher` directly via `graph_rewrite` to force the AST boundary natively. This guarantees the architectural limit (`RuntimeError: infinite loop in graph_rewrite`) traps the evaluation organically rather than bypassing validation limits.
+
+### E2E Testing Pipeline
+- **Schedule Consumption Fallacy**: When writing custom tests that require extracting ASTs before evaluation (e.g. to pre-compile ELFs or cross-check configurations), never extract `.schedule()` from the actual tensor intended to be evaluated. `Tensor.schedule()` permanently consumes the lazy computation graph; subsequent `out.realize()` calls will execute an empty schedule and silently return uninitialized zero-arrays. You MUST construct an identical independent dummy tensor to evaluate its AST prior to evaluating the target hardware tensor.
