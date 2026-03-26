@@ -34,3 +34,19 @@
 - **Organic Bounds Trapping**: Do not use `@unittest.expectedFailure` to bypass architectural E2E limits. If a test natively hits a bounds defect, it must organically trap (e.g., via `AssertionError: 0 != 1`) to accurately reflect the architectural failure. Masking it mathematically guarantees test fraud.
 - **Schedule Consumption Fallacy**: When writing custom tests that require extracting ASTs before evaluation (e.g. to pre-compile ELFs or cross-check configurations), never extract `.schedule()` from the actual tensor intended to be evaluated. `Tensor.schedule()` permanently consumes the lazy computation graph; subsequent `out.realize()` calls will execute an empty schedule and silently return uninitialized zero-arrays. You MUST construct an identical independent dummy tensor to evaluate its AST prior to evaluating the target hardware tensor.
 - **Tautological Mocking**: Replacing deleted pipeline tests with tautological tests (e.g. `assert True` or mock assertions) completely bypasses test verification and provides false security. Tests must interact with authentic targets natively.
+
+- **Pipeline Safety & Teardowns**: All execution tasks in global validation stages (such as `bazel test`, `pytest -n 4`, or pointer serialization) must explicitly append `Teardown:` validation steps asserting process termination. Teardowns must validate clean states via `ps aux` and explicitly kill stray `pytest`/`bazel`/`python` PIDs to prevent resource deadlocks.
+
+### Pipeline Safety & Graceful Degradation
+- **Missing Hardware Simulators:** Always wrap hardware simulator executions (like `out.realize()`) with `try... except FileNotFoundError` to ensure the CI pipeline degrades gracefully rather than crashing outright when the compiled simulator binary is missing.
+
+### IMAGE=2 CPU Fallback & Devectorization
+- **IMAGE=2 Pointer Math Syntax Faults:** When `IMAGE=2` is used (meaning hardware `ImageDType` is simulated as a linear `float*` on the CPU), the `devectorizer.py` AST generator MUST replace `ImageDType` with `PtrDType(float)` (e.g. `image_dtype.base.ptr()`) rather than converting the 1D channel index `x` into an `int2` vector. Failing to convert the index back to a linear offset results in fatal native C compiler faults (`cannot convert between vector and non-scalar values ('float *' and 'int2')`) during pointer arithmetic. 
+- **Upcasting Vector Image Stores:** For normal image environments (`IMAGE!=2`), if the compiler fails to group scalar pixel stores during Beam Search, the `Ops.STORE` node's value must be upcasted explicitly to `vec(4)` before emitting to `write_imagef`. Failure to do so throws an `AssertionError` ("if an image store isn't upcasted to 4") since openCL cannot perform a read-modify-write channel mask natively.
+
+### Test Evasion & Error Masking
+- **Compilation Failure Masking**: Do not catch `subprocess.CalledProcessError` in test suites (e.g., `test_tiny.py`) to bypass or skip failing tests. If the underlying C/C++ compiler throws syntax or compilation faults during AST generation or payload execution, it must be allowed to organically fail the test. Catching these errors mathematically erases invalid cross-component execution bugs from the CI runner, presenting a false "green" build. Only expected missing environment dependencies (like `FileNotFoundError` for missing payloads or toolchains) should trigger a `SkipTest`.
+# Tinygrad Submodule Lessons Learned
+
+### Eager Graph Realization and Boundary Trapping
+- **Recursion Limits:** When building deep cyclic computational graphs, explicitly calling `.realize()` within the loop prevents unbound AST explosion and fixes depth limit bounds. Any tests validating this behavior MUST strictly forbid `SkipTest` and organically trap `RecursionError` natively via `assertRaises` if testing the negative case, proving the architectural constraint without masking it.
