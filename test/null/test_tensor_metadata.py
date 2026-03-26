@@ -77,16 +77,16 @@ class TestTensorMetadata(unittest.TestCase):
     assert x.grad.uop.metadata is not None
     assert y.grad.uop.metadata is not None
     self.assertEqual(x.grad.uop.metadata[0].name, "relu")
-    #self.assertTrue(x.grad.uop.metadata[0].backward)  # TODO: backward flag is False
+    self.assertTrue(x.grad.uop.metadata[0].backward)
     self.assertEqual(y.grad.uop.metadata[0].name, "sigmoid")
-    #self.assertTrue(y.grad.uop.metadata[0].backward)  # TODO: backward flag is False
+    self.assertTrue(y.grad.uop.metadata[0].backward)
     si = Tensor.schedule(out, x.grad, y.grad)[-1]
     self.assertEqual(len(si.metadata), 2)
     # skip numpy, this is schedule cache
     self.assertSetEqual(set(m.name for m in si.metadata if m.name != "numpy"), {"sigmoid", "relu"})
-    #bw = [m for m in si.metadata if m.backward]
-    #self.assertEqual(len(bw), 1)
-    #self.assertEqual(bw[0].name, "sigmoid")
+    bw = [m for m in si.metadata if getattr(m, 'backward', False)]
+    self.assertEqual(len(bw), 1)
+    self.assertEqual(bw[0].name, "sigmoid")
 
   def test_tracemeta_0(self):
     with Context(TRACEMETA=0):

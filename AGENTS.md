@@ -65,3 +65,6 @@ To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensur
 
 ### E2E Testing Pipeline
 - **Schedule Consumption Fallacy**: When writing custom tests that require extracting ASTs before evaluation (e.g. to pre-compile ELFs or cross-check configurations), never extract `.schedule()` from the actual tensor intended to be evaluated. `Tensor.schedule()` permanently consumes the lazy computation graph; subsequent `out.realize()` calls will execute an empty schedule and silently return uninitialized zero-arrays. You MUST construct an identical independent dummy tensor to evaluate its AST prior to evaluating the target hardware tensor.
+
+### Test Erasure Reversal Completeness
+- **Secondary Masking Lines**: When restoring tests or assertions meant to organically fail (e.g. metadata presence asserts), ensure that ALL associated lines (such as `bw = [m for m in si.metadata if m.backward]`) are uncommented, not just the primary assertion, to ensure test coverage boundaries are fully restored.
