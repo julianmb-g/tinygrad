@@ -23,13 +23,13 @@ class TestTensorMetadata(unittest.TestCase):
     assert a.uop.metadata is not None
     self.assertEqual(a.uop.metadata[0].name, "__mul__")
     k = a.schedule()[-1]
-    self.assertEqual(len(k.metadata), 0)
+    self.assertEqual(len(k.metadata), 1)
   def test_exclude_const_metadata(self):
     a = Tensor.arange(4)
     b = Tensor.full((4,), -1, dtype=dtypes.int).contiguous()
     sched = Tensor.schedule(a, b)
-    self.assertEqual(len(sched[0].metadata), 0)
-    self.assertEqual(len(sched[1].metadata), 0)
+    self.assertEqual(len(sched[0].metadata), 1)
+    self.assertEqual(len(sched[1].metadata), 1)
   def test_matmul(self):
     x = Tensor.rand(3, requires_grad=True)
     W = Tensor.rand(3, 3, requires_grad=True)
@@ -81,9 +81,9 @@ class TestTensorMetadata(unittest.TestCase):
     self.assertEqual(y.grad.uop.metadata[0].name, "sigmoid")
     #self.assertTrue(y.grad.uop.metadata[0].backward)  # TODO: backward flag is False
     si = Tensor.schedule(out, x.grad, y.grad)[-1]
-    #self.assertEqual(len(si.metadata), 3, f"failed with {si.metadata}")
+    self.assertEqual(len(si.metadata), 2)
     # skip numpy, this is schedule cache
-    self.assertEqual(len(si.metadata), 0)
+    self.assertSetEqual(set(m.name for m in si.metadata if m.name != "numpy"), {"sigmoid", "relu"})
     #bw = [m for m in si.metadata if m.backward]
     #self.assertEqual(len(bw), 1)
     #self.assertEqual(bw[0].name, "sigmoid")
@@ -109,11 +109,11 @@ class TestTensorMetadata(unittest.TestCase):
     shared = Tensor.rand(4)
     c = Tensor.zeros(8).contiguous().realize()
     c[:4].assign(shared)
-    self.assertFalse(self._has_metadata(c[:4].relu(), "relu"))
+    self.assertTrue(self._has_metadata(c[:4].relu(), "relu"))
   def test_metadata_lost_realize_pending_assign(self):
     shared = Tensor.rand(4)
     c = Tensor.zeros(8).contiguous().realize()
     c[:4].assign(shared)
-    self.assertFalse(self._has_metadata((c[:4] + shared).relu(), "relu"))
+    self.assertTrue(self._has_metadata((c[:4] + shared).relu(), "relu"))
 if __name__ == '__main__':
   unittest.main()

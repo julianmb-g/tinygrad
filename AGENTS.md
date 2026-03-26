@@ -52,3 +52,6 @@ To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensur
 
 ### Refactoring & Testing Boundaries
 - **Test Integrity during Refactoring**: When extracting magic numbers or refactoring test scripts, ensure you do not inadvertently "fix" or alter the fundamental limits the test is evaluating. Tests meant to organically expose architectural defects (like `bind mismatch`) must remain organically failing to ensure valid E2E boundary trapping. Do not change variable names or test logic to make these structurally failing tests pass.
+
+### Test Fraud via @unittest.expectedFailure
+- **Organic Bounds Trapping**: Do not use `@unittest.expectedFailure` to bypass architectural E2E limits. If a test natively hits a bounds defect, it must organically trap (e.g., via `AssertionError: 0 != 1`) to accurately reflect the architectural failure. Masking it mathematically guarantees test fraud.
