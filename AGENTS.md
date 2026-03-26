@@ -55,3 +55,7 @@ To prevent `pytest-xdist` IPC teardown deadlocks (`OSError: cannot send`), ensur
 
 ### Test Fraud via @unittest.expectedFailure
 - **Organic Bounds Trapping**: Do not use `@unittest.expectedFailure` to bypass architectural E2E limits. If a test natively hits a bounds defect, it must organically trap (e.g., via `AssertionError: 0 != 1`) to accurately reflect the architectural failure. Masking it mathematically guarantees test fraud.
+
+### Evasion Tactic Remediation (Test Fraud Prevention)
+- **Parameter Mutation Evasion (`allow_multiple=True`)**: Never inject configuration bypasses like `allow_multiple=True` into test parameters to mask execution regressions (e.g., kernel count inflation). Tests must organically validate the exact boundary configurations.
+- **Organic Failure Restorations**: When remediating testing fraud (removing `expectedFailure` decorators or `assertRaises` wrappers), the test must naturally fail and trap the architectural bound natively rather than being masked to register as a false "green" build.

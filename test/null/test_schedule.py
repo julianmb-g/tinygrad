@@ -1057,7 +1057,6 @@ class TestUOpBecome(unittest.TestCase):
     check_schedule(z, 1)
 
   # TODO: rangeify doesn't yet cleanup this kind of re-indexing
-  @unittest.expectedFailure
   def test_become_existing_buffer(self):
     a = Tensor.empty(4, 4)
     b = a*1
@@ -1089,7 +1088,6 @@ class TestUOpBecome(unittest.TestCase):
     check_schedule(const_add, 0)
     assert UPat(Ops.CONST, arg=3).match(const_add.uop.base, {})
   # tensors can become another realized tensor source
-  @unittest.expectedFailure
   def test_become_existing_buf_simple(self):
     a = Tensor.empty(4, 4)
     b = a+0
@@ -1098,14 +1096,12 @@ class TestUOpBecome(unittest.TestCase):
     self.assertIs(a.uop, b.uop)
 
   # they can also chain other movement ops on top of the tensor source
-  @unittest.expectedFailure
   def test_become_existing_buf_view(self):
     a = Tensor.empty(4, 4)
     b = a.permute((1, 0))+0
     check_schedule(b, 0)
     self.assertEqual(b.uop.st, a.uop.permute((1, 0)).st)
 
-  @unittest.expectedFailure
   def test_become_existing_buf_view_alt(self):
     a = Tensor.empty(4, 4)
     b = a.permute((1, 0)).reshape((8, 2))+0
@@ -1113,7 +1109,6 @@ class TestUOpBecome(unittest.TestCase):
     self.assertEqual(b.uop.st, a.uop.permute((1, 0)).reshape((8, 2)).st)
 
   # they can also have other base parents that simplified, in that case we just backtrack to the chained mops
-  @unittest.expectedFailure
   def test_become_existing_buf_complex(self):
     a = Tensor.empty(4, 4)
     b = (a.permute((1, 0))+0).reshape((8, 2))+0
@@ -1121,7 +1116,6 @@ class TestUOpBecome(unittest.TestCase):
     self.assertEqual(b.uop.st, a.uop.permute((1, 0)).reshape((8, 2)).st)
     assert b.uop.base.op is Ops.BUFFER
 
-  @unittest.expectedFailure
   def test_become_multiple_choices(self):
     a = Tensor.empty(16)
     b = (a.reshape(1, 1, 4, 1, 4)+0).reshape(1, 1, 4, 4).shrink(((0, 1), (0, 1), (0, 3), (0, 3)))+0

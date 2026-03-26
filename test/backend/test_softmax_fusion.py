@@ -42,24 +42,24 @@ class TestFuse(unittest.TestCase):
 
   def test_fuse_norm(self):
     a = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a: a / a.mean(axis=1), a, allow_multiple=True)
+    self._test_fuse(lambda a: a / a.mean(axis=1), a)
 
   def test_fuse_argmax(self):
     a = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a: a.argmax(axis=-1), a, allow_multiple=True)
+    self._test_fuse(lambda a: a.argmax(axis=-1), a)
 
   def test_fuse_softmax(self):
     a = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a: a.softmax(axis=-1), a, allow_multiple=True)
+    self._test_fuse(lambda a: a.softmax(axis=-1), a)
 
   def test_fuse_gemm_softmax(self):
     a = Tensor.rand(50,50).realize()
     b = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a,b: ((a@b).relu()+a).contiguous().softmax(axis=-1), a,b, allow_multiple=True)
+    self._test_fuse(lambda a,b: ((a@b).relu()+a).contiguous().softmax(axis=-1), a,b)
 
   def test_fuse_softmax_dtype(self):
     a = Tensor.rand(50,50).realize()
-    self._test_fuse(lambda a: a.softmax(axis=-1, dtype='half'), a, atol=3e-4, allow_multiple=True)
+    self._test_fuse(lambda a: a.softmax(axis=-1, dtype='half'), a, atol=3e-4)
 
   def test_fuse_arange_eye(self):
     self._test_fuse(lambda: Tensor.arange(10).reshape(10,1).expand(10,10) == Tensor.arange(10).reshape(1,10).expand(10,10))
@@ -70,7 +70,7 @@ class TestFuse(unittest.TestCase):
       a = (Tensor.rand(N,N)-0.5).realize()
       b = (Tensor.rand(N,N)-0.5).realize()
       c = (Tensor.rand(N,N)-0.5).realize()
-    self._test_fuse(lambda a,b,c: a@b@c, a, b, c, atol=1e-5, allow_multiple=True)
+    self._test_fuse(lambda a,b,c: a@b@c, a, b, c, atol=1e-5)
   def test_embedding(self):
     with Context(TRACK_MATCH_STATS=0, DEBUG=0):
       vocab_sz = 123
@@ -108,7 +108,7 @@ class TestFuse(unittest.TestCase):
       v = ((Tensor.arange(BS*HEADS*MATDIM*EMB) % 10) * 0.1).reshape(BS, HEADS, MATDIM, EMB).realize()
     # TODO: OPT is breaking things. NOOPT isn't linearizing
     with Context(NOOPT=1):
-      self._test_fuse(Tensor.scaled_dot_product_attention, q, k, v, atol=1e-5, allow_multiple=True)
+      self._test_fuse(Tensor.scaled_dot_product_attention, q, k, v, atol=1e-5)
   def test_mismatch_reduce(self):
     a = Tensor.ones(16, 10).contiguous().realize()
     b = Tensor.ones(16, 20).contiguous().realize()
