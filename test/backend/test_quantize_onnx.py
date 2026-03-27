@@ -1,6 +1,6 @@
 # ruff: noqa: E501
-import math
 import unittest
+import math
 from dataclasses import replace
 
 import numpy as np

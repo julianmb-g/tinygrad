@@ -8,8 +8,8 @@ from hypothesis import given, settings
 from hypothesis import strategies as strat
 
 from test.helpers import needs_second_gpu
-from tinygrad import Device, Tensor, TinyJit, Variable, dtypes, nn
 from tinygrad.device import is_dtype_supported
+from tinygrad import Device, Tensor, TinyJit, Variable, dtypes, nn
 from tinygrad.engine.realize import CompiledRunner
 from tinygrad.helpers import getenv
 

@@ -115,7 +115,6 @@ def _ensure_buffer_alloc(bufs:list[Buffer]) -> list[Buffer]: return [buf.ensure_
 
 from collections import OrderedDict
 
-
 class UOpAstHash:
   def __init__(self, hash_0: int, hash_1: int, hash_2: int, hash_3: int):
     self.hash_0, self.hash_1, self.hash_2, self.hash_3 = hash_0, hash_1, hash_2, hash_3
