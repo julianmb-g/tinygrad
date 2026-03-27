@@ -13,7 +13,6 @@ from tinygrad.dtype import dtypes
 from tinygrad.engine.realize import get_program
 from tinygrad.helpers import EMULATE, GlobalCounters, getenv
 from tinygrad.renderer import Estimates, ProgramSpec
-from tinygrad.renderer.ptx import PTXRenderer
 from tinygrad.uop.ops import Ops, UOp
 
 

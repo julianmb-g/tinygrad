@@ -19,12 +19,12 @@ from tinygrad.helpers import getenv, mv_address, temp
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")
 
-x_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,3).astype(np.float32)
-U_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(3,3).astype(np.float32)
-V_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(3,3).astype(np.float32)
-W_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(3,3).astype(np.float32)
-m_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,3).astype(np.float32)
-gradient = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,3).astype(np.float32)
+x_init = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
+U_init = (np.arange(math.prod((3,3))) % 10 * 0.1).reshape(3,3).astype(np.float32)
+V_init = (np.arange(math.prod((3,3))) % 10 * 0.1).reshape(3,3).astype(np.float32)
+W_init = (np.arange(math.prod((3,3))) % 10 * 0.1).reshape(3,3).astype(np.float32)
+m_init = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
+gradient = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
 
 class TestTinygrad(unittest.TestCase):
   def test_zerodim_initialization(self):
@@ -516,7 +516,7 @@ class TestTinygrad(unittest.TestCase):
   # Regression test for https://github.com/tinygrad/tinygrad/issues/1751
   def test_copy_from_numpy_unaligned(self):
     # 2**15 is the minimum for repro
-    arr = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(2**15).astype(np.float32)
+    arr = (np.arange(math.prod((2**15,))) % 10 * 0.1).reshape(2**15).astype(np.float32)
     fn = temp('test_copy_from_numpy_unaligned')
     with open(fn, 'wb') as f: f.write(b't' + arr.tobytes())
     with open(fn, "a+b") as f: memview = memoryview(mmap.mmap(f.fileno(), arr.nbytes + 1))

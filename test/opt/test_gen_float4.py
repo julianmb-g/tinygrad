@@ -3,7 +3,6 @@ import unittest
 from tinygrad import Device, Tensor, dtypes
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.engine.realize import get_program
-from tinygrad.helpers import AMX
 from tinygrad.uop.ops import Ops, UOp
 
 

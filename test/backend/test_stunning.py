@@ -1,6 +1,6 @@
 import unittest
 
-from tinygrad import Context, Device, Tensor, Variable, nn
+from tinygrad import Context, Tensor, Variable, nn
 from tinygrad.helpers import trange
 
 

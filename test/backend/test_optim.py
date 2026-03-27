@@ -1,4 +1,3 @@
-import math
 import unittest
 
 import numpy as np
@@ -6,7 +5,6 @@ import torch
 
 from test.helpers import needs_second_gpu, slow
 from tinygrad import Device, Tensor, dtypes
-from tinygrad.device import is_dtype_supported
 from tinygrad.nn.optim import LAMB, SGD, Adam, AdamW, Muon
 
 np.random.seed(1337)

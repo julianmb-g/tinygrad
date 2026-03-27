@@ -5,7 +5,7 @@ import unittest
 import numpy as np
 import torch
 
-from tinygrad import Device, GlobalCounters, Tensor
+from tinygrad import GlobalCounters, Tensor
 from tinygrad.engine.realize import capturing
 from tinygrad.helpers import getenv
 from tinygrad.nn.state import get_parameters
