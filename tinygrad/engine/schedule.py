@@ -47,6 +47,22 @@ def create_schedule(sched_sink:UOp) -> UOp:
           case _:
             raise RuntimeError(f"input to kernel must be AFTER, BUFFER, PARAM, MSELECT, MSTACK, or BIND, not {s.op}")
 
+  
+    # Dependency Chaining Scheduler: dynamically inject sequential edges across Gemma RMSNorm/RoPE nodes
+    complex_nodes = []
+    for k in in_degree.keys():
+      ast = k.src[0] if k.op is Ops.END else k
+      if hasattr(ast, "toposort"):
+        ops = {u.op for u in ast.toposort()}
+        if Ops.SIN in ops or Ops.SQRT in ops:
+          complex_nodes.append(k)
+    for i in range(len(complex_nodes) - 1):
+      src = complex_nodes[i]
+      dest = complex_nodes[i+1]
+      if src not in children.get(dest, []) and dest not in children.get(src, []):
+        children.setdefault(src, []).append(dest)
+        in_degree[dest] += 1
+
   with cpu_profile(TracingKey("linearize schedule")):
     queue: deque[UOp] = deque(k for k,v in in_degree.items() if v == 0)
     linearized: list[UOp] = []

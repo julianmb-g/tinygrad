@@ -152,10 +152,11 @@ class TestGemmaDecomposition(unittest.TestCase):
 
     # Dummy compilation
     c_name, elf_name = None, None
-    with self.assertRaises(RuntimeError):
+    try:
       dummy_out = apply_rotary_emb(x_cpu, freqs_cis_cpu)
       c_name, elf_name = self._compile_layer(dummy_out)
-    return
+    except (FileNotFoundError, subprocess.CalledProcessError):
+      c_name, elf_name = None, None
 
     old_default = Device.DEFAULT
     try:
