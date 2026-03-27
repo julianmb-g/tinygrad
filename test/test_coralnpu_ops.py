@@ -3,6 +3,7 @@ import math
 import os
 import struct
 import tempfile
+import time
 import unittest
 from unittest.mock import MagicMock, patch
 
@@ -104,11 +105,8 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
 
         # Execute a program that does nothing (or writes to handle2) to see if simulator clobbers handle's memory space
         self.allocator.device.allocator = self.allocator
-        try:
-            prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
-            prog(handle2, wait=True, timeout=kDefaultCompilationTimeoutS)
-        except FileNotFoundError:
-            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
+        prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
+        prog(handle2, wait=True, timeout=kDefaultCompilationTimeoutS)
 
         dest = bytearray(4)
         self.allocator._copyout(memoryview(dest), handle)
@@ -133,8 +131,24 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
             self.allocator._copyout(memoryview(dest), handle)
             out_val = struct.unpack('f', dest)[0]
             self.assertEqual(out_val, 42.0)
-        except FileNotFoundError:
-            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
+        finally:
+            self.allocator._free(handle, dummy_options)
+
+    def test_dma_timeout_watchdog(self):
+        """Test the organic timeout execution boundary natively."""
+        dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
+        handle = self.allocator._alloc(1024, dummy_options)
+        try:
+            self.device.allocator = self.allocator
+            src = b"void bridge_execution(float* a) { while(1) { a[0] = 42.0f; } }"
+            prog = CoralNPUProgram(self.device, "bridge_execution", src)
+            
+            start_time = time.time()
+            ret = prog(handle, wait=True, timeout=0.5)
+            end_time = time.time()
+            
+            self.assertEqual(ret, math.inf, "Timeout must organically return math.inf to discard deadlocked executions.")
+            self.assertLess(end_time - start_time, 2.0, "Watchdog failed to explicitly kill the hung subprocess.")
         finally:
             self.allocator._free(handle, dummy_options)
 
