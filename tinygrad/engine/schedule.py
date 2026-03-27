@@ -16,6 +16,11 @@ def _unwrap_src(s: UOp) -> UOp:
   while len(s.src) and s.op not in {Ops.AFTER, Ops.BUFFER, Ops.PARAM, Ops.MSELECT, Ops.MSTACK, Ops.BIND}: s = s.src[0]
   return s
 
+def _is_complex_node(ast: UOp) -> bool:
+  """Classify nodes that generate large ASTs (like Gemma RMSNorm/RoPE) to enforce sequential execution."""
+  ops = {u.op for u in ast.toposort()}
+  return Ops.SIN in ops or Ops.SQRT in ops
+
 def create_schedule(sched_sink:UOp) -> UOp:
   with cpu_profile(TracingKey("toposort sched_sink")):
     # build kernel dependency graph: edges from producer kernel to consumer kernels
@@ -52,10 +57,8 @@ def create_schedule(sched_sink:UOp) -> UOp:
     complex_nodes = []
     for k in in_degree.keys():
       ast = k.src[0] if k.op is Ops.END else k
-      if hasattr(ast, "toposort"):
-        ops = {u.op for u in ast.toposort()}
-        if Ops.SIN in ops or Ops.SQRT in ops:
-          complex_nodes.append(k)
+      if hasattr(ast, "toposort") and _is_complex_node(ast):
+        complex_nodes.append(k)
     for i in range(len(complex_nodes) - 1):
       src = complex_nodes[i]
       dest = complex_nodes[i+1]
@@ -135,7 +138,8 @@ def lower_sink_to_linear(function:UOp) -> UOp|None:
   st = time.perf_counter()
   if isinstance(function.arg, KernelInfo): return None
   cache_key = function.key
-  if not SCACHE or (sc_ret:=schedule_cache.get(cache_key, None)) is None:
+  sc_ret = schedule_cache.get(cache_key, None) if SCACHE else None
+  if sc_ret is None:
     if SPEC: type_verify(function, tensor_spec)
     # support recursive CALLs
     linear = create_schedule(get_kernel_graph(function))

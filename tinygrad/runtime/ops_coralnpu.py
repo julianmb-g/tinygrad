@@ -154,6 +154,23 @@ class CoralNPUAllocator(Allocator):
                                 merged.append(blk)
                     self.free_blocks = merged
 
+CORALNPU_DTCM_LINKER_SCRIPT = """MEMORY {
+  PING (rw) : ORIGIN = 0x00010000, LENGTH = 12K
+  PONG (rw) : ORIGIN = 0x00013000, LENGTH = 12K
+  ACCUM (rw) : ORIGIN = 0x00016000, LENGTH = 4K
+  EXTMEM (rwx) : ORIGIN = 0x20000000, LENGTH = 256M
+}
+SECTIONS {
+  .text : { *(.text*) } > EXTMEM
+  .ping : { . = ALIGN(16); *(.ping*) } > PING
+  .pong : { . = ALIGN(16); *(.pong*) } > PONG
+  .accum : { . = ALIGN(16); *(.accum*) } > ACCUM
+  .noinit (NOLOAD) : { . = ALIGN(16); *(.noinit*) } > EXTMEM
+  .data : { *(.data*) } > EXTMEM
+  .bss : { *(.bss*) } > EXTMEM
+  _end = .;
+}"""
+
 class CoralNPUProgram:
   def __init__(self, device, name:str, lib:bytes, *args, runtimevars=None):
     self.device = device
@@ -178,22 +195,7 @@ class CoralNPUProgram:
     elf_path = src_path + ".elf"
     ld_path = src_path + ".ld"
     with open(ld_path, 'w') as f:
-      f.write("""MEMORY {
-  PING (rw) : ORIGIN = 0x00010000, LENGTH = 12K
-  PONG (rw) : ORIGIN = 0x00013000, LENGTH = 12K
-  ACCUM (rw) : ORIGIN = 0x00016000, LENGTH = 4K
-  EXTMEM (rwx) : ORIGIN = 0x20000000, LENGTH = 256M
-}
-SECTIONS {
-  .text : { *(.text*) } > EXTMEM
-  .ping : { . = ALIGN(16); *(.ping*) } > PING
-  .pong : { . = ALIGN(16); *(.pong*) } > PONG
-  .accum : { . = ALIGN(16); *(.accum*) } > ACCUM
-  .noinit (NOLOAD) : { . = ALIGN(16); *(.noinit*) } > EXTMEM
-  .data : { *(.data*) } > EXTMEM
-  .bss : { *(.bss*) } > EXTMEM
-  _end = .;
-}""")
+      f.write(CORALNPU_DTCM_LINKER_SCRIPT)
     try:
       subprocess.check_output(
           ['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', ld_path, src_path, '-o', elf_path],
