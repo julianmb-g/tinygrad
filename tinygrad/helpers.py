@@ -630,6 +630,81 @@ def init_c_process_group():
 
 
 _ipc_active_pids = set()
+class TinygradAutoTunerIPC:
+  """Python Auto-Tuner Concurrency Pipeline IPC Bridging (Project 3)"""
+  def __init__(self, timeout_sec: float = 15.0):
+    self.kDefaultCompilationTimeoutMs = int(timeout_sec * 1000)
+    try:
+      multiprocessing.set_start_method("spawn", force=True)
+    except RuntimeError: pass
+    self._respawn()
+
+  def _respawn(self):
+    self.parent_conn, self.child_conn = multiprocessing.Pipe(duplex=True)
+    self.worker = multiprocessing.Process(target=self._worker_loop, args=(self.child_conn,))
+    self.worker.daemon = True
+    self.worker.start()
+
+  def _worker_loop(self, conn):
+    os.setpgrp()
+    while True:
+      try:
+        msg = conn.recv()
+        if msg is None: break
+        binary_payload = msg
+        
+        # Execute isolated payload
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+          f.write(binary_payload)
+          elf_path = f.name
+        
+        try:
+          cmd = ['coralnpu_v2_sim', elf_path]
+          p = subprocess.run(cmd, preexec_fn=os.setpgrp, capture_output=True, text=True)
+          
+          # Intercept mcause != 0 hardware traps
+          if p.returncode != 0:
+            conn.send(("trap", p.returncode))
+          else:
+            cycles_match = re.search(r"ISS_CYCLES:\s*(\d+)", p.stdout)
+            cost = float(cycles_match.group(1)) if cycles_match else 0.0
+            conn.send(("ok", cost))
+        finally:
+          os.unlink(elf_path)
+      except EOFError:
+        break
+      except Exception as e:
+        conn.send(("error", str(e)))
+
+  def evaluate_cost_isolated(self, binary_payload: bytes) -> float:
+    self.parent_conn.send(binary_payload)
+    
+    poll_obj = select.poll()
+    poll_obj.register(self.parent_conn.fileno(), select.POLLIN)
+    events = poll_obj.poll(self.kDefaultCompilationTimeoutMs)
+    
+    if not events:
+      # Timeout: Explicitly kill/respawn worker process
+      self.worker.terminate()
+      self.worker.join()
+      self._respawn()
+      return math.inf
+    
+    try:
+      status, val = self.parent_conn.recv()
+      if status == "trap" or status == "error":
+        # mcause != 0 hardware trap
+        self.worker.terminate()
+        self.worker.join()
+        self._respawn()
+        return math.inf
+      return val
+    except Exception:
+      self.worker.terminate()
+      self.worker.join()
+      self._respawn()
+      return math.inf
+_ipc_active_pids = set()
 def _kill_ipc_orphans():
   try:
     for pid in list(_ipc_active_pids):
