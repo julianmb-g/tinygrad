@@ -3,41 +3,40 @@ import struct
 import tempfile
 import os
 import unittest
+import subprocess
+import numpy as np
 from unittest.mock import patch
 from tinygrad.device import BufferSpec
-from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
-
-def create_dummy_elf(path, padding=0x2000):
-    elf = bytearray(b'\x7fELF\x01\x01\x01\x00' + b'\x00'*8)
-    elf += struct.pack("<2H I 3I I 6H",
-        2, 0xf3, 1,
-        0, 0, 52,
-        0, 52, 0, 0, 40, 3, 2
-    )
-    elf += b'\x00' * 40
-    elf += struct.pack("<10I", 1, 2, 0, 0, 172, 16, 2, 0, 4, 16)
-    elf += struct.pack("<10I", 9, 3, 0, 0, 188, 22, 0, 0, 1, 0)
-
-    dynamic_base_addr = 0x80000000 + len(elf) + padding
-
-    elf += struct.pack("<IIIBBH", 17, dynamic_base_addr, 0, 0, 0, 0)
-    elf += b'\x00.symtab\x00.strtab\x00_end\x00'
-    with open(path, "wb") as f: f.write(elf)
-    return dynamic_base_addr
+from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, CORALNPU_DTCM_LINKER_SCRIPT
 
 class TestCoralNPUE2E(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.elf_fd, cls.elf_path = tempfile.mkstemp(suffix='.elf')
-        create_dummy_elf(cls.elf_path)
+        cls.src_fd, cls.src_path = tempfile.mkstemp(suffix='.c')
+        cls.ld_fd, cls.ld_path = tempfile.mkstemp(suffix='.ld')
+        cls.elf_path = cls.src_path + ".elf"
+        
+        with open(cls.ld_path, 'w') as f:
+            f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+        with open(cls.src_path, 'w') as f:
+            f.write('void _start() { asm volatile(".insn 4, 0x08000073"); }')
+            
+        try:
+            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path])
+        except FileNotFoundError:
+            raise unittest.SkipTest("Cross-compiler missing")
+            
         cls.env_patcher = patch.dict(os.environ, {"CORALNPU_ELF": cls.elf_path})
         cls.env_patcher.start()
 
     @classmethod
     def tearDownClass(cls):
         cls.env_patcher.stop()
-        os.close(cls.elf_fd)
-        os.unlink(cls.elf_path)
+        os.close(cls.src_fd)
+        os.close(cls.ld_fd)
+        if os.path.exists(cls.src_path): os.unlink(cls.src_path)
+        if os.path.exists(cls.ld_path): os.unlink(cls.ld_path)
+        if os.path.exists(cls.elf_path): os.unlink(cls.elf_path)
 
     def setUp(self):
         self.device = CoralNPUDevice("CORALNPU")
@@ -47,21 +46,25 @@ class TestCoralNPUE2E(unittest.TestCase):
         dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
-            src = b"""
+            # Inject handle as the target address
+            src = f"""
             __attribute__((section(".ping"))) volatile float ping_buf[10];
             __attribute__((section(".pong"))) volatile float pong_buf[10];
             __attribute__((section(".noinit"))) volatile float noinit_buf[10];
             __attribute__((section(".accum"))) volatile float accum_buf[10];
 
-            void dtcm_linker_test(float* out) {
+            void _start() {{
+                float* out = (float*){handle};
                 ping_buf[0] = 10.0f;
                 pong_buf[0] = 20.0f;
                 noinit_buf[0] = 30.0f;
                 accum_buf[0] = 42.0f;
                 out[0] = ping_buf[0] + pong_buf[0] + noinit_buf[0] + accum_buf[0];
-            }
-            """
-            prog = CoralNPUProgram(self.device, "dtcm_linker_test", src)
+                asm volatile(".insn 4, 0x08000073");
+            }}
+            """.encode()
+            
+            prog = CoralNPUProgram(self.device, "_start", src)
             try:
                 prog(handle, wait=True)
             except FileNotFoundError:
@@ -78,10 +81,9 @@ class TestCoralNPUE2E(unittest.TestCase):
         from tinygrad.tensor import Tensor
         
         try:
-            # We construct a computation graph that uses SIN and SQRT
-            # to trigger the complex_nodes dependency chaining in schedule.py.
-            t1 = Tensor([1.0, 2.0], device="CORALNPU").sin()
-            t2 = Tensor([3.0, 4.0], device="CORALNPU").sqrt()
+            # We construct a computation graph that uses SQRT and MAX (since SQRT triggers complex node)
+            t1 = Tensor([1.0, 4.0], device="CORALNPU").sqrt()
+            t2 = Tensor([3.0, 2.0], device="CORALNPU").max()
             
             # Combine them so they are in the same schedule queue
             out = t1 + t2
@@ -89,8 +91,8 @@ class TestCoralNPUE2E(unittest.TestCase):
             # Evaluate to extract schedule and run compilation
             res = out.numpy()
             
-            # If we get here, the execution routing succeeded natively on NPU
-            self.assertEqual(len(res), 2, "Scheduler Dependency Chaining failed E2E execution")
+            # Mathematical correctness validation
+            np.testing.assert_allclose(res, [4.0, 5.0], atol=1e-5, rtol=1e-5, err_msg="Scheduler Dependency Chaining mathematical failure")
         except FileNotFoundError:
             raise unittest.SkipTest("Hardware simulator missing")
 

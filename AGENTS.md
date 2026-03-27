@@ -51,3 +51,4 @@
 
 ### New QA Lessons (Current Cycle)
 - **Graceful Compilation Fallbacks vs. E2E Hardware Simulation:** Tests using `try...except FileNotFoundError` around cross-compilation steps degrade gracefully on unsupported nodes, but they do NOT constitute authentic E2E hardware evaluations. Parallel E2E execution tests running genuine payloads on the hardware simulator MUST be mandated.
+- **Pytest-Xdist Deadlocks & SharedMemory Teardown**: Fatal `OSError: cannot send` crashes during `pytest-xdist` teardown are often caused by unhandled exceptions in `__del__` methods (e.g., `multiprocessing.shared_memory.SharedMemory`). Explicitly trap `(AttributeError, KeyError, FileNotFoundError, OSError)` during cleanup to prevent worker GC crashes from killing the entire IPC pipeline.

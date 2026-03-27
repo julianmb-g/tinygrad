@@ -1012,8 +1012,7 @@ class CoralNPURenderer(CStyleLanguage):
 
     prefix.append('#include <stdint.h>\n'
                   'static inline float coralnpu_sqrt(float x) { '
-                  'float res; asm("fsqrt.s %0, %1" : "=f"(res) : "f"(x)); return res; }\n'
-                  'static inline float coralnpu_sin(float x) { return x; }')
+                  'float res; asm("fsqrt.s %0, %1" : "=f"(res) : "f"(x)); return res; }')
     # Add vector typedefs for GCC
     for dt in uops_to_dtypes(uops):
       if dt.count > 1:
@@ -1058,7 +1057,6 @@ class CoralNPURenderer(CStyleLanguage):
     **CStyleLanguage.code_for_op,
     Ops.MAX: lambda a,b,dtype: f"(({a}>{b})?{a}:{b})",
     Ops.SQRT: lambda a,dtype: f"coralnpu_sqrt({a})",
-    Ops.SIN: lambda a,dtype: f"coralnpu_sin({a})",
   }
 
   def _define_local_rewrite(ctx, x):
