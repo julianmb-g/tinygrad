@@ -81,7 +81,7 @@ class CoralNPUAllocator(Allocator):
             try: os.unlink(f"/dev/shm/{shm.name}")
             except (AttributeError, KeyError, OSError, FileNotFoundError): pass
             try: shm.unlink()
-            except FileNotFoundError: pass
+            except (AttributeError, KeyError, OSError, FileNotFoundError): pass
           except (AttributeError, KeyError, OSError, FileNotFoundError): pass
     except (AttributeError, KeyError, OSError, FileNotFoundError): pass
 
