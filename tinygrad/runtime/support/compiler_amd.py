@@ -120,19 +120,10 @@ class HIPCCCompiler(Compiler):
           srcf.flush()
 
           rocm_path = getenv("ROCM_PATH", "/opt/rocm")
-          compile_cmd = [
-            "hipcc", "-c", "-emit-llvm", "--cuda-device-only",
-            "-O3", "-mcumode", f"--offload-arch={self.arch}",
-            f"-I{rocm_path}/include/hip", "-o", bcf.name, srcf.name
-          ] + self.extra_options
-          subprocess.run(compile_cmd, check=True, timeout=15.0)
-
-          link_cmd = [
-            "hipcc", "-target", "amdgcn-amd-amdhsa", f"-mcpu={self.arch}",
-            "-O3", "-mllvm", "-amdgpu-internalize-symbols",
-            "-c", "-o", libf.name, bcf.name
-          ] + self.extra_options
-          subprocess.run(link_cmd, check=True, timeout=15.0)
+          subprocess.run(["hipcc", "-c", "-emit-llvm", "--cuda-device-only", "-O3", "-mcumode",
+                          f"--offload-arch={self.arch}", f"-I{rocm_path}/include/hip", "-o", bcf.name, srcf.name] + self.extra_options, check=True, timeout=15.0)
+          subprocess.run(["hipcc", "-target", "amdgcn-amd-amdhsa", f"-mcpu={self.arch}",
+                          "-O3", "-mllvm", "-amdgpu-internalize-symbols", "-c", "-o", libf.name, bcf.name] + self.extra_options, check=True, timeout=15.0)
 
           return pathlib.Path(libf.name).read_bytes()
     except subprocess.TimeoutExpired as e:
