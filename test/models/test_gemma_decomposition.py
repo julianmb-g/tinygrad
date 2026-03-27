@@ -131,6 +131,7 @@ class TestGemmaDecomposition(unittest.TestCase):
         expected_out = mlp_cpu(x_cpu).realize().numpy()
         out = mlp(x)
         out.realize()
+        np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
       except FileNotFoundError:
         pass
     finally:
