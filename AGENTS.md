@@ -38,3 +38,4 @@
 
 ### Linter Remediation & Test Fraud
 - **Linter Remediation vs Test Fraud**: When remediating linter errors (like `F841` unused variable), ensure that the variable isn't simply deleted if it was originally intended for a critical structural assertion (e.g., `np.testing.assert_allclose(out.numpy(), expected_out)`). Deleting the assertion to satisfy the linter mathematically eviscerates the test boundary. Always restore the validation check.
+\n- **Python Semantics for UOp Rewrites**: When testing division and modulo UOp rewrites against Python integer math, use `int(math.fmod())` and `int(x / y)` to correctly simulate C-style truncation towards zero instead of Python's truncation towards negative infinity. Also, explicitly supply `dtype=dtypes.float` when initializing Variables meant to test transcendental functions like `.sin()` to prevent `KeyError: dtypes.index`.
