@@ -41,3 +41,5 @@
 \n- **Python Semantics for UOp Rewrites**: When testing division and modulo UOp rewrites against Python integer math, use `int(math.fmod())` and `int(x / y)` to correctly simulate C-style truncation towards zero instead of Python's truncation towards negative infinity. Also, explicitly supply `dtype=dtypes.float` when initializing Variables meant to test transcendental functions like `.sin()` to prevent `KeyError: dtypes.index`.
 # tinygrad Lessons Learned
 - **End-To-End Proof for Organic Traps**: Organic trapping of bounds (like infinite cyclic graphs in graph_rewrite) in unit tests is insufficient. You must provide E2E validations proving that structural bounds safely degrade or compile within authentic hardware cross-compilation passes.
+
+- **Gemma Hardware Bounds Evaluation**: Tests evaluating allocation and OOM bounds (like `test_gemma_geglu`) must naturally fail and trap organically using native Python boundaries. Avoid wrapping E2E evaluations in `assertRaises` if the underlying intention is to organically map the failure into the executing cross-compiler pass.
