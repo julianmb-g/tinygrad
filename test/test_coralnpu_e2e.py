@@ -22,7 +22,7 @@ class TestCoralNPUE2E(unittest.TestCase):
             f.write('void _start() { asm volatile(".insn 4, 0x08000073"); }')
             
         try:
-            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path])
+            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path], timeout=15.0)
         except FileNotFoundError:
             raise unittest.SkipTest("Cross-compiler missing")
             

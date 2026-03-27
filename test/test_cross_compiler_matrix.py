@@ -45,9 +45,9 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
       found_compiler = False
       for compiler in compilers:
         try:
-          subprocess.run([compiler, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+          subprocess.run([compiler, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15.0)
           found_compiler = True
-        except (FileNotFoundError, subprocess.CalledProcessError):
+        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
           pass
 
       if not found_compiler:
@@ -56,15 +56,17 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
       for compiler in compilers:
         # Verify host compiler existence
         try:
-          subprocess.run([compiler, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        except (FileNotFoundError, subprocess.CalledProcessError):
+          subprocess.run([compiler, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15.0)
+        except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
           continue
 
         for flag in flags:
           try:
-            subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", os.devnull], stderr=subprocess.STDOUT)
+            subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", os.devnull], stderr=subprocess.STDOUT, timeout=15.0)
           except subprocess.CalledProcessError as e:
             self.fail(f"Generated C++ code failed to compile natively via {compiler} {flag}: {e.output.decode('utf-8')}")
+          except subprocess.TimeoutExpired:
+            self.fail(f"Compilation natively via {compiler} {flag} timed out")
 
   def test_missing_toolchain_boundary_file_not_found(self):
     with unittest.mock.patch.dict(os.environ, {"PATH": "/tmp/dummy_empty_path"}):
