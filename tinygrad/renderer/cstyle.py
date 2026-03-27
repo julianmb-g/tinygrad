@@ -288,10 +288,15 @@ class ClangRenderer(CStyleLanguage):
     return defines + "\n" + self._render_body(function_name, kernel, bufs, uops, prefix) + "\n" + self._render_entry(function_name, bufs)
 
 class ClangJITRenderer(ClangRenderer):
+  buffer_suffix = ' restrict __attribute__((section(".noinit")))'
+
   def __init__(self):
     from tinygrad.runtime.support.compiler_cpu import ClangJITCompiler
     self.compiler = ClangJITCompiler()
     self.arch = "CORALNPU"
+
+  def buf_map(self, dt):
+    return self.render_dtype(dt).replace("*", "").strip()
 
 class OpenCLRenderer(CStyleLanguage):
   device = "CL"
