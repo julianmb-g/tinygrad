@@ -1,4 +1,5 @@
 from tinygrad.tensor import Tensor
+import math
 
 class GemmaRMSNorm:
   def __init__(self, dim: int, eps: float = 1e-6):
@@ -35,3 +36,39 @@ class GemmaMLP:
     gelu = gate.gelu()
     hidden = gelu * up
     return hidden.matmul(self.down_proj)
+
+class GemmaAttention:
+  def __init__(self, hidden_dim: int, num_heads: int, num_kv_heads: int, head_dim: int):
+    self.num_heads = num_heads
+    self.num_kv_heads = num_kv_heads
+    self.head_dim = head_dim
+    self.q_proj = Tensor.empty(hidden_dim, num_heads * head_dim)
+    self.k_proj = Tensor.empty(hidden_dim, num_kv_heads * head_dim)
+    self.v_proj = Tensor.empty(hidden_dim, num_kv_heads * head_dim)
+    self.o_proj = Tensor.empty(num_heads * head_dim, hidden_dim)
+
+  def __call__(self, x: Tensor, freqs_cis: Tensor, mask: Tensor|None = None) -> Tensor:
+    bsz, seq_len, _ = x.shape
+    q = x.matmul(self.q_proj).reshape(bsz, seq_len, self.num_heads, self.head_dim)
+    k = x.matmul(self.k_proj).reshape(bsz, seq_len, self.num_kv_heads, self.head_dim)
+    v = x.matmul(self.v_proj).reshape(bsz, seq_len, self.num_kv_heads, self.head_dim)
+
+    q = apply_rotary_emb(q, freqs_cis)
+    k = apply_rotary_emb(k, freqs_cis)
+
+    if self.num_heads != self.num_kv_heads:
+      num_repeats = self.num_heads // self.num_kv_heads
+      k = k.unsqueeze(3).expand(bsz, seq_len, self.num_kv_heads, num_repeats, self.head_dim).flatten(2, 3)
+      v = v.unsqueeze(3).expand(bsz, seq_len, self.num_kv_heads, num_repeats, self.head_dim).flatten(2, 3)
+
+    q = q.transpose(1, 2)
+    k = k.transpose(1, 2)
+    v = v.transpose(1, 2)
+
+    scores = q.matmul(k.transpose(2, 3)) / math.sqrt(self.head_dim)
+    if mask is not None:
+      scores = scores + mask
+
+    attn = scores.softmax(-1).matmul(v)
+    attn = attn.transpose(1, 2).flatten(2)
+    return attn.matmul(self.o_proj)
