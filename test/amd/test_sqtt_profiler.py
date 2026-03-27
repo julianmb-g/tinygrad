@@ -47,8 +47,7 @@ class TestSQTTProfiler(unittest.TestCase):
     t = ((Tensor.zeros(1) + 1).contiguous() + 2)
     sched = t.schedule()
     with save_sqtt() as sqtt:
-      for si in sched:
-          si.lower().run()
+      for si in sched: si.lower().run()
     self.assertEqual(len(sqtt), len(sched))
     for i,k in enumerate(sched):
       self.assertEqual(sqtt[i]["name"], f"SQTT {k.lower().prg.p.function_name}")
@@ -58,8 +57,7 @@ class TestSQTTProfiler(unittest.TestCase):
     sched = t.schedule()
     with save_sqtt() as sqtt:
       prgs = [si.lower() for si in sched]
-      for p in prgs:
-          p.run()
+      for p in prgs: p.run()
     self.assertEqual(len(sqtt), len(sched))
     for i,ei in enumerate(prgs):
       self.assertEqual(sqtt[i]["name"], f"SQTT {ei.prg.p.function_name}")
@@ -69,13 +67,11 @@ class TestSQTTProfiler(unittest.TestCase):
     def f(a): return a + 1
     t = Tensor.zeros(1)
     with save_sqtt() as sqtt:
-      execution_count = 5
-      for _ in range(execution_count):
-          f(t).realize()
-    self.assertEqual(len(sqtt), execution_count)
+      for _ in range(N:=5):
+        f(t).realize()
+    self.assertEqual(len(sqtt), N)
     kernel_name = sqtt[0]["name"]
-    for i,s in enumerate(sqtt[1:], start=1):
-        self.assertEqual(s["name"], f"{kernel_name} n{i+1}")
+    for i,s in enumerate(sqtt[1:], start=1): self.assertEqual(s["name"], f"{kernel_name} n{i+1}")
   # TODO: can we trace SQTT for graphed kernels?
   def test_jit_graph(self, kernel_count=3*1):
     @TinyJit
@@ -83,14 +79,14 @@ class TestSQTTProfiler(unittest.TestCase):
     t = Tensor.zeros(32)
     with save_sqtt() as sqtt:
       for _ in range(5):
-          f(t).realize()
+        f(t).realize()
     names = [s["name"] for s in sqtt]
     k0, k1, k2 = names[:3]
     for i in range(3, len(sqtt), 3):
-        n = (i // 3)+1
-        self.assertEqual(names[i], f"{k0} n{n}")
-        self.assertEqual(names[i+1], f"{k1} n{n}")
-        self.assertEqual(names[i+2], f"{k2} n{n}")
+      n = (i // 3)+1
+      self.assertEqual(names[i], f"{k0} n{n}")
+      self.assertEqual(names[i+1], f"{k1} n{n}")
+      self.assertEqual(names[i+2], f"{k2} n{n}")
     self.assertEqual(len(sqtt), kernel_count)
   @Context(JIT=2)
   def test_jit_multiple_kernels(self): self.test_jit_graph(kernel_count=3*5)
