@@ -4,18 +4,16 @@ import unittest
 import numpy as np
 
 from tinygrad import Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DType
 from tinygrad.engine.realize import get_program
 from tinygrad.renderer.nir import NIRRenderer
-from tinygrad.device import is_dtype_supported
 from tinygrad.renderer.ptx import PTXRenderer
 from tinygrad.uop.ops import Ops, UOp
 
-import math
-
-x_init = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
-W_init = (np.arange(math.prod((3,3))) % 10 * 0.1).reshape(3,3).astype(np.float32)
-m_init = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
+x_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,3).astype(np.float32)
+W_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(3,3).astype(np.float32)
+m_init = (np.arange(math.prod(np.array([1]).shape)) % 10 * 0.1).reshape(1,3).astype(np.float32)
 
 class TestTrainMode(unittest.TestCase):
   def test_train_mode(self):
@@ -109,12 +107,10 @@ class TestIdxUpcast(unittest.TestCase):
     with self.assertRaises(ValueError):
       self._schedule_render(Tensor.arange(2**33, dtype=dtypes.int))
 
-  @unittest.skipIf(is_dtype_supported(dtypes.int64), "int64 is supported")
   def test_int64_unsupported_overflow_sym(self):
     with self.assertRaises((KeyError, RuntimeError)):
       self.do_op_then_assert(dtypes.long, 2048, 2048, UOp.variable("dim3", 1, 2048).bind(32))
   @unittest.expectedFailure  # bug in gpu dims limiting
-  @unittest.skipIf(is_dtype_supported(dtypes.int64), "int64 is supported")
   def test_int64_unsupported_overflow(self):
     with self.assertRaises((KeyError, RuntimeError)):
       self.do_op_then_assert(dtypes.long, 2048, 2048, 2048)

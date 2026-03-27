@@ -1,11 +1,13 @@
 # Test to compare Python and Rust RDNA3 emulators by running real tinygrad kernels
 import ctypes
+import math
 import unittest
 from dataclasses import dataclass
 from pathlib import Path
 
 import tinygrad
 from test.mockgpu.amd.emu import EXEC_LO, SCC, VCC_LO, WAVE_SIZE, WaveState, _decode_at
+from tinygrad import Device
 from tinygrad.renderer.amd import decode_inst
 
 REMU_PATH = Path(tinygrad.__file__).parent.parent / "extra/remu/target/release/libremu.so"

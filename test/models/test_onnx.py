@@ -5,6 +5,7 @@ import numpy as np
 
 from extra.huggingface_onnx.huggingface_manager import DOWNLOADS_DIR, snapshot_download_with_retry
 from extra.onnx_helpers import validate
+from tinygrad.device import Device
 from tinygrad.helpers import Context, fetch
 from tinygrad.nn.onnx import OnnxRunner
 

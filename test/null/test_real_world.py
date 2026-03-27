@@ -8,6 +8,7 @@ import numpy as np
 from extra.lr_scheduler import OneCycleLR
 from test.helpers import slow
 from tinygrad import Device, GlobalCounters, Tensor, Variable, dtypes
+from tinygrad.device import is_dtype_supported
 from tinygrad.engine.jit import TinyJit
 from tinygrad.helpers import Context
 from tinygrad.nn import optim

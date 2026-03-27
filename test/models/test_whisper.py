@@ -7,7 +7,8 @@ import examples.mlperf.metrics as metrics
 from examples.audio_helpers import mel
 from examples.whisper import init_whisper, load_file_waveform, transcribe_file, transcribe_waveform
 from test.helpers import slow
-from tinygrad import Tensor, dtypes
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
 from tinygrad.helpers import fetch
 
 # Audio generated with the command on MacOS:

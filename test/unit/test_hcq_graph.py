@@ -6,6 +6,7 @@ from tinygrad.engine.jit import TinyJit
 from tinygrad.uop.ops import UOp, Ops
 from tinygrad.dtype import dtypes
 from tinygrad.runtime.graph.hcq import HCQGraph
+from tinygrad.runtime.support.hcq import HCQCompiled
 from tinygrad.runtime.support.usb import USBMMIOInterface
 
 

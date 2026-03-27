@@ -1,5 +1,6 @@
 import functools
 import math
+import platform
 import time
 import unittest
 import warnings

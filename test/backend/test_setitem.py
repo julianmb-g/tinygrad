@@ -2,7 +2,7 @@ import unittest
 
 import numpy as np
 
-from tinygrad import Tensor, TinyJit, Variable, dtypes
+from tinygrad import Device, Tensor, TinyJit, Variable, dtypes
 from tinygrad.helpers import Context
 
 

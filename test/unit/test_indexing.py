@@ -7,7 +7,7 @@ import warnings
 import numpy as np
 
 from test.helpers import slow
-from tinygrad import Tensor, TinyJit, Variable, dtypes
+from tinygrad import Device, Tensor, TinyJit, Variable, dtypes
 from tinygrad.helpers import all_same, prod
 
 random.seed(42)

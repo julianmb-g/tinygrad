@@ -12,7 +12,9 @@ from tinygrad.uop.ops import Ops, UOp, KernelInfo, AxisType
 from tinygrad.renderer.cstyle import CStyleLanguage
 from tinygrad.engine.realize import CompiledRunner, get_program, get_runner
 from tinygrad.engine.schedule import ExecItem
-from tinygrad.helpers import Context, getenv
+from tinygrad.helpers import CI, Context, getenv
+from tinygrad.renderer.cstyle import CStyleLanguage
+from tinygrad.renderer.ptx import PTXRenderer
 from tinygrad.tensor import Tensor, _to_np_dtype
 from tinygrad.uop.ops import AxisType, KernelInfo, Ops, UOp
 

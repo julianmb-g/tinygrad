@@ -2,8 +2,9 @@ import unittest
 
 import numpy as np
 
-from tinygrad import Context, GlobalCounters, Tensor
-from tinygrad.dtype import DTypeLike
+from tinygrad import Context, Device, GlobalCounters, Tensor
+from tinygrad.device import is_dtype_supported
+from tinygrad.dtype import DTypeLike, dtypes
 from tinygrad.helpers import DEBUG, get_single_element
 
 
