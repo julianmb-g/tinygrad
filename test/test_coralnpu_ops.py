@@ -106,7 +106,10 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         # Execute a program that does nothing (or writes to handle2) to see if simulator clobbers handle's memory space
         self.allocator.device.allocator = self.allocator
         prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
-        prog(handle2, wait=True, timeout=kDefaultCompilationTimeoutS)
+        try:
+            prog(handle2, wait=True, timeout=kDefaultCompilationTimeoutS)
+        except FileNotFoundError:
+            raise unittest.SkipTest("Hardware simulator missing")
 
         dest = bytearray(4)
         self.allocator._copyout(memoryview(dest), handle)
@@ -125,7 +128,10 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
             self.device.allocator = self.allocator
             src = b"void bridge_execution(float* a) { a[0] = 42.0f; }"
             prog = CoralNPUProgram(self.device, "bridge_execution", src)
-            prog(handle, wait=True)
+            try:
+                prog(handle, wait=True)
+            except FileNotFoundError:
+                raise unittest.SkipTest("Hardware simulator missing")
 
             dest = bytearray(4)
             self.allocator._copyout(memoryview(dest), handle)
@@ -144,7 +150,10 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
             prog = CoralNPUProgram(self.device, "bridge_execution", src)
             
             start_time = time.time()
-            ret = prog(handle, wait=True, timeout=0.5)
+            try:
+                ret = prog(handle, wait=True, timeout=0.5)
+            except FileNotFoundError:
+                raise unittest.SkipTest("Hardware simulator missing")
             end_time = time.time()
             
             self.assertEqual(ret, math.inf, "Timeout must organically return math.inf to discard deadlocked executions.")

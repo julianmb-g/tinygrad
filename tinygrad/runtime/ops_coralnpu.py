@@ -175,9 +175,27 @@ class CoralNPUProgram:
       f.write(src)
       src_path = f.name
     elf_path = src_path + ".elf"
+    ld_path = src_path + ".ld"
+    with open(ld_path, 'w') as f:
+      f.write("""MEMORY {
+  PING (rw) : ORIGIN = 0x00010000, LENGTH = 12K
+  PONG (rw) : ORIGIN = 0x00013000, LENGTH = 12K
+  ACCUM (rw) : ORIGIN = 0x00016000, LENGTH = 4K
+  EXTMEM (rwx) : ORIGIN = 0x20000000, LENGTH = 256M
+}
+SECTIONS {
+  .text : { *(.text*) } > EXTMEM
+  .ping : { . = ALIGN(16); *(.ping*) } > PING
+  .pong : { . = ALIGN(16); *(.pong*) } > PONG
+  .accum : { . = ALIGN(16); *(.accum*) } > ACCUM
+  .noinit (NOLOAD) : { . = ALIGN(16); *(.noinit*) } > EXTMEM
+  .data : { *(.data*) } > EXTMEM
+  .bss : { *(.bss*) } > EXTMEM
+  _end = .;
+}""")
     try:
       subprocess.check_output(
-          ['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', src_path, '-o', elf_path],
+          ['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', ld_path, src_path, '-o', elf_path],
           stderr=subprocess.STDOUT, timeout=kDefaultCompilationTimeoutS)
     except subprocess.TimeoutExpired as e:
       raise RuntimeError(f"Cross-compilation timed out: {e}")
@@ -185,6 +203,8 @@ class CoralNPUProgram:
       raise RuntimeError(f"Cross-compilation failed: {e.output.decode()}")
     except FileNotFoundError as e:
       raise FileNotFoundError(f"Missing cross-compiler: {e}")
+    finally:
+      if os.path.exists(ld_path): os.unlink(ld_path)
     return elf_path
 
   def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=kDefaultCompilationTimeoutS, **kwargs):
