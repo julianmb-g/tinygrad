@@ -74,8 +74,8 @@ class TestCoralNPURenderer(unittest.TestCase):
     renderer = CoralNPURenderer()
     # Test organic VMM lifecycle management with overlapping and disjoint tensors
 
-    # 1. Disjoint lifespans: buf1 (16KB), buf2 (10KB), buf3 (16KB)
-    buf1 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf1", 4096)) # 16KB
+    # 1. Disjoint lifespans: buf1 (12KB), buf2 (10KB), buf3 (12KB)
+    buf1 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf1", 3072)) # 12KB
     idx1 = UOp(Ops.CONST, dtypes.int, (), 0)
     ld1 = UOp(Ops.LOAD, dtypes.float, (buf1, idx1), None)
 
@@ -83,7 +83,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     idx2 = UOp(Ops.CONST, dtypes.int, (), 0)
     ld2 = UOp(Ops.LOAD, dtypes.float, (buf2, idx2), None)
 
-    buf3 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf3", 4096)) # 16KB
+    buf3 = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("buf3", 3072)) # 12KB
     idx3 = UOp(Ops.CONST, dtypes.int, (), 0)
     ld3 = UOp(Ops.LOAD, dtypes.float, (buf3, idx3), None)
 
@@ -94,15 +94,17 @@ class TestCoralNPURenderer(unittest.TestCase):
     except RuntimeError as e:
       self.fail(f"DTCM limit falsely triggered on disjoint lifespans (VMM leak): {e}")
 
-    # 2. Overlapping lifespans: bufA (16KB) and bufB (16KB)
-    bufA = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufA", 4096)) # 16KB
-    bufB = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufB", 4096)) # 16KB
+    # 2. Overlapping lifespans: bufA (12KB), bufB (12KB), and bufC (12KB)
+    bufA = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufA", 3072)) # 12KB
+    bufB = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufB", 3072)) # 12KB
+    bufC = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bufC", 3072)) # 12KB
     ldA = UOp(Ops.LOAD, dtypes.float, (bufA, UOp(Ops.CONST, dtypes.int, (), 0)), None)
     ldB = UOp(Ops.LOAD, dtypes.float, (bufB, UOp(Ops.CONST, dtypes.int, (), 0)), None)
+    ldC = UOp(Ops.LOAD, dtypes.float, (bufC, UOp(Ops.CONST, dtypes.int, (), 0)), None)
 
     # Interleaved usage forces overlap
-    uops_fail = [bufA, bufB, ldA, ldB]
-    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB limit"):
+    uops_fail = [bufA, bufB, bufC, ldA, ldB, ldC]
+    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB subdivided limit"):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops_fail)
 
   def test_dma_macro_injection_disjoint(self):
@@ -342,7 +344,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf0, local_huge]
 
     # We organically trap the appropriate error raised natively by CoralNPURenderer.
-    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB limit"):
+    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB subdivided limit"):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_is_non_pow2(self):

@@ -39,8 +39,8 @@ class TestCoralNPUMemory(unittest.TestCase):
         renderer.render_kernel("test_kernel", [], [], uops)
 
         # 1a. Check offsets
-        self.assertEqual(renderer.local_offsets[local1], 4096)
-        self.assertEqual(renderer.local_offsets[local2], 8192)
+        self.assertEqual(renderer.local_offsets[local1], 65536)
+        self.assertEqual(renderer.local_offsets[local2], 69632)
 
         # 1b. Test exceeding 28KB limit
         local_huge = UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("huge", 8000)) # 32000 bytes > 28672
@@ -51,7 +51,7 @@ class TestCoralNPUMemory(unittest.TestCase):
 
         with self.assertRaises(RuntimeError) as context:
             renderer.render_kernel("test_huge", [], [], uops_huge)
-        self.assertTrue("DTCM Tiling exceeded 28KB limit" in str(context.exception))
+        self.assertTrue("DTCM Tiling exceeded 28KB subdivided limit" in str(context.exception))
 
         # 2. Organic Execution Testing of Memory Boundaries & NaN Preservation
         # We now generate the real C string using _render
@@ -84,26 +84,26 @@ class TestCoralNPUMemory(unittest.TestCase):
             nan_val = struct.unpack('f', nan_bytes)[0]
             self.assertTrue(math.isnan(nan_val))
 
-            # Create a 20000 byte array initialized entirely to NaN
-            mem = bytearray(nan_bytes * 5000) # 5000 * 4 = 20000 bytes
+            # Create an 80000 byte array initialized entirely to NaN to satisfy the new 65536 offset limit
+            mem = bytearray(nan_bytes * 20000) # 20000 * 4 = 80000 bytes
             c_mem = (ctypes.c_char * len(mem)).from_buffer(mem)
 
             # Execute the C++ kernel organically
             func = getattr(lib, func_name)
             func(ctypes.byref(c_mem))
 
-            # Check boundaries around buf1 (starts at 4096)
-            before_bytes = mem[4096-4:4096]
+            # Check boundaries around buf1 (starts at 65536)
+            before_bytes = mem[65536-4:65536]
             before_val = struct.unpack('f', before_bytes)[0]
             self.assertTrue(math.isnan(before_val), "EXTMEM boundary before allocation was clobbered")
 
-            # The kernel should have written 42.0 at 4096
-            written_bytes = mem[4096:4096+4]
+            # The kernel should have written 42.0 at 65536
+            written_bytes = mem[65536:65536+4]
             written_val = struct.unpack('f', written_bytes)[0]
             self.assertEqual(written_val, 42.0, "Kernel did not write the expected value")
 
             # Check boundary after written value
-            after_bytes = mem[4096+4:4096+8]
+            after_bytes = mem[65536+4:65536+8]
             after_val = struct.unpack('f', after_bytes)[0]
             self.assertTrue(math.isnan(after_val), "EXTMEM boundary after allocation was clobbered")
 

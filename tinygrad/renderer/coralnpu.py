@@ -834,34 +834,44 @@ class CoralNPURenderer(CStyleLanguage):
         local_lifetimes[dl][1] = max(local_lifetimes[dl][1], i)
 
     # Assign offsets using a simple linear scan allocator
-    active_allocs = [] # list of (end_idx, offset, size)
+    pools = [
+      (0x00010000, 12288), # Ping
+      (0x00013000, 12288), # Pong
+      (0x00016000, 4096)   # Accum
+    ]
+    active_allocs = {p[0]: [] for p in pools}
     self.local_offsets = {}
-    dtcm_peak = 4096
 
     for dl, (start, end) in local_lifetimes.items():
       size = dl.arg[1] if isinstance(dl.arg, tuple) else dl.arg
       size_bytes = size * getattr(dl.dtype.base, 'itemsize', 1)
+      # Apply asymmetric zero-padding for tail masking to ensure AXI alignment (32-byte)
+      size_bytes = (size_bytes + 31) & ~31
 
-      active_allocs = [a for a in active_allocs if a[0] >= start]
-      active_allocs.sort(key=lambda x: x[1])
-      current_offset = 4096
       allocated = False
-      for a_end, a_offset, a_size in active_allocs:
-        if current_offset + size_bytes <= a_offset:
+      for pool_base, pool_size in pools:
+        active_allocs[pool_base] = [a for a in active_allocs[pool_base] if a[0] >= start]
+        active_allocs[pool_base].sort(key=lambda x: x[1])
+        
+        current_offset = pool_base
+        for a_end, a_offset, a_size in active_allocs[pool_base]:
+          if current_offset + size_bytes <= a_offset:
+            self.local_offsets[dl] = current_offset
+            active_allocs[pool_base].append((end, current_offset, size_bytes))
+            allocated = True
+            break
+          current_offset = max(current_offset, a_offset + a_size)
+          
+        if not allocated and current_offset + size_bytes <= pool_base + pool_size:
           self.local_offsets[dl] = current_offset
-          active_allocs.append((end, current_offset, size_bytes))
+          active_allocs[pool_base].append((end, current_offset, size_bytes))
           allocated = True
+          
+        if allocated:
           break
-        current_offset = max(current_offset, a_offset + a_size)
 
       if not allocated:
-        self.local_offsets[dl] = current_offset
-        active_allocs.append((end, current_offset, size_bytes))
-
-      dtcm_peak = max(dtcm_peak, current_offset + size_bytes)
-
-    if dtcm_peak > 28672 + 4096:
-      raise RuntimeError(f"DTCM Tiling exceeded 28KB limit: {dtcm_peak - 4096} bytes")
+        raise RuntimeError(f"DTCM Tiling exceeded 28KB subdivided limit: failed to allocate {size_bytes} bytes")
 
     # .bss oblieration check
     for u in uops:
@@ -895,34 +905,44 @@ class CoralNPURenderer(CStyleLanguage):
       for dl in deps:
         local_lifetimes[dl][1] = max(local_lifetimes[dl][1], i)
 
-    active_allocs = []
+    pools = [
+      (0x00010000, 12288), # Ping
+      (0x00013000, 12288), # Pong
+      (0x00016000, 4096)   # Accum
+    ]
+    active_allocs = {p[0]: [] for p in pools}
     self.local_offsets = {}
-    dtcm_peak = 4096
 
     for dl, (start, end) in local_lifetimes.items():
       size = dl.arg[1] if isinstance(dl.arg, tuple) else dl.arg
       size_bytes = size * getattr(dl.dtype.base, 'itemsize', 1)
+      # Apply asymmetric zero-padding for tail masking to ensure AXI alignment (32-byte)
+      size_bytes = (size_bytes + 31) & ~31
 
-      active_allocs = [a for a in active_allocs if a[0] >= start]
-      active_allocs.sort(key=lambda x: x[1])
-      current_offset = 4096
       allocated = False
-      for a_end, a_offset, a_size in active_allocs:
-        if current_offset + size_bytes <= a_offset:
+      for pool_base, pool_size in pools:
+        active_allocs[pool_base] = [a for a in active_allocs[pool_base] if a[0] >= start]
+        active_allocs[pool_base].sort(key=lambda x: x[1])
+        
+        current_offset = pool_base
+        for a_end, a_offset, a_size in active_allocs[pool_base]:
+          if current_offset + size_bytes <= a_offset:
+            self.local_offsets[dl] = current_offset
+            active_allocs[pool_base].append((end, current_offset, size_bytes))
+            allocated = True
+            break
+          current_offset = max(current_offset, a_offset + a_size)
+          
+        if not allocated and current_offset + size_bytes <= pool_base + pool_size:
           self.local_offsets[dl] = current_offset
-          active_allocs.append((end, current_offset, size_bytes))
+          active_allocs[pool_base].append((end, current_offset, size_bytes))
           allocated = True
+          
+        if allocated:
           break
-        current_offset = max(current_offset, a_offset + a_size)
 
       if not allocated:
-        self.local_offsets[dl] = current_offset
-        active_allocs.append((end, current_offset, size_bytes))
-
-      dtcm_peak = max(dtcm_peak, current_offset + size_bytes)
-
-    if dtcm_peak > 28672 + 4096:
-      raise RuntimeError(f"DTCM Tiling exceeded 28KB limit: {dtcm_peak - 4096} bytes")
+        raise RuntimeError(f"DTCM Tiling exceeded 28KB subdivided limit: failed to allocate {size_bytes} bytes")
 
     # .bss oblieration check
     for u in uops:
@@ -1040,9 +1060,11 @@ class CoralNPURenderer(CStyleLanguage):
   }
 
   def _define_local_rewrite(ctx, x):
-    offset = getattr(ctx, 'local_offsets', {}).get(x, getattr(ctx, "dtcm_bump", 4096))
+    offset = getattr(ctx, 'local_offsets', {}).get(x, getattr(ctx, "dtcm_bump", 0x00010000))
     if x not in getattr(ctx, 'local_offsets', {}):
-      ctx.dtcm_bump = getattr(ctx, "dtcm_bump", 4096) + (x.arg[1] if isinstance(x.arg, tuple) else x.arg) * getattr(x.dtype.base, "itemsize", 1)
+      raw_size = (x.arg[1] if isinstance(x.arg, tuple) else x.arg) * getattr(x.dtype.base, "itemsize", 1)
+      aligned_size = (raw_size + 31) & ~31
+      ctx.dtcm_bump = getattr(ctx, "dtcm_bump", 0x00010000) + aligned_size
     return f"{ctx.render_dtype(x.dtype.base)}* {ctx[x]} = ({ctx.render_dtype(x.dtype.base)}*)({offset});"
 
   def emit_dma_async(ctx, x):
