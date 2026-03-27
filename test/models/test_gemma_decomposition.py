@@ -106,17 +106,16 @@ class TestGemmaDecomposition(unittest.TestCase):
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
       try:
-        with self.assertRaises(RuntimeError):
-          Device.DEFAULT = "CORALNPU"
-          x = x_cpu.to("CORALNPU")
-          mlp = GemmaMLP(hidden_dim, ff_dim)
-          mlp.gate_proj = mlp_gate_cpu.to("CORALNPU")
-          mlp.up_proj = mlp_up_cpu.to("CORALNPU")
-          mlp.down_proj = mlp_down_cpu.to("CORALNPU")
-          expected_out = mlp_cpu(x_cpu).realize().numpy()
-          out = mlp(x)
-          out.realize()
-          np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
+        Device.DEFAULT = "CORALNPU"
+        x = x_cpu.to("CORALNPU")
+        mlp = GemmaMLP(hidden_dim, ff_dim)
+        mlp.gate_proj = mlp_gate_cpu.to("CORALNPU")
+        mlp.up_proj = mlp_up_cpu.to("CORALNPU")
+        mlp.down_proj = mlp_down_cpu.to("CORALNPU")
+        expected_out = mlp_cpu(x_cpu).realize().numpy()
+        out = mlp(x)
+        out.realize()
+        np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
       except FileNotFoundError:
         pass
     finally:
@@ -148,13 +147,12 @@ class TestGemmaDecomposition(unittest.TestCase):
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
       try:
-        with self.assertRaises(RuntimeError):
-          Device.DEFAULT = "CORALNPU"
-          x = x_cpu.to("CORALNPU")
-          freqs_cis = freqs_cis_cpu.to("CORALNPU")
-          out = apply_rotary_emb(x, freqs_cis)
-          out.realize()
-          np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
+        Device.DEFAULT = "CORALNPU"
+        x = x_cpu.to("CORALNPU")
+        freqs_cis = freqs_cis_cpu.to("CORALNPU")
+        out = apply_rotary_emb(x, freqs_cis)
+        out.realize()
+        np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
       except FileNotFoundError:
         pass
     finally:
