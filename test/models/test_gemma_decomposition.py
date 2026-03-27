@@ -51,7 +51,7 @@ class TestGemmaDecomposition(unittest.TestCase):
     try:
       dummy_out = rmsnorm_cpu(x_cpu)
       c_name, elf_name = self._compile_layer(dummy_out)
-    except Exception:
+    except (FileNotFoundError, subprocess.CalledProcessError):
       c_name, elf_name = None, None
 
     expected_out = rmsnorm_cpu(x_cpu).realize().numpy()
@@ -70,8 +70,6 @@ class TestGemmaDecomposition(unittest.TestCase):
         np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
       except FileNotFoundError:
         pass
-    except Exception:
-      pass
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:
@@ -100,7 +98,7 @@ class TestGemmaDecomposition(unittest.TestCase):
     except RuntimeError:
       # If schedule fails to even compile (e.g. upcasting), skip trying to compile it
       pass
-    except FileNotFoundError:
+    except (FileNotFoundError, subprocess.CalledProcessError):
       pass
 
     old_default = Device.DEFAULT
@@ -108,20 +106,19 @@ class TestGemmaDecomposition(unittest.TestCase):
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
       try:
-        Device.DEFAULT = "CORALNPU"
-        x = x_cpu.to("CORALNPU")
-        mlp = GemmaMLP(hidden_dim, ff_dim)
-        mlp.gate_proj = mlp_gate_cpu.to("CORALNPU")
-        mlp.up_proj = mlp_up_cpu.to("CORALNPU")
-        mlp.down_proj = mlp_down_cpu.to("CORALNPU")
-        expected_out = mlp_cpu(x_cpu).realize().numpy()
-        out = mlp(x)
-        out.realize()
-        np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
-      except (RuntimeError, FileNotFoundError):
+        with self.assertRaises(RuntimeError):
+          Device.DEFAULT = "CORALNPU"
+          x = x_cpu.to("CORALNPU")
+          mlp = GemmaMLP(hidden_dim, ff_dim)
+          mlp.gate_proj = mlp_gate_cpu.to("CORALNPU")
+          mlp.up_proj = mlp_up_cpu.to("CORALNPU")
+          mlp.down_proj = mlp_down_cpu.to("CORALNPU")
+          expected_out = mlp_cpu(x_cpu).realize().numpy()
+          out = mlp(x)
+          out.realize()
+          np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
+      except FileNotFoundError:
         pass
-      else:
-        self.fail("Expected RuntimeError or FileNotFoundError")
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:
@@ -143,7 +140,7 @@ class TestGemmaDecomposition(unittest.TestCase):
     try:
       dummy_out = apply_rotary_emb(x_cpu, freqs_cis_cpu)
       c_name, elf_name = self._compile_layer(dummy_out)
-    except Exception:
+    except (FileNotFoundError, subprocess.CalledProcessError):
       pass
 
     old_default = Device.DEFAULT
@@ -151,16 +148,15 @@ class TestGemmaDecomposition(unittest.TestCase):
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
       try:
-        Device.DEFAULT = "CORALNPU"
-        x = x_cpu.to("CORALNPU")
-        freqs_cis = freqs_cis_cpu.to("CORALNPU")
-        out = apply_rotary_emb(x, freqs_cis)
-        out.realize()
-        np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
-      except (RuntimeError, FileNotFoundError):
+        with self.assertRaises(RuntimeError):
+          Device.DEFAULT = "CORALNPU"
+          x = x_cpu.to("CORALNPU")
+          freqs_cis = freqs_cis_cpu.to("CORALNPU")
+          out = apply_rotary_emb(x, freqs_cis)
+          out.realize()
+          np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
+      except FileNotFoundError:
         pass
-      else:
-        self.fail("Expected RuntimeError or FileNotFoundError")
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:
