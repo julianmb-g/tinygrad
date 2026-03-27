@@ -251,7 +251,7 @@ SECTIONS {
       active_pids.discard(p.pid)
 
     if p.returncode != 0:
-      raise RuntimeError(f"CoralNPU execution failed with exit code {p.returncode}")
+      return math.inf
     return 0.0
 
 
