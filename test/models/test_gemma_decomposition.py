@@ -107,7 +107,7 @@ class TestGemmaDecomposition(unittest.TestCase):
     try:
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
-      with self.assertRaises((RuntimeError, FileNotFoundError)):
+      try:
         Device.DEFAULT = "CORALNPU"
         x = x_cpu.to("CORALNPU")
         mlp = GemmaMLP(hidden_dim, ff_dim)
@@ -118,6 +118,10 @@ class TestGemmaDecomposition(unittest.TestCase):
         out = mlp(x)
         out.realize()
         np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
+      except (RuntimeError, FileNotFoundError):
+        pass
+      else:
+        self.fail("Expected RuntimeError or FileNotFoundError")
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:
@@ -146,13 +150,17 @@ class TestGemmaDecomposition(unittest.TestCase):
     try:
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
-      with self.assertRaises((RuntimeError, FileNotFoundError)):
+      try:
         Device.DEFAULT = "CORALNPU"
         x = x_cpu.to("CORALNPU")
         freqs_cis = freqs_cis_cpu.to("CORALNPU")
         out = apply_rotary_emb(x, freqs_cis)
         out.realize()
         np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
+      except (RuntimeError, FileNotFoundError):
+        pass
+      else:
+        self.fail("Expected RuntimeError or FileNotFoundError")
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:

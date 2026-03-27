@@ -321,8 +321,12 @@ class TestRecurse(unittest.TestCase):
       (UPat(Ops.CONST, arg=3, name="x"), lambda x: x.replace(arg=4)),
       (UPat(Ops.CONST, arg=4, name="x"), lambda x: x.replace(arg=3)),
     ])
-    with self.assertRaises(RuntimeError):
+    try:
       graph_rewrite(a, pm)
+    except RuntimeError:
+      pass
+    else:
+      self.fail("Expected RuntimeError")
 
   def test_inf_loop_bottom_up(self):
     a = UOp.const(dtypes.int, 3)
@@ -330,8 +334,12 @@ class TestRecurse(unittest.TestCase):
       (UPat(Ops.CONST, arg=3, name="x"), lambda x: x.replace(arg=4)),
       (UPat(Ops.CONST, arg=4, name="x"), lambda x: x.replace(arg=3)),
     ])
-    with self.assertRaises(RuntimeError):
+    try:
       graph_rewrite(a, pm, bottom_up=True)
+    except RuntimeError:
+      pass
+    else:
+      self.fail("Expected RuntimeError")
 
 def bidir_append(ctx, x, b): ctx.append((x.arg if x.op is Ops.CONST else "+", b))
 class TestBidirectional(unittest.TestCase):
@@ -392,8 +400,12 @@ class TestWalkRewrite(unittest.TestCase):
       (UPat(Ops.CONST, arg=3, name="x"), lambda x: x.replace(arg=4)),
       (UPat(Ops.CONST, arg=4, name="x"), lambda x: x.replace(arg=3)),
     ])
-    with self.assertRaises(RuntimeError):
+    try:
       graph_rewrite(a, pm, bottom_up=True)
+    except RuntimeError:
+      pass
+    else:
+      self.fail("Expected RuntimeError")
     ret = graph_rewrite(a, pm, walk=True)
     self.assertIs(ret, UOp.const(dtypes.int, 4))
 
