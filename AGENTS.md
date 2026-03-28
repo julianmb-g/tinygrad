@@ -4,11 +4,6 @@
 
 ### Tier 1: Build, Orchestration & Execution Logic
 
-[FLAG: invalid] * **Subprocess Execution Deadlocks & Timeouts** (Artificial timeouts like timeout=15.0 mask underlying deadlocks. Fix natively instead of relying on subprocess kill switches.)
-  * **Quote:** "Parallel execution under pytest -n 4 deadlocked or timed out violently after running 5000+ tests."
-  * **Impact:** Subprocess calls in tests hanging infinitely mask execution boundaries and crash the CI orchestrator.
-  * **Action:** Individual tests executing `subprocess.run` or complex loops MUST enforce strict, native timeouts (e.g., `timeout=15.0`) to fail fast. Do NOT artificially extend global test suite timeouts (e.g., `timeout = 1200`).
-
 * **Compiler Syntax Integrity & Error Catching**
   * **Quote:** "Do not catch `subprocess.CalledProcessError` in test suites to bypass or skip failing tests."
   * **Impact:** Catching these errors mathematically erases invalid cross-component execution bugs from the CI runner, presenting a false "green" build.
@@ -95,6 +90,7 @@
   * **Quote:** "Leaving 'Restored Knowledge' blocks at the bottom of the submodule AGENTS.md fragments execution constraints."
   * **Impact:** Fragments submodule-specific execution constraints and causes ledger bloat.
   * **Action:** Immediately integrate audit restorations into the primary strict execution mandates and remove the restoration headers.
+
 * **Memory Allocation Exact Block Evasion**
   * **Quote:** "Mutating `if bsize >= size_aligned:` to `if bsize > size_aligned:` in `ops_coralnpu.py`."
   * **Impact:** Survives execution natively because tests never request an exact memory block size equal to a free chunk.
@@ -119,3 +115,4 @@
   * **Quote:** "`TestCoralNPUAllocator.setUp` explicitly mocks the hardware device (`self.device = MagicMock()`) alongside mock ELF generation."
   * **Impact:** Allocator logic is tested in total isolation, never proving it can route data through real synthesized AXI allocators.
   * **Action:** E2E tests MUST instantiate REAL synthesized memory controllers. Revert the testing fraud.
+
