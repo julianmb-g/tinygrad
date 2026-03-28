@@ -157,3 +157,9 @@ When using `pytest-xdist` parallel workers, crashes with `OSError: cannot send` 
   - **Quote:** "Parallel execution under pytest -n 4 deadlocked or timed out violently after running 5000+ tests."
   - **Impact:** 1200s orchestrator timeouts mask execution validations.
   - **Action:** Ensure individual test timeouts organically trap infinite loops before the global pytest watchdog is triggered.
+
+### Restored Knowledge (Data-Loss Audit Remediation - Current Run)
+- **Tier 1: Deep Testing Timeouts vs CI Watchdogs**
+  - **Quote:** "Parallel execution under pytest -n 4 deadlocked or timed out violently after 1200s."
+  - **Impact:** Systemic pipeline failures where orchestrator watchdogs indiscriminately kill hanging processes, skipping tests and masking true architectural failures.
+  - **Action:** Tests MUST implement explicit, organic bounds-trapping for all simulation or RTL loops natively. Do not rely on CI watchdogs to kill deadlocked executions.
