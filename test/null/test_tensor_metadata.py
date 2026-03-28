@@ -23,7 +23,7 @@ class TestTensorMetadata(unittest.TestCase):
     assert a.uop.metadata is not None
     self.assertEqual(a.uop.metadata[0].name, "__mul__")
     k = a.schedule()[-1]
-    self.assertEqual(len(k.metadata), 1)
+    self.assertEqual(len(k.metadata), 2)
   def test_exclude_const_metadata(self):
     a = Tensor.arange(4)
     b = Tensor.full((4,), -1, dtype=dtypes.int).contiguous()
@@ -37,7 +37,7 @@ class TestTensorMetadata(unittest.TestCase):
     assert out.uop.metadata is not None
     self.assertEqual(out.uop.metadata[0].name, "matmul")
     si = out.schedule()[-1]
-    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(len(si.metadata), 2)
     self.assertEqual(si.metadata[0].name, "matmul")
   def test_relu(self):
     x = Tensor.rand(3, requires_grad=True)
@@ -45,13 +45,13 @@ class TestTensorMetadata(unittest.TestCase):
     assert out.uop.metadata is not None
     self.assertEqual(out.uop.metadata[0].name, "relu")
     si = out.schedule()[-1]
-    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(len(si.metadata), 2)
     self.assertEqual(si.metadata[0].name, "relu")
   def test_assign(self):
     x = Tensor.empty(10, 10).realize()
     x.assign(Tensor.ones(10, 10).contiguous())
     si = x.schedule()[-1]
-    self.assertEqual(len(si.metadata), 1)
+    self.assertEqual(len(si.metadata), 2)
     self.assertEqual(si.metadata[0].name, "assign")
   def test_complex(self):
     x = Tensor.rand(3, requires_grad=True)
@@ -64,8 +64,8 @@ class TestTensorMetadata(unittest.TestCase):
     self.assertEqual(out.uop.src[0].metadata[0].name, "relu")
     self.assertEqual(out.uop.src[1].metadata[0].name, "sigmoid")
     si = out.schedule()[-1]
-    self.assertEqual(len(si.metadata), 3)
-    self.assertEqual(set(m.name for m in si.metadata), {"relu", "sigmoid", "__mul__"})
+    self.assertEqual(len(si.metadata), 4)
+    self.assertEqual(set(m.name for m in si.metadata), {"relu", "sigmoid", "__mul__", "rand"})
   def test_complex_backward(self):
     x = Tensor.rand(3, requires_grad=True).realize()
     y = Tensor.rand(3, requires_grad=True).realize()
@@ -81,9 +81,9 @@ class TestTensorMetadata(unittest.TestCase):
     self.assertEqual(y.grad.uop.metadata[0].name, "sigmoid")
     self.assertTrue(y.grad.uop.metadata[0].backward)
     si = Tensor.schedule(out, x.grad, y.grad)[-1]
-    self.assertEqual(len(si.metadata), 2)
+    self.assertEqual(len(si.metadata), 3)
     # skip numpy, this is schedule cache
-    self.assertSetEqual(set(m.name for m in si.metadata if m.name != "numpy"), {"sigmoid", "relu"})
+    self.assertSetEqual(set(m.name for m in si.metadata if m.name != "numpy"), {"sigmoid", "relu", "rand"})
     bw = [m for m in si.metadata if getattr(m, 'backward', False)]
     self.assertEqual(len(bw), 1)
     self.assertEqual(bw[0].name, "sigmoid")
