@@ -14,7 +14,11 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
         try:
             if hasattr(self, '_mmap') and self._mmap is not None and not getattr(self._mmap, 'closed', True):
                 if hasattr(self, 'buf') and self.buf is not None:
-                    memoryview(self.buf).release()
+                    self.buf.release()
+                    try:
+                        os.unlink(f"/dev/shm/{self.name}")
+                    except OSError:
+                        pass
         except (AttributeError, KeyError, OSError): pass
 
         try:

@@ -75,7 +75,12 @@ class CoralNPUAllocator(Allocator):
       for shm in getattr(self, 'shms', {}).values():
           try:
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
-                memoryview(shm.buf).release()
+                shm.buf.release()
+                try:
+                    import os
+                    os.unlink(f"/dev/shm/{shm.name}")
+                except OSError:
+                    pass
             shm.close()
             shm.unlink()
           except (AttributeError, KeyError, OSError): pass
