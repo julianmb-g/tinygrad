@@ -451,8 +451,8 @@ def bufferize_to_store(ctx:itertools.count, x:UOp, idx:UOp, allow_locals=True):
   # NOTE: the DEFINE_LOCAL needs to be disambiguated here
   if sdtype.addrspace == AddrSpace.GLOBAL:
     buf = UOp(Ops.BUFFER, x.dtype, (UOp(Ops.LUNIQUE, arg=next(ctx)), UOp(Ops.DEVICE, arg=x.arg.device)), size)
-    do_store = buf.index(idx, dtype=sdtype).store(x.src[0], metadata=x.src[0].metadata).end(*rngs, metadata=x.src[0].metadata)
-    return buf.after(do_store, metadata=x.src[0].metadata)
+    do_store = buf.index(idx, dtype=sdtype).store(x.src[0]).end(*rngs)
+    return buf.after(do_store)
 
   if allow_locals:
     # handle locals
@@ -605,8 +605,7 @@ def split_store(x:UOp) -> UOp|None:
   if stored.op in {Ops.COPY, Ops.BUFFER_VIEW}: ret = stored.replace(src=stored.src + ret.ended_ranges)
   else: ret = ret.sink(arg=KernelInfo(opts_to_apply=lctx.opts))
 
-  metadata = tuple(dedup((x.metadata or ()) + tuple(m for u in x.toposort() if u.op not in {Ops.BUFFERIZE, Ops.PARAM} for m in (u.metadata or []))))
-  kernel = ret.call(*lctx.map.values(), *lctx.vars.keys(), metadata=metadata)
+  kernel = ret.call(*lctx.map.values(), *lctx.vars.keys())
   if ret.op is Ops.SINK and not all_same([x.device for x in kernel.src[1:] if x.op is not Ops.BIND]):
     raise RuntimeError(f"all buffers must be on the same device: {tuple(b.buf_uop for b in kernel.src[1:])}")
   return kernel

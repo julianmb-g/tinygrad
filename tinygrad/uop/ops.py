@@ -202,10 +202,9 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
   def replace(self, **kwargs) -> UOp:
     new_args = (kwargs.pop("op", self.op), kwargs.pop("dtype", self.dtype), kwargs.pop("src", self.src),
                 kwargs.pop("arg", self.arg), kwargs.pop("tag", self.tag))
-    new_metadata = kwargs.pop("metadata", self.metadata if new_args[0] == self.op else None)
     assert len(kwargs) == 0, f"unused kwargs in replace {list(kwargs)}"
-    if (self.op, self.dtype, self.src, self.arg, self.tag) == new_args and new_metadata == self.metadata: return self
-    return UOp(*new_args, metadata=new_metadata)
+    if (self.op, self.dtype, self.src, self.arg, self.tag) == new_args: return self
+    return UOp(*new_args)
   def rtag(self, tag=True): return self.replace(tag=tag)
   @recursive_property
   def key(self) -> bytes:
@@ -1444,7 +1443,7 @@ class RewriteContext:
       else:
         # rebuild node with rewritten srcs
         new_src = tuple(self.replace.get(x, x) for x in n.src)
-        new_n = UOp(n.op, n.dtype, new_src, n.arg, n.tag, metadata=n.metadata) if new_src != n.src else n
+        new_n = UOp(n.op, n.dtype, new_src, n.arg, n.tag) if new_src != n.src else n
         # top-down: try pm on rebuilt node, use result as-is (no re-traversal)
         if self.pm is not None and (rewritten:=self.pm_rewrite(new_n)) is not None: new_n = rewritten
         self.replace[n] = new_n
@@ -1501,7 +1500,7 @@ class RewriteContext:
               continue
           else:
             # if srcs changed from rewrites, construct a new UOp with the new srcs
-            new_src_n = UOp(new_n.op, new_n.dtype, new_src, new_n.arg, new_n.tag, metadata=new_n.metadata if new_n.op == n.op else None)
+            new_src_n = UOp(new_n.op, new_n.dtype, new_src, new_n.arg, new_n.tag)
           # trigger a rewrite of new_src_n, then after that rewrite is done, link it back to n
           stack.append((n, 2, new_src_n))
           stack.append((new_src_n, 0, new_src_n))
