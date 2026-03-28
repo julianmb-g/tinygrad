@@ -1016,10 +1016,10 @@ class TestSymbolicVariables(unittest.TestCase):
     a = Variable("a", 0, 10)
     b = Variable("b", 0, 10)
     c = Variable("c", 0, 10)
-    assert (a + b * c).variables() == [a, b, c]
-    assert (a % 3 + b // 5).variables() == [a, b]
+    self.assertEqual((a + b * c).variables(), [a, b, c])
+    self.assertEqual((a % 3 + b // 5).variables(), [a, b])
     # TODO: fix me
-    assert (a + b + c - a).variables() == [b, c]
+    self.assertEqual((a + b + c - a).variables(), [b, c])
 
   def test_dedup(self):
     a = Variable("a", 0, 10)

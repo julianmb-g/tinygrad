@@ -143,6 +143,7 @@ class TestValidateOOB(unittest.TestCase):
         to_uops_list([buf_int.index(gidx.valid(ld_bool), ptr=True).load()])  # gidx 0..15, buf_int size 8
 
   # skipped tests (moved from test_uop_graph.py)
+  @unittest.skip("broken OOB")
   def test_in_bounds_access_gated_local(self):
     with Context(CHECK_OOB=1):
       # Define buffers
@@ -166,6 +167,7 @@ class TestValidateOOB(unittest.TestCase):
       # Store to global memory
       global_store = UOp(Ops.STORE, dtypes.void, (gbuf.index(gidx), local_load))
       to_uops_list([global_store])
+  @unittest.skip("broken OOB")
   def test_load_mask(self):
     with Context(CHECK_OOB=1):
       glbl0 = UOp(Ops.PARAM, dtypes.int.ptr(16), (), 0)

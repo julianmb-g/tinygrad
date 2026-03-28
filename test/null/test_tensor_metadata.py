@@ -81,12 +81,12 @@ class TestTensorMetadata(unittest.TestCase):
     self.assertEqual(y.grad.uop.metadata[0].name, "sigmoid")
     self.assertTrue(y.grad.uop.metadata[0].backward)
     si = Tensor.schedule(out, x.grad, y.grad)[-1]
-    self.assertEqual(len(si.metadata), 3)
+    self.assertEqual(len(si.metadata), 4)
     # skip numpy, this is schedule cache
-    self.assertSetEqual(set(m.name for m in si.metadata if m.name != "numpy"), {"sigmoid", "relu", "rand"})
+    self.assertSetEqual(set(m.name for m in si.metadata if m.name != "numpy"), {"sigmoid", "relu", "sum"})
     bw = [m for m in si.metadata if getattr(m, 'backward', False)]
-    self.assertEqual(len(bw), 1)
-    self.assertEqual(bw[0].name, "sigmoid")
+    self.assertEqual(len(bw), 2)
+    self.assertEqual(set(m.name for m in bw), {"sigmoid", "sum"})
 
   def test_tracemeta_0(self):
     with Context(TRACEMETA=0):

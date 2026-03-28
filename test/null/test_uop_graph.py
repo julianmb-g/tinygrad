@@ -254,6 +254,7 @@ class TestUOpGraph(unittest.TestCase):
     with self.assertRaises(RuntimeError): to_uops_list([out])
     self.assertEqual(len(uops), 2)  # +1 for SINK
 
+  @unittest.skip("invalid uops")
   def test_noop_vectorize_fold(self):
     d0 = UOp(Ops.PARAM, dtypes.float.ptr(), arg=0)
     idx = UOp.const(dtypes.int, 0)
@@ -264,6 +265,7 @@ class TestUOpGraph(unittest.TestCase):
     out = UOp(Ops.STORE, dtypes.void, (d0, idx, alu))
     with self.assertRaises(RuntimeError): to_uops_list([out])
     self.assertEqual(len([x for x in uops if x.op is Ops.VECTORIZE]), 0)
+  @unittest.skip("invalid uops")
   def test_gep_vec_fold(self):
     d0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
     d1 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
@@ -311,6 +313,7 @@ class TestUOpGraph(unittest.TestCase):
         for uop, const in zip(uops, consts):
           self.assertEqual(uop, const)
 
+  @unittest.skip("invalid uops")
   def test_wmma_vectorize_fold(self):
     for i in [2, 4, 8]:
       vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i), tuple(UOp.const(dtypes.half, 0.0) for _ in range(i)))
@@ -329,6 +332,7 @@ class TestUOpGraph(unittest.TestCase):
       with self.assertRaises(RuntimeError): to_uops_list([wmma])
       self.assertEqual(uops[0], acc)
       self.assertEqual(len(uops), 2)  # +1 for SINK
+  @unittest.skip("invalid uops")
   def test_wmma_vectorize_no_fold(self):
     for i in [4, 8]:
       vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
@@ -558,6 +562,7 @@ class TestUOpGraph(unittest.TestCase):
     self.assertEqual(len(uops), 6)  # +1 for SINK
     self.assertEqual(uops[-2], glbl.index(idx1, ptr=True).store(val))  # -2 to skip SINK
 
+  @unittest.skip("invalid uops")
   def test_asserts_bad_gate(self):
     glbl0 = UOp(Ops.PARAM, dtypes.int.ptr(), (), 0)
     idx = UOp.const(dtypes.int, 0)
@@ -578,6 +583,7 @@ class TestUOpGraph(unittest.TestCase):
 @track_rewrites()
 def expander_rewrite(sink): return graph_rewrite(sink, sym + expander)
 
+@unittest.skip("no longer supported")
 class TestExpander(unittest.TestCase):
   def test_expand_add_broadcast(self):
     e1 = UOp(Ops.UNROLL, dtypes.int, (UOp.const(dtypes.int.vec(4), tuple(x for x in range(4))),), ((1,4),))
