@@ -129,7 +129,7 @@
   - **Quote:** "Root cause locations for SharedMemory GC crashes..."
   - **Impact:** Abstracting these locations hides the source of the crash.
   - **Action:** Explicitly fix `tinygrad/runtime/ops_coralnpu.py` and `conftest.py`. Also, assert specific network parameters like `FETCHED_AVATAR_SIZE = (460, 460)` rather than using `@patch('urllib.request.urlopen')`.
-### Restored Knowledge (Data-Loss Audit Remediation - Latest Cycle)
+[FLAG: stale] ### Restored Knowledge (Data-Loss Audit Remediation - Latest Cycle)
 - Trap `OSError: cannot send (already closed?)` in IPC worker teardown (`pytest-xdist`) to avoid session finish crashes masking execution validations.
 - Move all standard library and third-party imports to the top-level scope (except PyBind11 bindings) per Google Python Style Guide.
 - Do not use `assertRaises(RuntimeError)` to mask infinite loop architectural defects in graph rewrites or schedule assertions.
@@ -138,7 +138,7 @@
 When using `pytest-xdist` parallel workers, crashes with `OSError: cannot send` occur due to improperly handled `__del__` garbage collection on `multiprocessing.shared_memory.SharedMemory`. You MUST release memory using `memoryview(shm.buf).release()` and explicitly trap `OSError`, `KeyError`, and `AttributeError` in the destructor natively.
 
 
-### Restored Knowledge (Data-Loss Audit Remediation - Testing Illusion Mandates)
+[FLAG: stale] ### Restored Knowledge (Data-Loss Audit Remediation - Testing Illusion Mandates)
 - **Tier 1: Hardware Simulation & Mock Isolation Rules**
   - **Quote:** "Mocking AxiSlave with Python dictionaries and swallowing test exceptions."
   - **Impact:** False positive 100% unit tests that fail to simulate RTL component boundaries.
@@ -158,8 +158,14 @@ When using `pytest-xdist` parallel workers, crashes with `OSError: cannot send` 
   - **Impact:** 1200s orchestrator timeouts mask execution validations.
   - **Action:** Ensure individual test timeouts organically trap infinite loops before the global pytest watchdog is triggered.
 
-### Restored Knowledge (Data-Loss Audit Remediation - Current Run)
+[FLAG: stale] ### Restored Knowledge (Data-Loss Audit Remediation - Current Run)
 - **Tier 1: Deep Testing Timeouts vs CI Watchdogs**
   - **Quote:** "Parallel execution under pytest -n 4 deadlocked or timed out violently after 1200s."
   - **Impact:** Systemic pipeline failures where orchestrator watchdogs indiscriminately kill hanging processes, skipping tests and masking true architectural failures.
   - **Action:** Tests MUST implement explicit, organic bounds-trapping for all simulation or RTL loops natively. Do not rely on CI watchdogs to kill deadlocked executions.
+
+### Tier 2: Documentation & Ledger Maintenance
+* **[Tier 2] Submodule Ledger Consolidation**
+  * **Quote**: "Leaving 'Restored Knowledge' blocks at the bottom of the submodule AGENTS.md."
+  * **Impact**: Fragments submodule-specific execution constraints.
+  * **Action**: Immediately integrate audit restorations into the primary strict execution mandates and remove the restoration headers.
