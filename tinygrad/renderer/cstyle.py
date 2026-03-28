@@ -236,7 +236,8 @@ class ClangRenderer(CStyleLanguage):
   # language options
   buffer_suffix = " restrict"
   type_map = {dtypes.bool:"_Bool", dtypes.half:"__fp16", dtypes.bfloat16:"unsigned short",
-              dtypes.fp8e5m2:"unsigned char", dtypes.fp8e4m3fnuz:"unsigned char"}
+              dtypes.fp8e5m2:"unsigned char", dtypes.fp8e4m3fnuz:"unsigned char",
+              dtypes.fp8e4m3:"unsigned char"}
   code_for_op = {
     **({k:v for k,v in CStyleLanguage.code_for_op.items()
         if k not in [Ops.EXP2, Ops.SIN, Ops.LOG2, Ops.TRUNC, Ops.RECIPROCAL]}),

@@ -8,9 +8,11 @@ from extra.fp8.fp8_linear import FP8Linear, convert_to_float8_training
 from test.helpers import needs_second_gpu, not_support_multi_device
 from tinygrad import Device, Tensor, dtypes
 from tinygrad.nn import Linear
+from tinygrad.device import is_dtype_supported
 
 BS, T, in_dim, out_dim = 16, 4, 128, 128
 
+@unittest.skipIf(not is_dtype_supported(dtypes.fp8e4m3), "fp8 not supported")
 class TestFP8Linear(unittest.TestCase):
   def setUp(self):
     Tensor.manual_seed(42)
