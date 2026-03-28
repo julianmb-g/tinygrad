@@ -2,6 +2,7 @@ import os
 import struct
 import tempfile
 import unittest
+import math
 from unittest.mock import patch
 import time
 import unittest.mock
@@ -97,7 +98,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{old_path}"}):
                 program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
                 FAST_HANG_DETECT_TIMEOUT = 0.2  # Minimal timeout to verify hang watchdog
-                import math
                 self.assertEqual(program(vals=(10,), timeout=FAST_HANG_DETECT_TIMEOUT), math.inf)
 
     def test_successful_execution_within_timeout(self):
@@ -124,11 +124,9 @@ if __name__ == '__main__':
 def _dummy_worker(x): return x * 2
 
 def _hanging_worker(*args, **kwargs):
-    import time
     while True: time.sleep(1)
 
 def _blocking_worker(*args, **kwargs):
-    import time
     while True: time.sleep(1)
 
 class TestIpcWorkerPool(unittest.TestCase):
