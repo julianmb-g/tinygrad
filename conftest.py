@@ -14,7 +14,7 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
         try:
             if hasattr(self, 'buf') and self.buf is not None:
                 memoryview(self.buf).release()
-        except (BufferError, ValueError, AttributeError, OSError, KeyError): pass
+        except (AttributeError, KeyError, OSError): pass
         
         try:
             _orig_shm_del(self)
@@ -22,7 +22,7 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
         
         try:
             self.unlink()
-        except (OSError, KeyError, AttributeError, FileNotFoundError): pass
+        except (AttributeError, KeyError, OSError): pass
 
     multiprocessing.shared_memory.SharedMemory.__del__ = _safe_shm_del
 
@@ -68,5 +68,5 @@ def pytest_sessionfinish(session, exitstatus):
         try:
             for shm_path in glob.glob("/dev/shm/psm_*"):
                 try: os.unlink(shm_path)
-                except (AttributeError, KeyError, OSError, FileNotFoundError, BufferError, ValueError): pass
-        except (AttributeError, KeyError, OSError, FileNotFoundError, BufferError, ValueError): pass
+                except (AttributeError, KeyError, OSError): pass
+        except (AttributeError, KeyError, OSError): pass
