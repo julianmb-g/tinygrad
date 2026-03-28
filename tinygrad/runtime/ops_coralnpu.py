@@ -73,16 +73,10 @@ class CoralNPUAllocator(Allocator):
           except (BufferError, ValueError, AttributeError): pass
       for shm in getattr(self, 'shms', {}).values():
           try:
-            view = memoryview(shm.buf)
-            view.release()
-          except (BufferError, ValueError, AttributeError, OSError, KeyError): pass
-          try:
+            memoryview(shm.buf).release()
             shm.close()
-            try: os.unlink(f"/dev/shm/{shm.name}")
-            except (FileNotFoundError, OSError, KeyError): pass
-            try: shm.unlink()
-            except (FileNotFoundError, OSError, KeyError): pass
-          except (BufferError, ValueError, AttributeError, OSError, KeyError): pass
+            shm.unlink()
+          except (OSError, KeyError, AttributeError, FileNotFoundError): pass
     except (AttributeError, KeyError, OSError): pass
 
   def _alloc(self, size:int, options:BufferSpec):
