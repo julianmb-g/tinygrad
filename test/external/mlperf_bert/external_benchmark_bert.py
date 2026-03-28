@@ -1,5 +1,6 @@
 import time
 import unittest
+import math
 
 from extra.models import bert
 from tinygrad import Device, GlobalCounters, Tensor, TinyJit

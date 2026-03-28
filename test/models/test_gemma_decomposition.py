@@ -37,7 +37,7 @@ class TestGemmaDecomposition(unittest.TestCase):
     tf_c.write(prg.src.encode())
     tf_c.flush()
     tf_elf = tempfile.NamedTemporaryFile(suffix=".elf", delete=False)
-    
+
     # Apply Micro-Gemma EXTMEM physical constraint dynamically via linker script
     extmem_size = os.environ.get("CORALNPU_EXTMEM_SIZE", "256M")
     tf_ld = tempfile.NamedTemporaryFile(suffix=".ld", delete=False)
@@ -178,7 +178,6 @@ class TestGemmaDecomposition(unittest.TestCase):
       if c_name and os.path.exists(c_name): os.unlink(c_name)
       if elf_name and os.path.exists(elf_name): os.unlink(elf_name)
 
-
   def test_gemma_attention(self):
     seq_len = 8
     hidden_dim = 256
@@ -215,7 +214,7 @@ class TestGemmaDecomposition(unittest.TestCase):
         attn.k_proj = attn_cpu.k_proj.to("CORALNPU")
         attn.v_proj = attn_cpu.v_proj.to("CORALNPU")
         attn.o_proj = attn_cpu.o_proj.to("CORALNPU")
-        
+
         expected_out = attn_cpu(x_cpu, freqs_cis_cpu).realize().numpy()
         out = attn(x, freqs_cis)
         out.realize()

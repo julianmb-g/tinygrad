@@ -147,7 +147,6 @@ class TestTiny(unittest.TestCase):
     with Context(IMAGE=1): self.test_gemm(N=64)
 
   def test_beam_image(self):
-    import subprocess
     try:
       with Context(BEAM=1, IGNORE_BEAM_CACHE=1): self.test_image()
     # [Build Agent] Organically trap bounds per REVIEW.md

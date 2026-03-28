@@ -852,7 +852,7 @@ class CoralNPURenderer(CStyleLanguage):
       for pool_base, pool_size in pools:
         active_allocs[pool_base] = [a for a in active_allocs[pool_base] if a[0] >= start]
         active_allocs[pool_base].sort(key=lambda x: x[1])
-        
+
         current_offset = pool_base
         for a_end, a_offset, a_size in active_allocs[pool_base]:
           if current_offset + size_bytes <= a_offset:
@@ -861,12 +861,12 @@ class CoralNPURenderer(CStyleLanguage):
             allocated = True
             break
           current_offset = max(current_offset, a_offset + a_size)
-          
+
         if not allocated and current_offset + size_bytes <= pool_base + pool_size:
           self.local_offsets[dl] = current_offset
           active_allocs[pool_base].append((end, current_offset, size_bytes))
           allocated = True
-          
+
         if allocated:
           break
 
@@ -923,7 +923,7 @@ class CoralNPURenderer(CStyleLanguage):
       for pool_base, pool_size in pools:
         active_allocs[pool_base] = [a for a in active_allocs[pool_base] if a[0] >= start]
         active_allocs[pool_base].sort(key=lambda x: x[1])
-        
+
         current_offset = pool_base
         for a_end, a_offset, a_size in active_allocs[pool_base]:
           if current_offset + size_bytes <= a_offset:
@@ -932,12 +932,12 @@ class CoralNPURenderer(CStyleLanguage):
             allocated = True
             break
           current_offset = max(current_offset, a_offset + a_size)
-          
+
         if not allocated and current_offset + size_bytes <= pool_base + pool_size:
           self.local_offsets[dl] = current_offset
           active_allocs[pool_base].append((end, current_offset, size_bytes))
           allocated = True
-          
+
         if allocated:
           break
 

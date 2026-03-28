@@ -1,4 +1,3 @@
-import math
 import struct
 import tempfile
 import os
@@ -15,17 +14,17 @@ class TestCoralNPUE2E(unittest.TestCase):
         cls.src_fd, cls.src_path = tempfile.mkstemp(suffix='.c')
         cls.ld_fd, cls.ld_path = tempfile.mkstemp(suffix='.ld')
         cls.elf_path = cls.src_path + ".elf"
-        
+
         with open(cls.ld_path, 'w') as f:
             f.write(CORALNPU_DTCM_LINKER_SCRIPT)
         with open(cls.src_path, 'w') as f:
             f.write('void _start() { asm volatile(".insn 4, 0x08000073"); }')
-            
+
         try:
             subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path], timeout=15.0)
         except FileNotFoundError:
             raise unittest.SkipTest("Cross-compiler missing")
-            
+
         cls.env_patcher = patch.dict(os.environ, {"CORALNPU_ELF": cls.elf_path})
         cls.env_patcher.start()
 
@@ -63,13 +62,13 @@ class TestCoralNPUE2E(unittest.TestCase):
                 asm volatile(".insn 4, 0x08000073");
             }}
             """.encode()
-            
+
             prog = CoralNPUProgram(self.device, "_start", src)
             try:
                 prog(handle, wait=True)
             except FileNotFoundError:
                 raise unittest.SkipTest("Hardware simulator missing")
-            
+
             dest = bytearray(4)
             self.allocator._copyout(memoryview(dest), handle)
             out_val = struct.unpack('f', dest)[0]
@@ -79,18 +78,18 @@ class TestCoralNPUE2E(unittest.TestCase):
 
     def test_scheduler_dependency_chaining_e2e_execution(self):
         from tinygrad.tensor import Tensor
-        
+
         try:
             # We construct a computation graph that uses SQRT and MAX (since SQRT triggers complex node)
             t1 = Tensor([1.0, 4.0], device="CORALNPU").sqrt()
             t2 = Tensor([3.0, 2.0], device="CORALNPU").max()
-            
+
             # Combine them so they are in the same schedule queue
             out = t1 + t2
-            
+
             # Evaluate to extract schedule and run compilation
             res = out.numpy()
-            
+
             # Mathematical correctness validation
             np.testing.assert_allclose(res, [4.0, 5.0], atol=1e-5, rtol=1e-5, err_msg="Scheduler Dependency Chaining mathematical failure")
         except FileNotFoundError:

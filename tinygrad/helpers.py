@@ -652,16 +652,16 @@ class TinygradAutoTunerIPC:
         msg = conn.recv()
         if msg is None: break
         binary_payload = msg
-        
+
         # Execute isolated payload
         with tempfile.NamedTemporaryFile(delete=False) as f:
           f.write(binary_payload)
           elf_path = f.name
-        
+
         try:
           cmd = ['coralnpu_v2_sim', elf_path]
           p = subprocess.run(cmd, preexec_fn=os.setpgrp, capture_output=True, text=True)
-          
+
           # Intercept mcause != 0 hardware traps
           if p.returncode != 0:
             conn.send(("trap", p.returncode))
@@ -678,18 +678,18 @@ class TinygradAutoTunerIPC:
 
   def evaluate_cost_isolated(self, binary_payload: bytes) -> float:
     self.parent_conn.send(binary_payload)
-    
+
     poll_obj = select.poll()
     poll_obj.register(self.parent_conn.fileno(), select.POLLIN)
     events = poll_obj.poll(self.kDefaultCompilationTimeoutMs)
-    
+
     if not events:
       # Timeout: Explicitly kill/respawn worker process
       self.worker.terminate()
       self.worker.join()
       self._respawn()
       return math.inf
-    
+
     try:
       status, val = self.parent_conn.recv()
       if status == "trap" or status == "error":
