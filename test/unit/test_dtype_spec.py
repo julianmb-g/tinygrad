@@ -51,18 +51,18 @@ class TestTypeSpec(unittest.TestCase):
 
   def test_env_set_default_float(self):
     # check default
-    subprocess.run(['python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.float"'],
+    subprocess.run(['python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.float"'], timeout=15.0,
                     shell=True, check=True)
     # check change
-    subprocess.run(['DEFAULT_FLOAT=HALF python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.half"'],
+    subprocess.run(['DEFAULT_FLOAT=HALF python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.half"'], timeout=15.0,
                     shell=True, check=True)
     # check invalid
     with self.assertRaises(subprocess.CalledProcessError):
-      subprocess.run(['DEFAULT_FLOAT=INT32 python3 -c "from tinygrad import dtypes"'],
+      subprocess.run(['DEFAULT_FLOAT=INT32 python3 -c "from tinygrad import dtypes"'], timeout=15.0,
                       shell=True, check=True)
 
     with self.assertRaises(subprocess.CalledProcessError):
-      subprocess.run(['DEFAULT_FLOAT=TYPO python3 -c "from tinygrad import dtypes"'],
+      subprocess.run(['DEFAULT_FLOAT=TYPO python3 -c "from tinygrad import dtypes"'], timeout=15.0,
                       shell=True, check=True)
   def test_dtype_str_arg(self):
     n = np.random.normal(0, 1, (10, 10)).astype(np.float32)

@@ -32,14 +32,14 @@ except RuntimeError as e:
 
 for i in range(LOOPS):
   print(f"=== Running hive_reset.py ({i+1}/{LOOPS}) ===")
-  subprocess.run([sys.executable, "extra/amdpci/hive_reset.py"], check=True)
+  subprocess.run([sys.executable, "extra/amdpci/hive_reset.py"], timeout=15.0, check=True)
   print("=== hive_reset complete ===")
 
   if BROKEN:
     print(f"=== Running broken kernel ({i+1}/{LOOPS}) ===")
-    ret = subprocess.run([sys.executable, "-c", BROKEN_KERNEL_SCRIPT])
+    ret = subprocess.run([sys.executable, "-c", BROKEN_KERNEL_SCRIPT], timeout=15.0)
     print(f"=== broken kernel exited with code {ret.returncode} ===")
   elif not ONLY_RESET:
     print(f"=== Running test_tiny.py ({i+1}/{LOOPS}) ===")
-    ret = subprocess.run([sys.executable, "test/test_tiny.py", "TestTiny.test_plus"])
+    ret = subprocess.run([sys.executable, "test/test_tiny.py", "TestTiny.test_plus"], timeout=15.0)
     print(f"=== test_tiny.py exited with code {ret.returncode} ===")

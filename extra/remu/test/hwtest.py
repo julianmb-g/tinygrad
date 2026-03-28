@@ -34,7 +34,7 @@ def f32_to_bits(x:float) -> int: return struct.unpack('<I', struct.pack('<f', x)
 @unittest.skipUnless(Device.DEFAULT == "AMD", "tests RDNA3")
 class TestHW(unittest.TestCase):
   def setUp(self):
-    if getenv("MOCKGPU"): subprocess.run(["cargo", "build", "--release", "--manifest-path", "./extra/remu/Cargo.toml"], check=True)
+    if getenv("MOCKGPU"): subprocess.run(["cargo", "build", "--release", "--manifest-path", "./extra/remu/Cargo.toml"], check=True, timeout=60.0)
 
   def test_simple_v_mov(self):
     out = get_output([
