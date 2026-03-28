@@ -196,13 +196,13 @@ class TestFetch(unittest.TestCase):
     self.assertRaises(Exception, fetch, 'http://www.google.com/404', allow_caching=False)
   def test_fetch_small(self):
     assert (len(fetch('https://google.com', allow_caching=False).read_bytes())>0)
-  
+
   def test_fetch_img(self):
     from PIL import Image
     img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False)
     with Image.open(img) as pimg:
       self.assertEqual(pimg.size, FETCHED_AVATAR_SIZE)
-      
+
   def test_fetch_subdir(self):
     from PIL import Image
     img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False, subdir="images")

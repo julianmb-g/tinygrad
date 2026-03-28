@@ -148,14 +148,14 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
             self.device.allocator = self.allocator
             src = b"void bridge_execution(float* a) { while(1) { a[0] = 42.0f; } }"
             prog = CoralNPUProgram(self.device, "bridge_execution", src)
-            
+
             start_time = time.time()
             try:
                 ret = prog(handle, wait=True, timeout=0.5)
             except FileNotFoundError:
                 raise unittest.SkipTest("Hardware simulator missing")
             end_time = time.time()
-            
+
             self.assertEqual(ret, math.inf, "Timeout must organically return math.inf to discard deadlocked executions.")
             self.assertLess(end_time - start_time, 2.0, "Watchdog failed to explicitly kill the hung subprocess.")
         finally:

@@ -704,6 +704,17 @@ class TinygradAutoTunerIPC:
       self.worker.join()
       self._respawn()
       return math.inf
+
+  def __del__(self):
+    try:
+      self.parent_conn.send(None)
+      self.worker.join(timeout=1.0)
+      if self.worker.is_alive():
+        self.worker.terminate()
+        self.worker.join()
+    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+      pass
+
 _ipc_active_pids = set()
 def _kill_ipc_orphans():
   try:

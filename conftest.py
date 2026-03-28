@@ -12,14 +12,15 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
     _orig_shm_del = multiprocessing.shared_memory.SharedMemory.__del__
     def _safe_shm_del(self):
         try:
-            if hasattr(self, 'buf') and self.buf is not None:
-                memoryview(self.buf).release()
+            if hasattr(self, '_mmap') and self._mmap is not None and not getattr(self._mmap, 'closed', True):
+                if hasattr(self, 'buf') and self.buf is not None:
+                    memoryview(self.buf).release()
         except (AttributeError, KeyError, OSError): pass
-        
+
         try:
             _orig_shm_del(self)
         except (OSError, KeyError, AttributeError): pass
-        
+
         try:
             self.unlink()
         except (AttributeError, KeyError, OSError): pass

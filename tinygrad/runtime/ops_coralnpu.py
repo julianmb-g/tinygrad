@@ -14,7 +14,6 @@ from tinygrad.device import Allocator, BufferSpec, Compiled, CompilerSet
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 
 
-
 kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks while allowing sufficient time for cross-compiling complex models.
 
 active_pids = set()
@@ -75,7 +74,8 @@ class CoralNPUAllocator(Allocator):
           except (AttributeError, KeyError, OSError): pass
       for shm in getattr(self, 'shms', {}).values():
           try:
-            memoryview(shm.buf).release()
+            if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
+                memoryview(shm.buf).release()
             shm.close()
             shm.unlink()
           except (AttributeError, KeyError, OSError): pass
