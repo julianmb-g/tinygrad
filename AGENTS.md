@@ -95,3 +95,12 @@
   * **Quote:** "Leaving 'Restored Knowledge' blocks at the bottom of the submodule AGENTS.md fragments execution constraints."
   * **Impact:** Fragments submodule-specific execution constraints and causes ledger bloat.
   * **Action:** Immediately integrate audit restorations into the primary strict execution mandates and remove the restoration headers.
+* **Memory Allocation Exact Block Evasion**
+  * **Quote:** "Mutating `if bsize >= size_aligned:` to `if bsize > size_aligned:` in `ops_coralnpu.py`."
+  * **Impact:** Survives execution natively because tests never request an exact memory block size equal to a free chunk.
+  * **Action:** E2E allocation tests MUST explicitly request allocation boundaries equal to remaining chunk sizes to ensure boundaries are inclusive natively.
+
+* **Beam Search Configuration Evasion**
+  * **Quote:** "Mutating `BEAM > 0` to `BEAM > 1` in `ops_coralnpu.py`."
+  * **Impact:** Test suite is blind to exact configuration limits, meaning beam search is never structurally verified on `BEAM=1`.
+  * **Action:** Write rigorous bounds tests explicitly invoking `BEAM=1` to enforce native threshold boundary execution.
