@@ -240,6 +240,8 @@ class CoralNPUProgram:
       raise FileNotFoundError(f"Hardware simulator missing: {e}")
     active_pids.add(p.pid)
     try:
+      if timeout is None:
+        timeout = 15.0
       if timeout is not None:
         try:
           p.wait(timeout=timeout)
