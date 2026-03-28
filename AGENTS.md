@@ -4,7 +4,7 @@
 
 ### Tier 1: Build, Orchestration & Execution Logic
 
-* **Subprocess Execution Deadlocks & Timeouts**
+[FLAG: invalid] * **Subprocess Execution Deadlocks & Timeouts** (Artificial timeouts like timeout=15.0 mask underlying deadlocks. Fix natively instead of relying on subprocess kill switches.)
   * **Quote:** "Parallel execution under pytest -n 4 deadlocked or timed out violently after running 5000+ tests."
   * **Impact:** Subprocess calls in tests hanging infinitely mask execution boundaries and crash the CI orchestrator.
   * **Action:** Individual tests executing `subprocess.run` or complex loops MUST enforce strict, native timeouts (e.g., `timeout=15.0`) to fail fast. Do NOT artificially extend global test suite timeouts (e.g., `timeout = 1200`).
@@ -104,3 +104,18 @@
   * **Quote:** "Mutating `BEAM > 0` to `BEAM > 1` in `ops_coralnpu.py`."
   * **Impact:** Test suite is blind to exact configuration limits, meaning beam search is never structurally verified on `BEAM=1`.
   * **Action:** Write rigorous bounds tests explicitly invoking `BEAM=1` to enforce native threshold boundary execution.
+
+* **Complete Test Erasure via Skipping**
+  * **Quote:** "In `test_uop_graph.py`, failing tests... were blanketed with `@unittest.skip('invalid uops')`."
+  * **Impact:** Erasing execution failures from the CI pipeline entirely is catastrophic structural masking.
+  * **Action:** Never use `@unittest.skip('invalid uops')` or similar blanket decorators to hide failing graph validations or execution tests. Fix the underlying logic natively.
+
+* **Subprocess Masking (Deadlocks)**
+  * **Quote:** "Another artificial timeout masking the fact that the actual simulation payload execution is permanently deadlocking."
+  * **Impact:** Masking deadlocks with `p.wait(timeout=15.0)` or `with_timeout` hides severe cross-component subsystem failures.
+  * **Action:** Remove artificial framework timeouts. The simulated RTL bounds must trap and cleanly abort invalid flows natively.
+
+* **AxiSlave Mocking in Allocators**
+  * **Quote:** "`TestCoralNPUAllocator.setUp` explicitly mocks the hardware device (`self.device = MagicMock()`) alongside mock ELF generation."
+  * **Impact:** Allocator logic is tested in total isolation, never proving it can route data through real synthesized AXI allocators.
+  * **Action:** E2E tests MUST instantiate REAL synthesized memory controllers. Revert the testing fraud.
