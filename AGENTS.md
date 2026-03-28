@@ -129,3 +129,7 @@
   - **Quote:** "Root cause locations for SharedMemory GC crashes..."
   - **Impact:** Abstracting these locations hides the source of the crash.
   - **Action:** Explicitly fix `tinygrad/runtime/ops_coralnpu.py` and `conftest.py`. Also, assert specific network parameters like `FETCHED_AVATAR_SIZE = (460, 460)` rather than using `@patch('urllib.request.urlopen')`.
+### Restored Knowledge (Data-Loss Audit Remediation - Latest Cycle)
+- Trap `OSError: cannot send (already closed?)` in IPC worker teardown (`pytest-xdist`) to avoid session finish crashes masking execution validations.
+- Move all standard library and third-party imports to the top-level scope (except PyBind11 bindings) per Google Python Style Guide.
+- Do not use `assertRaises(RuntimeError)` to mask infinite loop architectural defects in graph rewrites or schedule assertions.
