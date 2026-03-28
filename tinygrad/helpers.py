@@ -757,7 +757,13 @@ class IpcWorkerPool:
       _, w, _ = select.select([], [conn.fileno()], [], timeout)
       if not w:
         raise TimeoutError("IPC Worker pipe is full, write deadlock prevented.")
-    conn.send(obj)
+    try:
+      conn.send(obj)
+    except OSError as e:
+      if "cannot send" in str(e) or "already closed" in str(e) or "Bad file descriptor" in str(e):
+        pass
+      else:
+        raise e
 
   @staticmethod
   def _worker_wrapper(conn, target):

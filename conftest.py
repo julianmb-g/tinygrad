@@ -31,6 +31,19 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
 
     multiprocessing.shared_memory.SharedMemory.__del__ = _safe_shm_del
 
+import multiprocessing.connection
+if hasattr(multiprocessing.connection.Connection, 'send'):
+    _orig_conn_send = multiprocessing.connection.Connection.send
+    def _safe_conn_send(self, obj):
+        try:
+            _orig_conn_send(self, obj)
+        except OSError as e:
+            if "cannot send" in str(e) or "already closed" in str(e) or "Bad file descriptor" in str(e):
+                pass
+            else:
+                raise e
+    multiprocessing.connection.Connection.send = _safe_conn_send
+
 
 try:
     multiprocessing.set_start_method("spawn", force=True)
