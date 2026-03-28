@@ -878,11 +878,12 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
   def const_factor(self) -> int:
     """largest known int that divides self"""
     # TODO: for negatives it's not the largest
-    if self.op is Ops.CONST: return self.arg
-    if self.op is Ops.VCONST: return math.gcd(*self.arg)
-    if self.op is Ops.ADD: return math.gcd(self.src[0].const_factor(), self.src[1].const_factor())
-    if self.op is Ops.MUL: return self.src[0].const_factor() * self.src[1].const_factor()
-    return 1
+    if self.op is Ops.CONST: f = self.arg
+    elif self.op is Ops.VCONST: f = math.gcd(*self.arg)
+    elif self.op is Ops.ADD: f = math.gcd(self.src[0].const_factor(), self.src[1].const_factor())
+    elif self.op is Ops.MUL: f = self.src[0].const_factor() * self.src[1].const_factor()
+    else: f = 1
+    return f if f else 1
   def divides(self, v:int) -> UOp|None:
     if v==1: return self
     if self.op is Ops.CONST: return self.const_like(self.arg//v) if self.arg%v == 0 else None
@@ -891,6 +892,9 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
     if self.op is Ops.MUL:
       if (d0:=self.src[0].divides(v)) is not None: return self.src[1] if getattr(d0, "arg", None) == 1 else d0 * self.src[1]
       if (d1:=self.src[1].divides(v)) is not None: return self.src[0] if getattr(d1, "arg", None) == 1 else self.src[0] * d1
+      if (g:=math.gcd(v, self.src[0].const_factor())) > 1 and g != v:
+        if (d0:=self.src[0].divides(g)) is not None and (d1:=self.src[1].divides(v//g)) is not None:
+          return d1 if getattr(d0, "arg", None) == 1 else (d0 if getattr(d1, "arg", None) == 1 else d0 * d1)
     return None # generic None if we aren't sure
   def pop_const(self, op=Ops.ADD) -> tuple[UOp, PyConst]:  # NOTE: assume Invalid ALU is resolved
     return (self.src[0], self.src[1].arg) if self.op is op and self.src[1].op is Ops.CONST else (self, identity_element(op, self.dtype))
