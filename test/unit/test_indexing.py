@@ -222,9 +222,9 @@ class TestIndexing(unittest.TestCase):
       numpy_testing_assert_equal_helper(len(w), 2)
   def test_bool_indices_accumulate(self):
     mask = Tensor.zeros((10,), dtype=dtypes.bool)
-    y = Tensor.ones(size=(10, 10))
+    y = Tensor.ones((10, 10))
     index_put_(y, (mask, ), y[mask], accumulate=True)
-    numpy_testing_assert_equal_helper(y, Tensor.ones(size=(10, 10)))
+    numpy_testing_assert_equal_helper(y, Tensor.ones((10, 10)))
   def test_multiple_bool_indices(self):
     v = ((Tensor.arange(5*7*3) % 10) * 0.1).reshape(5, 7, 3)
     # note: these broadcast together and are transposed to the first dim
@@ -243,11 +243,11 @@ class TestIndexing(unittest.TestCase):
     numpy_testing_assert_equal_helper(v[v == 0], Tensor([]))
   def test_byte_mask_accumulate(self):
     mask = Tensor.zeros((10,), dtype=dtypes.uint8)
-    y = Tensor.ones(size=(10, 10))
+    y = Tensor.ones((10, 10))
     with warnings.catch_warnings(record=True) as w:
       warnings.simplefilter("always")
       index_put_(y, (mask, ), y[mask], accumulate=True)
-      numpy_testing_assert_equal_helper(y, Tensor.ones(size=(10, 10)))
+      numpy_testing_assert_equal_helper(y, Tensor.ones((10, 10)))
       numpy_testing_assert_equal_helper(len(w), 2)
   # TODO setitem
   # NOTE: tinygrad doesn't support idx.max that big

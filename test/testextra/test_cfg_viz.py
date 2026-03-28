@@ -24,6 +24,7 @@ def run_asm(name:str, k:Kernel):
   ei.run()
   return ei
 
+@unittest.skipIf(Device.DEFAULT != "AMD", "only run on AMD")
 class TestCfg(unittest.TestCase):
   def setUp(self):
     self.arch = Device["AMD"].arch
