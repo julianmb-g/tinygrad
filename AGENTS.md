@@ -147,3 +147,8 @@ When using `pytest-xdist` parallel workers, crashes with `OSError: cannot send` 
   - **Quote:** "Validating bytes written to memory does not prove cross-component hardware integration."
   - **Impact:** Systemic testing illusions where isolated string matching or individual instruction evaluations bypass cross-component routing.
   - **Action:** MUST introduce rigorous Integration/E2E execution tests. A mutator or wrapper component is invalid until an authentic AST payload (compiled ELF) routes through the entire execution loop natively and verifies execution traces. Mocking TargetEncoder classes is insufficient.
+
+- **[Tier 1] Multiprocessing Zombie Deadlocks**
+  - **Quote:** "The test suite did not complete. Parallel execution under pytest -n 4 deadlocked or timed out violently after running 5000+ tests."
+  - **Impact:** Subprocesses without a proper `__del__` GC lifecycle that calls `terminate()` and `join()` leak file descriptors and stdout pipes, causing pytest-xdist to hang indefinitely waiting for EOF.
+  - **Action:** Ensure any daemon processes like `TinygradAutoTunerIPC` explicitly implement `__del__` that sends exit signals (`None`) and explicitly calls `worker.terminate()` and `worker.join()`.
