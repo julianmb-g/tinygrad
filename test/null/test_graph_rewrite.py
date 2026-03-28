@@ -266,10 +266,10 @@ class TestSubstitute(unittest.TestCase):
       self.fail("Expected RuntimeError")
 
   def test_sin_to_sqrt_organic_trap(self):
-    a = UOp.variable("a", 0, 10, dtype=dtypes.float)
+    a = UOp.variable('a', 0, 10, dtype=dtypes.float)
     n1 = a.sin()
     ret = n1
-    pm = PatternMatcher([(UPat(Ops.SIN, name="x"), lambda ctx, x: x.src[0].sqrt().sin())])
+    pm = PatternMatcher([(UPat(Ops.SIN, name='x'), lambda ctx, x: x.src[0].sqrt().sin())])
     try:
       ret = graph_rewrite(ret, pm)
     except RuntimeError:
@@ -278,14 +278,14 @@ class TestSubstitute(unittest.TestCase):
       self.fail("Expected RuntimeError")
 
   def test_sin_to_sqrt(self):
-    a = UOp.variable("a", 0, 10, dtype=dtypes.float)
+    a = UOp.variable('a', 0, 10, dtype=dtypes.float)
     n1 = a.sin()
     ret = n1.sin()
     ret = substitute(ret, {a.sin():a.sqrt()})
     self.assertIs(ret, a.sqrt().sin())
 
   def test_double_sin_to_sqrt(self):
-    a = UOp.variable("a", 0, 10, dtype=dtypes.float)
+    a = UOp.variable('a', 0, 10, dtype=dtypes.float)
     n1 = a.sin()
     ret = n1.sin()
     # NOTE: this would work if it had gone in the opposite order
@@ -306,20 +306,20 @@ class TestRecurse(unittest.TestCase):
   @given(matchers)
   def test_no_inf_loop(self, PatternMatcher):
     a = UOp.variable('a', 0, 10)
-    pm = PatternMatcher([(UPat(Ops.DEFINE_VAR, name="x"), lambda x: x)])
+    pm = PatternMatcher([(UPat(Ops.DEFINE_VAR, name='x'), lambda x: x)])
     graph_rewrite(a, pm)
 
   @given(matchers)
   def test_no_inf_loop_bottom_up(self, PatternMatcher):
     a = UOp.variable('a', 0, 10)
-    pm = PatternMatcher([(UPat(Ops.DEFINE_VAR, name="x"), lambda x: x)])
+    pm = PatternMatcher([(UPat(Ops.DEFINE_VAR, name='x'), lambda x: x)])
     graph_rewrite(a, pm, bottom_up=True)
 
   def test_inf_loop(self):
     a = UOp.const(dtypes.int, 3)
     pm = PatternMatcher([
-      (UPat(Ops.CONST, arg=3, name="x"), lambda x: x.replace(arg=4)),
-      (UPat(Ops.CONST, arg=4, name="x"), lambda x: x.replace(arg=3)),
+      (UPat(Ops.CONST, arg=3, name='x'), lambda x: x.replace(arg=4)),
+      (UPat(Ops.CONST, arg=4, name='x'), lambda x: x.replace(arg=3)),
     ])
     try:
       graph_rewrite(a, pm)
@@ -331,8 +331,8 @@ class TestRecurse(unittest.TestCase):
   def test_inf_loop_bottom_up(self):
     a = UOp.const(dtypes.int, 3)
     pm = PatternMatcher([
-      (UPat(Ops.CONST, arg=3, name="x"), lambda x: x.replace(arg=4)),
-      (UPat(Ops.CONST, arg=4, name="x"), lambda x: x.replace(arg=3)),
+      (UPat(Ops.CONST, arg=3, name='x'), lambda x: x.replace(arg=4)),
+      (UPat(Ops.CONST, arg=4, name='x'), lambda x: x.replace(arg=3)),
     ])
     try:
       graph_rewrite(a, pm, bottom_up=True)
@@ -347,8 +347,8 @@ class TestBidirectional(unittest.TestCase):
     a = UOp.const(dtypes.int, 1)
     b = UOp.const(dtypes.int, 2)
     c = a + b
-    pm = PatternMatcher([ (UPat(GroupOp.All, name="x"), lambda ctx,x: bidir_append(ctx, x, False)) ])
-    bpm = PatternMatcher([ (UPat(GroupOp.All, name="x"), lambda ctx,x: bidir_append(ctx, x, True)) ])
+    pm = PatternMatcher([ (UPat(GroupOp.All, name='x'), lambda ctx,x: bidir_append(ctx, x, False)) ])
+    bpm = PatternMatcher([ (UPat(GroupOp.All, name='x'), lambda ctx,x: bidir_append(ctx, x, True)) ])
     ctx_list = []
     graph_rewrite(c, pm, ctx=ctx_list, bpm=bpm)
     self.assertListEqual(ctx_list, [('+', True), (1, True), (1, False), (2, True), (2, False), ('+', False)])
@@ -363,7 +363,7 @@ class TestStopEarly(unittest.TestCase):
     def visit_const(c:UOp):
       print(f"visit {c.arg}")
       assert c.arg not in (3,4)
-    pm_cvisit = PatternMatcher([(UPat(Ops.CONST, name="c"), visit_const),])
+    pm_cvisit = PatternMatcher([(UPat(Ops.CONST, name='c'), visit_const),])
     ret = (c+d).substitute({c:cn}, extra_pm=pm_cvisit)
     assert ret == cn+d
 
@@ -397,8 +397,8 @@ class TestWalkRewrite(unittest.TestCase):
     """A bouncing pattern applies once and stops instead of looping."""
     a = UOp.const(dtypes.int, 3)
     pm = PatternMatcher([
-      (UPat(Ops.CONST, arg=3, name="x"), lambda x: x.replace(arg=4)),
-      (UPat(Ops.CONST, arg=4, name="x"), lambda x: x.replace(arg=3)),
+      (UPat(Ops.CONST, arg=3, name='x'), lambda x: x.replace(arg=4)),
+      (UPat(Ops.CONST, arg=4, name='x'), lambda x: x.replace(arg=3)),
     ])
     try:
       graph_rewrite(a, pm, bottom_up=True)
@@ -424,7 +424,7 @@ class TestWalkRewrite(unittest.TestCase):
 
   def test_walk_topdown_children_rewritten_before_parent(self):
     """Top-down walk processes children first: child substitution changes the rebuilt parent."""
-    a = UOp.variable("a", 0, 10, dtype=dtypes.float)
+    a = UOp.variable('a', 0, 10, dtype=dtypes.float)
     n1 = a.sin()          # sin(a)
     ret = n1.sin()         # sin(sin(a))
     # sin(a)->sqrt(a) fires first (child), parent rebuilds to sin(sqrt(a)), which doesn't match sin(sin(a)) in dvars
@@ -433,7 +433,7 @@ class TestWalkRewrite(unittest.TestCase):
 
   def test_walk_topdown_self_referential_replacement(self):
     """Replacement containing the replaced node works without infinite recursion."""
-    a = UOp.variable("a", 0, 10, dtype=dtypes.float)
+    a = UOp.variable('a', 0, 10, dtype=dtypes.float)
     ret = graph_rewrite(a.sin() + 4, _substitute, {a.sin(): a.sin().sqrt()}, walk=True)
     self.assertIs(ret, a.sin().sqrt() + 4)
 
@@ -443,7 +443,7 @@ class TestWalkRewrite(unittest.TestCase):
     def track_visit(ctx, x):
       ctx.append(x.arg if x.op is Ops.CONST else x.op)
       return None
-    pm = PatternMatcher([(UPat(GroupOp.All, name="x"), track_visit)])
+    pm = PatternMatcher([(UPat(GroupOp.All, name='x'), track_visit)])
     a = UOp.const(dtypes.int, 1)
     b = UOp.const(dtypes.int, 2)
     graph_rewrite(a + b, pm, ctx=visited, walk=True)
@@ -468,7 +468,7 @@ class TestWalkRewrite(unittest.TestCase):
 
   def test_walk_bottomup_parent_match_skips_children(self):
     """Bottom-up walk matches parent first: if it matches, children are never visited."""
-    a = UOp.variable("a", 0, 10, dtype=dtypes.float)
+    a = UOp.variable('a', 0, 10, dtype=dtypes.float)
     n1 = a.sin()
     ret = n1.sin()         # sin(sin(a))
     # sin(sin(a)) matches n1.sin()->n1.sqrt() immediately, children never visited, sin(a) inside replacement untouched
@@ -479,8 +479,8 @@ class TestWalkRewrite(unittest.TestCase):
     """Bottom-up walk also applies once per node, no fixed-point iteration."""
     a = UOp.const(dtypes.int, 3)
     pm = PatternMatcher([
-      (UPat(Ops.CONST, arg=3, name="x"), lambda x: x.replace(arg=4)),
-      (UPat(Ops.CONST, arg=4, name="x"), lambda x: x.replace(arg=3)),
+      (UPat(Ops.CONST, arg=3, name='x'), lambda x: x.replace(arg=4)),
+      (UPat(Ops.CONST, arg=4, name='x'), lambda x: x.replace(arg=3)),
     ])
     ret = graph_rewrite(a, pm, bottom_up=True, walk=True)
     self.assertIs(ret, UOp.const(dtypes.int, 4))
@@ -491,7 +491,7 @@ class TestWalkRewrite(unittest.TestCase):
     def track_visit(ctx, x):
       ctx.append(x.arg if x.op is Ops.CONST else x.op)
       return None
-    pm = PatternMatcher([(UPat(GroupOp.All, name="x"), track_visit)])
+    pm = PatternMatcher([(UPat(GroupOp.All, name='x'), track_visit)])
     a = UOp.const(dtypes.int, 1)
     b = UOp.const(dtypes.int, 2)
     graph_rewrite(a + b, pm, ctx=visited, bottom_up=True, walk=True)
@@ -513,34 +513,34 @@ class TestWalkRewrite(unittest.TestCase):
     """Bidirectional walk: bpm fires pre-order, pm fires post-order."""
     visited = []
     def bpm_visit(ctx, x):
-      ctx.append((x.arg if x.op is Ops.CONST else x.op, "bpm"))
+      ctx.append((x.arg if x.op is Ops.CONST else x.op, 'bpm'))
       return None
     def pm_visit(ctx, x):
       ctx.append((x.arg if x.op is Ops.CONST else x.op, "pm"))
       return None
-    bpm = PatternMatcher([(UPat(GroupOp.All, name="x"), bpm_visit)])
-    pm = PatternMatcher([(UPat(GroupOp.All, name="x"), pm_visit)])
+    bpm = PatternMatcher([(UPat(GroupOp.All, name='x'), bpm_visit)])
+    pm = PatternMatcher([(UPat(GroupOp.All, name='x'), pm_visit)])
     a = UOp.const(dtypes.int, 1)
     b = UOp.const(dtypes.int, 2)
     graph_rewrite(a + b, pm, ctx=visited, bpm=bpm, walk=True)
     # bpm fires pre-order, pm fires post-order
     self.assertEqual(visited, [
-      (Ops.ADD, "bpm"), (1, "bpm"), (1, "pm"), (2, "bpm"), (2, "pm"), (Ops.ADD, "pm"),
+      (Ops.ADD, 'bpm'), (1, 'bpm'), (1, "pm"), (2, 'bpm'), (2, "pm"), (Ops.ADD, "pm"),
     ])
 
   def test_walk_bidirectional_bpm_short_circuits(self):
     """If bpm matches, children are skipped and pm never fires on that node."""
     visited = []
     def bpm_match(ctx, x):
-      ctx.append((x.arg if x.op is Ops.CONST else x.op, "bpm"))
+      ctx.append((x.arg if x.op is Ops.CONST else x.op, 'bpm'))
       # rewrite const(1) -> const(10), short-circuiting its subtree
       if x.op is Ops.CONST and x.arg == 1: return x.replace(arg=10)
       return None
     def pm_match(ctx, x):
       ctx.append((x.arg if x.op is Ops.CONST else x.op, "pm"))
       return None
-    bpm = PatternMatcher([(UPat(GroupOp.All, name="x"), bpm_match)])
-    pm = PatternMatcher([(UPat(GroupOp.All, name="x"), pm_match)])
+    bpm = PatternMatcher([(UPat(GroupOp.All, name='x'), bpm_match)])
+    pm = PatternMatcher([(UPat(GroupOp.All, name='x'), pm_match)])
     a = UOp.const(dtypes.int, 1)
     b = UOp.const(dtypes.int, 2)
     ret = graph_rewrite(a + b, pm, ctx=visited, bpm=bpm, walk=True)
