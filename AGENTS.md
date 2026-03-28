@@ -124,3 +124,9 @@
 * **E2E Integration Testing Rigor:** Mocking components like `TargetEncoder` or injecting raw hexadecimal words into memory (e.g., bypassing `NativeTextualAssembler`) is testing fraud. Authentic tests must route raw assembly through the full compilation-to-execution loop.
 * **Python Linter Integrity:** Scattered Python import violations must be resolved by moving standard/third-party imports to the top of the file (exceptions apply to PyBind11 simulator bindings). Remove unused variables or use them in verifiable assertions.
 * **OS Boot Artifact Graceful Degradation:** Pre-compiled OS artifacts must be probed; if missing, raise `unittest.SkipTest` or `pytest.skip` organically to avoid pipeline-crashing null pointer defects.
+
+### New Lessons Learned (Cycle 167)
+* **Tier 1: Test Suite Subprocess Deadlocks:**
+  * **Quote:** "Parallel execution under pytest -n 4 deadlocked or timed out violently after running 5000+ tests."
+  * **Impact:** Subprocess calls in tests hanging infinitely mask execution boundaries and crash the CI orchestrator.
+  * **Action:** Individual tests executing `subprocess.run` or complex loops MUST enforce strict, native timeouts (e.g., `timeout=15.0`) to fail fast and prevent orchestrator deadlocks.
