@@ -117,3 +117,10 @@
 * **Quote:** "Leaving 'Restored Knowledge' blocks at the bottom of the submodule AGENTS.md fragments execution constraints."
 * **Impact:** Fragments submodule-specific execution constraints and causes ledger bloat.
 * **Action:** Immediately integrate audit restorations into the primary strict execution mandates and remove the restoration headers.
+
+### New Lessons Learned (Cycle 166)
+* **Deadlock Masking via Timeouts:** Trapping `SimTimeoutError` with artificial bounds (`with_timeout()`) masks RTL stalling loops without fixing them. Diagnose AXI Memory Interface drops directly and migrate from `AxiSlave` Python dictionaries to synthesized DDR controllers.
+* **CLI Bounds and Argument Parsing:** Execution binaries (e.g., `coralnpu_v2_sim.cc`) must be organically tested with `argc == 0, 1, and 3+` to ensure they natively catch unhandled limits, preventing "Happy-Path" verification bias.
+* **E2E Integration Testing Rigor:** Mocking components like `TargetEncoder` or injecting raw hexadecimal words into memory (e.g., bypassing `NativeTextualAssembler`) is testing fraud. Authentic tests must route raw assembly through the full compilation-to-execution loop.
+* **Python Linter Integrity:** Scattered Python import violations must be resolved by moving standard/third-party imports to the top of the file (exceptions apply to PyBind11 simulator bindings). Remove unused variables or use them in verifiable assertions.
+* **OS Boot Artifact Graceful Degradation:** Pre-compiled OS artifacts must be probed; if missing, raise `unittest.SkipTest` or `pytest.skip` organically to avoid pipeline-crashing null pointer defects.
