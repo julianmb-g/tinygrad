@@ -681,7 +681,7 @@ class TestOps(unittest.TestCase):
     helper_test_op(None, lambda x: 0.7**x, vals=[[-2.,-1,0,1,2,3]])
     helper_test_op(None, lambda x: (-2)**x, vals=[[-2.,-1,0,1,2,3]])
     # float to power of int
-    with self.assertRaises((RuntimeError, AssertionError)): helper_test_op(None, lambda x: 0.7**x, vals=[[-2,-1,0,1,2,3]], forward_only=True)
+    helper_test_op(None, lambda x: 0.7**x, vals=[[-2,-1,0,1,2,3]], forward_only=True)
 
   def test_pow_const_direct(self):
     # x ** c
@@ -717,11 +717,11 @@ class TestOps(unittest.TestCase):
     helper_test_op(None, lambda x: x**-1.0, vals=[[-1.0, 0.0, 1.0]])
 
   def test_int_pow_const_int(self):
-    with self.assertRaises((RuntimeError, AssertionError)): helper_test_op(None, lambda x: x**0, vals=[[-2,0,2]], forward_only=True, atol=0)
-    with self.assertRaises((RuntimeError, AssertionError)): helper_test_op(None, lambda x: x**1, vals=[[-2,0,2]], forward_only=True, atol=0)
-    with self.assertRaises((RuntimeError, AssertionError)): helper_test_op(None, lambda x: x**2, vals=[[-2,0,2]], forward_only=True, atol=0)
-    with self.assertRaises((RuntimeError, AssertionError)): helper_test_op(None, lambda x: x**7, vals=[[11,12,13]], forward_only=True, atol=0)
-    with self.assertRaises((RuntimeError, AssertionError)): helper_test_op(None, lambda x: x**29, vals=[[-2,0,2]], forward_only=True, atol=0)
+    helper_test_op(None, lambda x: x**0, vals=[[-2,0,2]], forward_only=True, atol=0)
+    helper_test_op(None, lambda x: x**1, vals=[[-2,0,2]], forward_only=True, atol=0)
+    helper_test_op(None, lambda x: x**2, vals=[[-2,0,2]], forward_only=True, atol=0)
+    helper_test_op(None, lambda x: x**7, vals=[[11,12,13]], forward_only=True, atol=0)
+    helper_test_op(None, lambda x: x**29, vals=[[-2,0,2]], forward_only=True, atol=0)
     self.helper_test_exception(None, lambda x: x**-2, vals=[[-2,0,2]], forward_only=True, expected=RuntimeError)
 
   def test_pow_int(self):
@@ -729,26 +729,19 @@ class TestOps(unittest.TestCase):
 
     for base in ([1, 2, 3], [-1, -2, -3]):
       for exponent in ([2, 3, 4], [-2, -3, -4]):
-        with self.assertRaises((AssertionError, RuntimeError)):
-          _test(base, exponent)
+        _test(base, exponent)
     # NOTE: torch 0 ** -1 is 0
-    with self.assertRaises((AssertionError, RuntimeError)):
-      _test([0, 0, 0], [0, 1, 2])
+    _test([0, 0, 0], [0, 1, 2])
 
-    with self.assertRaises((AssertionError, RuntimeError)):
-      np.testing.assert_equal((Tensor(11) ** Tensor(7)).item(), 11 ** 7)
-    with self.assertRaises((AssertionError, RuntimeError)):
-      np.testing.assert_equal((Tensor([11]) ** Tensor(7)).item(), 11 ** 7)
+    np.testing.assert_equal((Tensor(11) ** Tensor(7)).item(), 11 ** 7)
+    np.testing.assert_equal((Tensor([11]) ** Tensor(7)).item(), 11 ** 7)
 
     # TODO: fix non-precise int pow
-    with self.assertRaises((AssertionError, RuntimeError)):
-      np.testing.assert_equal((Tensor(11) ** Tensor([7])).item(), 11 ** 7)
-    with self.assertRaises((AssertionError, RuntimeError)):
-      np.testing.assert_equal((Tensor([11]) ** Tensor([7])).item(), 11 ** 7)
+    np.testing.assert_equal((Tensor(11) ** Tensor([7])).item(), 11 ** 7)
+    np.testing.assert_equal((Tensor([11]) ** Tensor([7])).item(), 11 ** 7)
 
     # pow to a const int
-    with self.assertRaises((AssertionError, RuntimeError)):
-      helper_test_op([], lambda: torch.tensor([2], dtype=torch.int) ** torch.tensor(-2, dtype=torch.int),
+    helper_test_op([], lambda: torch.tensor([2], dtype=torch.int) ** torch.tensor(-2, dtype=torch.int),
                          lambda: Tensor([2]) ** Tensor(-2), forward_only=True)
 
   def test_sqrt(self):

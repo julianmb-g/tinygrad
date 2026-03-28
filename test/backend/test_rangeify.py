@@ -178,13 +178,11 @@ class TestRangeifyPM(unittest.TestCase):
   def test_reshape_match(self):
     a = self.base
     b = self.base.reshape(100).reshape(10, 10)
-    with self.assertRaises(AssertionError):
-      self.assert_same(a, b)
+    self.assert_same(a, b)
   def test_permute_reshape_match(self):
     a = self.base
     b = self.base.permute(1,0).reshape(100).reshape(10, 10).permute(1,0)
-    with self.assertRaises(AssertionError):
-      self.assert_same(a, b)
+    self.assert_same(a, b)
   def test_padded_permute_match(self):
     a = self.base.pad(((0,0),(0,1)))
     b = self.base.permute(1,0).pad(((0,1),(0,0))).permute(1,0)
