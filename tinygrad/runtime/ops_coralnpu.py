@@ -70,20 +70,20 @@ class CoralNPUAllocator(Allocator):
     try:
       for mem in getattr(self, 'mem', {}).values():
           try: mem.release()
-          except (AttributeError, KeyError, OSError, FileNotFoundError, BufferError, ValueError): pass
+          except (BufferError, ValueError, AttributeError): pass
       for shm in getattr(self, 'shms', {}).values():
           try:
             view = memoryview(shm.buf)
             view.release()
-          except (AttributeError, KeyError, OSError, FileNotFoundError, BufferError, ValueError): pass
+          except (BufferError, ValueError, AttributeError): pass
           try:
             shm.close()
             try: os.unlink(f"/dev/shm/{shm.name}")
-            except (AttributeError, KeyError, OSError, FileNotFoundError, BufferError, ValueError): pass
+            except (FileNotFoundError, OSError): pass
             try: shm.unlink()
-            except (AttributeError, KeyError, OSError, FileNotFoundError, BufferError, ValueError): pass
-          except (AttributeError, KeyError, OSError, FileNotFoundError, BufferError, ValueError): pass
-    except (AttributeError, KeyError, OSError, FileNotFoundError, BufferError, ValueError): pass
+            except (FileNotFoundError, OSError): pass
+          except (BufferError, ValueError, AttributeError, OSError): pass
+    except (AttributeError, KeyError): pass
 
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:
@@ -135,11 +135,14 @@ class CoralNPUAllocator(Allocator):
                     self.mem[opaque].release()
                     del self.mem[opaque]
                     shm = self.shms.pop(opaque)
-                    view = memoryview(shm.buf)
-                    view.release()
-                    shm.close()
+                    try:
+                        view = memoryview(shm.buf)
+                        view.release()
+                    except (BufferError, ValueError, AttributeError): pass
+                    try: shm.close()
+                    except (BufferError, ValueError, AttributeError, OSError): pass
                     try: shm.unlink()
-                    except FileNotFoundError: pass
+                    except (FileNotFoundError, OSError): pass
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()

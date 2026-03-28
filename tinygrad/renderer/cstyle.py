@@ -288,7 +288,7 @@ class ClangRenderer(CStyleLanguage):
     return defines + "\n" + self._render_body(function_name, kernel, bufs, uops, prefix) + "\n" + self._render_entry(function_name, bufs)
 
 class ClangJITRenderer(ClangRenderer):
-  buffer_suffix = ' restrict __attribute__((section(".noinit")))'
+  buffer_suffix = " restrict"
 
   def __init__(self):
     from tinygrad.runtime.support.compiler_cpu import ClangJITCompiler
