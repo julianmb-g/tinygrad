@@ -75,15 +75,15 @@ class CoralNPUAllocator(Allocator):
           try:
             view = memoryview(shm.buf)
             view.release()
-          except (BufferError, ValueError, AttributeError): pass
+          except (BufferError, ValueError, AttributeError, OSError, KeyError): pass
           try:
             shm.close()
             try: os.unlink(f"/dev/shm/{shm.name}")
-            except (FileNotFoundError, OSError): pass
+            except (FileNotFoundError, OSError, KeyError): pass
             try: shm.unlink()
-            except (FileNotFoundError, OSError): pass
-          except (BufferError, ValueError, AttributeError, OSError): pass
-    except (AttributeError, KeyError): pass
+            except (FileNotFoundError, OSError, KeyError): pass
+          except (BufferError, ValueError, AttributeError, OSError, KeyError): pass
+    except (AttributeError, KeyError, OSError): pass
 
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:
@@ -138,11 +138,11 @@ class CoralNPUAllocator(Allocator):
                     try:
                         view = memoryview(shm.buf)
                         view.release()
-                    except (BufferError, ValueError, AttributeError): pass
+                    except (BufferError, ValueError, AttributeError, OSError, KeyError): pass
                     try: shm.close()
-                    except (BufferError, ValueError, AttributeError, OSError): pass
+                    except (BufferError, ValueError, AttributeError, OSError, KeyError): pass
                     try: shm.unlink()
-                    except (FileNotFoundError, OSError): pass
+                    except (FileNotFoundError, OSError, KeyError): pass
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()
