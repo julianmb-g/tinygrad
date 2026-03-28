@@ -660,8 +660,12 @@ class TinygradAutoTunerIPC:
 
         try:
           cmd = ['coralnpu_v2_sim', elf_path]
-          p = subprocess.run(cmd, preexec_fn=os.setpgrp, capture_output=True, text=True)
-
+          # Enforce a slightly shorter timeout for the subprocess than the parent IPC poll
+          # to ensure the worker organically traps the deadlock and signals the master 
+          # before the master violently kills the worker (preventing orphaned fork bombs).
+          child_timeout_s = max(0.1, (self.kDefaultCompilationTimeoutMs - 2000.0) / 1000.0)
+          p = subprocess.run(cmd, preexec_fn=os.setpgrp, capture_output=True, text=True, timeout=child_timeout_s)
+          
           # Intercept mcause != 0 hardware traps
           if p.returncode != 0:
             conn.send(("trap", p.returncode))
