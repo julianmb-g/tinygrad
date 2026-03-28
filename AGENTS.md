@@ -133,3 +133,7 @@
 - Trap `OSError: cannot send (already closed?)` in IPC worker teardown (`pytest-xdist`) to avoid session finish crashes masking execution validations.
 - Move all standard library and third-party imports to the top-level scope (except PyBind11 bindings) per Google Python Style Guide.
 - Do not use `assertRaises(RuntimeError)` to mask infinite loop architectural defects in graph rewrites or schedule assertions.
+
+### Pytest IPC Teardown Deadlock Rules
+When using `pytest-xdist` parallel workers, crashes with `OSError: cannot send` occur due to improperly handled `__del__` garbage collection on `multiprocessing.shared_memory.SharedMemory`. You MUST release memory using `memoryview(shm.buf).release()` and explicitly trap `OSError`, `KeyError`, and `AttributeError` in the destructor natively.
+
