@@ -34,18 +34,17 @@ class TestPatternMatcher(unittest.TestCase):
     self.assertIsNone(matcher.rewrite(UOp(Ops.NOOP, src=(UOp(Ops.NOOP),))))
 
   def test_match_sz_0(self):
-    match_cnt = 0
-    def fxn(x):
-      nonlocal match_cnt
-      match_cnt += 1
+    match_cnt = []
+    def fxn(ctx, x):
+      ctx.append(True)
       assert len(x.src) == 0
       return UOp(Ops.CONST, src=(UOp(Ops.CONST),))
     matcher = PatternMatcher([(UPat(Ops.CONST, src=(), name="x"), fxn)])
-    c1 = UOp(Ops.CONST, dtypes.float, arg=1.0)
+    c1 = UOp.const(dtypes.float, 1.0)
     # second rewrite shouldn't match anything
-    c1 = matcher.rewrite(c1)
-    c1 = matcher.rewrite(c1)
-    self.assertEqual(match_cnt, 1)
+    c1 = matcher.rewrite(c1, ctx=match_cnt)
+    c1 = matcher.rewrite(c1, ctx=match_cnt)
+    self.assertEqual(len(match_cnt), 1)
   def test_match_sz_0_ctx(self):
     def fxn(ctx, x):
       ctx.append(True)

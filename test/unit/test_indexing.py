@@ -221,7 +221,7 @@ class TestIndexing(unittest.TestCase):
       numpy_testing_assert_equal_helper(v[boolIndices], Tensor([True]))
       numpy_testing_assert_equal_helper(len(w), 2)
   def test_bool_indices_accumulate(self):
-    mask = Tensor.zeros(size=(10, ), dtype=dtypes.bool)
+    mask = Tensor.zeros((10,), dtype=dtypes.bool)
     y = Tensor.ones(size=(10, 10))
     index_put_(y, (mask, ), y[mask], accumulate=True)
     numpy_testing_assert_equal_helper(y, Tensor.ones(size=(10, 10)))
@@ -242,7 +242,7 @@ class TestIndexing(unittest.TestCase):
     v = Tensor([1.])
     numpy_testing_assert_equal_helper(v[v == 0], Tensor([]))
   def test_byte_mask_accumulate(self):
-    mask = Tensor.zeros(size=(10, ), dtype=dtypes.uint8)
+    mask = Tensor.zeros((10,), dtype=dtypes.uint8)
     y = Tensor.ones(size=(10, 10))
     with warnings.catch_warnings(record=True) as w:
       warnings.simplefilter("always")
