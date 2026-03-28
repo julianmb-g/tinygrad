@@ -152,3 +152,8 @@ When using `pytest-xdist` parallel workers, crashes with `OSError: cannot send` 
   - **Quote:** "The test suite did not complete. Parallel execution under pytest -n 4 deadlocked or timed out violently after running 5000+ tests."
   - **Impact:** Subprocesses without a proper `__del__` GC lifecycle that calls `terminate()` and `join()` leak file descriptors and stdout pipes, causing pytest-xdist to hang indefinitely waiting for EOF.
   - **Action:** Ensure any daemon processes like `TinygradAutoTunerIPC` explicitly implement `__del__` that sends exit signals (`None`) and explicitly calls `worker.terminate()` and `worker.join()`.
+### Tinygrad Specific Lessons
+- **Tier 1: Pytest Parallel Worker Deadlocks**
+  - **Quote:** "Parallel execution under pytest -n 4 deadlocked or timed out violently after running 5000+ tests."
+  - **Impact:** 1200s orchestrator timeouts mask execution validations.
+  - **Action:** Ensure individual test timeouts organically trap infinite loops before the global pytest watchdog is triggered.
