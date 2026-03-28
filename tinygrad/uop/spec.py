@@ -313,7 +313,15 @@ def type_verify(ast:UOp|list[UOp], check_spec:PatternMatcher):
       ret = check_spec.rewrite(u)
       if cast(bool|None, ret) is not True:
         if DEBUG >= 3: print_uops(lst)
-        raise RuntimeError(f"UOp verification failed at {i} on {u.op} {u.dtype} {len(u.src)} {[(x.op, x.dtype, x.arg) for x in u.src]} {u.arg} | type(arg)={type(u.arg)} vs type(as_const)={type(dtypes.as_const(u.arg, u.dtype))} | is? {type(u.arg) is type(dtypes.as_const(u.arg, u.dtype))}")
+        try:
+
+          debug_cast = f" | type(arg)={type(u.arg)} vs type(as_const)={type(dtypes.as_const(u.arg, u.dtype))} | is? {type(u.arg) is type(dtypes.as_const(u.arg, u.dtype))}"
+
+        except Exception as e:
+
+          debug_cast = f" | [as_const failed: {e}]"
+
+        raise RuntimeError(f"UOp verification failed at {i} on {u.op} {u.dtype} {len(u.src)} {[(x.op, x.dtype, x.arg) for x in u.src]} {u.arg}{debug_cast}")
 
 # late imports to avoid circular import
 from tinygrad.codegen.opt import Opt, OptOps
