@@ -6,6 +6,27 @@ import pytest
 import subprocess
 import glob
 
+# Natively trap Pytest IPC shared memory teardown deadlocks
+import multiprocessing.shared_memory
+if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
+    _orig_shm_del = multiprocessing.shared_memory.SharedMemory.__del__
+    def _safe_shm_del(self):
+        try:
+            if hasattr(self, 'buf') and self.buf is not None:
+                memoryview(self.buf).release()
+        except (BufferError, ValueError, AttributeError, OSError, KeyError): pass
+        
+        try:
+            _orig_shm_del(self)
+        except (OSError, KeyError, AttributeError): pass
+        
+        try:
+            self.unlink()
+        except (OSError, KeyError, AttributeError, FileNotFoundError): pass
+
+    multiprocessing.shared_memory.SharedMemory.__del__ = _safe_shm_del
+
+
 try:
     multiprocessing.set_start_method("spawn", force=True)
 except RuntimeError:

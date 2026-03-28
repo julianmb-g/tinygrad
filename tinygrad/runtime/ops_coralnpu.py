@@ -13,6 +13,8 @@ import tempfile
 from tinygrad.device import Allocator, BufferSpec, Compiled, CompilerSet
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 
+
+
 kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks while allowing sufficient time for cross-compiling complex models.
 
 active_pids = set()
