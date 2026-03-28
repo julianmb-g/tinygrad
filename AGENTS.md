@@ -116,3 +116,7 @@
   * **Impact:** Allocator logic is tested in total isolation, never proving it can route data through real synthesized AXI allocators.
   * **Action:** E2E tests MUST instantiate REAL synthesized memory controllers. Revert the testing fraud.
 
+# tinygrad Orchestration Guidelines
+
+*   **IPC Shared Memory Teardown Deadlocks**: Explicitly trap expected cleanup exceptions (`AttributeError`, `KeyError`, `OSError`) in Python `__del__` GC lifecycles to prevent `pytest-xdist` parallel workers from crashing with `OSError: cannot send (already closed?)`.
+*   **Test Erasure via Skipping**: Never use `@unittest.skip('invalid uops')` or similar blanket decorators to hide failing graph validations or execution tests.
