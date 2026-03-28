@@ -137,3 +137,13 @@
 ### Pytest IPC Teardown Deadlock Rules
 When using `pytest-xdist` parallel workers, crashes with `OSError: cannot send` occur due to improperly handled `__del__` garbage collection on `multiprocessing.shared_memory.SharedMemory`. You MUST release memory using `memoryview(shm.buf).release()` and explicitly trap `OSError`, `KeyError`, and `AttributeError` in the destructor natively.
 
+
+### Restored Knowledge (Data-Loss Audit Remediation - Testing Illusion Mandates)
+- **Tier 1: Hardware Simulation & Mock Isolation Rules**
+  - **Quote:** "Mocking AxiSlave with Python dictionaries and swallowing test exceptions."
+  - **Impact:** False positive 100% unit tests that fail to simulate RTL component boundaries.
+  - **Action:** tests mimicking external memory MUST instantiate REAL synthesized DDR controllers and SRAM RTL block responders. Eviscerating memory boundaries to trap timeouts is strictly forbidden.
+- **Tier 1: E2E Integration Boundary Rules**
+  - **Quote:** "Validating bytes written to memory does not prove cross-component hardware integration."
+  - **Impact:** Systemic testing illusions where isolated string matching or individual instruction evaluations bypass cross-component routing.
+  - **Action:** MUST introduce rigorous Integration/E2E execution tests. A mutator or wrapper component is invalid until an authentic AST payload (compiled ELF) routes through the entire execution loop natively and verifies execution traces. Mocking TargetEncoder classes is insufficient.
