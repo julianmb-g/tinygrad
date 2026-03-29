@@ -64,3 +64,8 @@
   * **Quote:** "Removing `OSError` from global exception masking causes `os.kill` to crash with `ProcessLookupError` during thread garbage collection."
   * **Impact:** Uncontrolled crashing during `atexit` prevents complete pytest session cleanup and spawns zombie workers.
   * **Action:** Global `OSError` exception muzzling (e.g., `except (AttributeError, KeyError, OSError): pass`) must be strictly eradicated to unmask actual deadlocks. However, targeted `except OSError: pass` wrappers MUST be retained explicitly around specific OS execution calls like `os.kill()` or `os.unlink()` where missing processes/files are an organically safe execution path.
+
+* **AXI Burst Segmentation Compiler Limits**
+  * **Quote:** "AXI4 bursts must not exceed 256 beats."
+  * **Impact:** Issuing generic DMA chunks of 4KB violates the AXI4 specification and hangs the system.
+  * **Action:** Enforce strict AXI burst limits. For a 32-bit bus, the maximum burst is 1024 bytes. Segment `_dma_chunk` organically inside `emit_dma_async`.
