@@ -71,3 +71,4 @@ graphlib/
 script.py
 test_spsc.cpp
 diagnostics/
+test_script*.py
