@@ -66,3 +66,8 @@
   * **Impact:** Uncontrolled crashing during `atexit` prevents complete pytest session cleanup and spawns zombie workers.
   * **Action:** Global `OSError` exception muzzling (e.g., `except (AttributeError, KeyError, OSError): pass`) must be strictly eradicated to unmask actual deadlocks. However, targeted `except OSError: pass` wrappers MUST be retained explicitly around specific OS execution calls like `os.kill()` or `os.unlink()` where missing processes/files are an organically safe execution path.
 
+
+* **Testing Fraud vs Explicit Execution Bounds Verification**:
+  * **Quote:** "Removing `try...except RuntimeError` in an explicit infinite loop recursion test causes an unhandled exception that breaks the entire test suite."
+  * **Impact:** Blanket eradication of `try...except RuntimeError` without understanding context causes critical CI/CD pipeline crashes and fails to recognize explicit system validations.
+  * **Action:** Agents MUST differentiate between "Exception Masking" (hiding real architectural boundaries with `assertRaises`) and "Explicit Limits Verification" (a test explicitly designed to verify a cyclic graph limit natively trapped and raised the expected error). Never remove `try...except RuntimeError` blocks from tests explicitly verifying that the system successfully rejected an infinite loop.
