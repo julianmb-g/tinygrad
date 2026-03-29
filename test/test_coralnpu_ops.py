@@ -28,13 +28,13 @@ class BaseCoralNPUTest(unittest.TestCase):
 
 class TestCoralNPUAllocator(BaseCoralNPUTest):
     def setUp(self):
-        from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUAllocator
+        from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
         self.device = CoralNPUDevice("CORALNPU")
         self.allocator = CoralNPUAllocator(self.device)
 
     def test_elf_vmm_parsing(self):
         from unittest.mock import patch
-        from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUProgram
+        from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
 
         # Test dynamically computed boundaries by varying padding offsets natively via real ELF
         for padding in [0x1000, 0x2000, 0x3000]:

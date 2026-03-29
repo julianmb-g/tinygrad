@@ -883,7 +883,7 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
     elif self.op is Ops.ADD: f = math.gcd(self.src[0].const_factor(), self.src[1].const_factor())
     elif self.op is Ops.MUL: f = self.src[0].const_factor() * self.src[1].const_factor()
     else: f = 1
-    return f if f else 1
+    return f or 1
   def divides(self, v:int) -> UOp|None:
     if v==1: return self
     if self.op is Ops.CONST: return self.const_like(self.arg//v) if self.arg%v == 0 else None
