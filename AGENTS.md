@@ -55,3 +55,5 @@
   * **Quote:** "wmma_arg = ('mock', ...)"
   * **Impact:** 100% unit test coverage hiding 0% systemic integration. Bypasses layout boundaries.
   * **Action:** Eradicate 'MOCK' strings and dynamically evaluate authentic tensor core bounds.
+### Architectural Design & API Contracts
+*   **Mandate:** Ensure all unbuilt requirements and architectural designs reflect clear HW/SW boundaries, exact file paths, and strict API/ABI contracts. Use Mermaid for topology when defining tinygrad.
