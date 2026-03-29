@@ -14,8 +14,9 @@ from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, TrackedPatternMatcher
 @Context(SPEC=0)
 def apply_rewrite(expr):
   from tinygrad.codegen.simplify import pm_reduce_simplify
+  expr = graph_rewrite(expr, pm_reduce_simplify)
   res = full_rewrite_to_sink(expr.sink()).src[0]
-  return graph_rewrite(res, pm_reduce_simplify)
+  return res
 
 def evaluate_uop(uop, variables):
   if uop.op == Ops.CONST:
@@ -90,7 +91,7 @@ class TestFoldingAndReduction(unittest.TestCase):
     inner_range = UOp.range(4, 1)
     expr = (outer_range * 10) + inner_range
     optimized_reduce_uop = apply_rewrite(expr.reduce(outer_range, inner_range, arg=Ops.ADD))
-    self.assertEqual(optimized_reduce_uop.op, Ops.LOAD) # was CONST before rule shift
+    self.assertEqual(optimized_reduce_uop.op, Ops.CONST)
     self.assertEqual(optimized_reduce_uop.arg, sum((i * 10) + j for i in range(8) for j in range(4)))
 class TestModuloAndDivisionFolding(unittest.TestCase):
   def test_full_graph_rewrite_modulo_folding_with_define_var(self):
