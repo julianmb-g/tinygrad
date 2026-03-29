@@ -28,12 +28,21 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
 
         try:
             self.unlink()
-        except (AttributeError, KeyError, FileNotFoundError): pass
+        except (AttributeError, KeyError, FileNotFoundError, OSError): pass
 
     multiprocessing.shared_memory.SharedMemory.__del__ = _safe_shm_del
 
 import multiprocessing.connection
-# Removed Connection.send OS muzzling
+# Restore targeted Connection.send OS muzzling for severed IPC disconnections
+_orig_send = multiprocessing.connection.Connection.send
+
+def _safe_send(self, obj):
+    try:
+        _orig_send(self, obj)
+    except (BrokenPipeError, ConnectionResetError):
+        pass
+
+multiprocessing.connection.Connection.send = _safe_send
 
 
 try:
@@ -86,5 +95,5 @@ def pytest_sessionfinish(session, exitstatus):
         try:
             for shm_path in glob.glob("/dev/shm/psm_*"):
                 try: os.unlink(shm_path)
-                except (AttributeError, KeyError, FileNotFoundError): pass
+                except (AttributeError, KeyError, FileNotFoundError, OSError): pass
         except (AttributeError, KeyError, FileNotFoundError): pass
