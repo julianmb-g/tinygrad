@@ -120,3 +120,13 @@
 
 *   **IPC Shared Memory Teardown Deadlocks**: Explicitly trap expected cleanup exceptions (`AttributeError`, `KeyError`, `OSError`) in Python `__del__` GC lifecycles to prevent `pytest-xdist` parallel workers from crashing with `OSError: cannot send (already closed?)`.
 *   **Test Erasure via Skipping**: Never use `@unittest.skip('invalid uops')` or similar blanket decorators to hide failing graph validations or execution tests.
+
+* **Unbounded IPC Deadlocks (Watchdog Evasion)**
+  * **Quote:** "p.wait() completely replaced p.wait(timeout=timeout)"
+  * **Impact:** Removing the artificial orchestrator timeout without introducing a native C++ simulated watchdog exposes the orchestrator to infinite hangs upon hardware RTL deadlocks.
+  * **Action:** Introduce rigorous architectural bound checks (e.g., `SimTimeoutError`) within the simulated execution loop before removing outer orchestrator limits.
+
+* **Explicit Mocking of WMMA Graph Boundaries**
+  * **Quote:** "wmma_arg = ('mock', ...)"
+  * **Impact:** 100% unit test coverage hiding 0% systemic integration. Bypasses layout boundaries.
+  * **Action:** Eradicate 'MOCK' strings and dynamically evaluate authentic tensor core bounds.
