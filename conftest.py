@@ -11,23 +11,24 @@ import multiprocessing.shared_memory
 if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
     _orig_shm_del = multiprocessing.shared_memory.SharedMemory.__del__
     def _safe_shm_del(self):
+        # Explicitly release shared memory buffers to prevent IPC deadlocks
         try:
             if hasattr(self, '_mmap') and self._mmap is not None and not getattr(self._mmap, 'closed', True):
                 if hasattr(self, 'buf') and self.buf is not None:
-                    memoryview(self.buf).release()
+                    memoryview(self.buf).release()  # Enforce IPC teardown memory release
                     try:
                         os.unlink(f"/dev/shm/{self.name}")
                     except OSError:
                         pass
-        except (AttributeError, KeyError, OSError, FileNotFoundError): pass
+        except (AttributeError, KeyError, FileNotFoundError): pass
 
         try:
             _orig_shm_del(self)
-        except (AttributeError, KeyError, OSError, FileNotFoundError): pass
+        except (AttributeError, KeyError, FileNotFoundError): pass
 
         try:
             self.unlink()
-        except (AttributeError, KeyError, OSError, FileNotFoundError): pass
+        except (AttributeError, KeyError, FileNotFoundError): pass
 
     multiprocessing.shared_memory.SharedMemory.__del__ = _safe_shm_del
 
@@ -46,10 +47,11 @@ active_pids = set()
 
 def teardown_worker_group():
     import threading
+    # Explicitly join background threads to synchronize IPC termination
     for t in threading.enumerate():
         if t is not threading.current_thread() and not t.daemon:
             try:
-                t.join(timeout=1.0)
+                t.join(timeout=1.0) # Synchronize IPC thread termination
             except RuntimeError:
                 pass
     try:
@@ -84,5 +86,5 @@ def pytest_sessionfinish(session, exitstatus):
         try:
             for shm_path in glob.glob("/dev/shm/psm_*"):
                 try: os.unlink(shm_path)
-                except (AttributeError, KeyError, OSError, FileNotFoundError): pass
-        except (AttributeError, KeyError, OSError, FileNotFoundError): pass
+                except (AttributeError, KeyError, FileNotFoundError): pass
+        except (AttributeError, KeyError, FileNotFoundError): pass
