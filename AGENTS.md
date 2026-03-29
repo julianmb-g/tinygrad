@@ -106,10 +106,10 @@
   * **Impact:** Erasing execution failures from the CI pipeline entirely is catastrophic structural masking.
   * **Action:** Never use `@unittest.skip('invalid uops')` or similar blanket decorators to hide failing graph validations or execution tests. Fix the underlying logic natively.
 
-* **Subprocess Masking (Deadlocks)**
+* [FLAG: stale] **Subprocess Masking (Deadlocks)**
   * **Quote:** "Another artificial timeout masking the fact that the actual simulation payload execution is permanently deadlocking."
   * **Impact:** Masking deadlocks with `p.wait(timeout=15.0)` or `with_timeout` hides severe cross-component subsystem failures.
-  * **Action:** Remove artificial framework timeouts. The simulated RTL bounds must trap and cleanly abort invalid flows natively.
+  * **Action:** [FLAG: stale] Remove artificial framework timeouts. The simulated RTL bounds must trap and cleanly abort invalid flows natively.
 
 * **AxiSlave Mocking in Allocators**
   * **Quote:** "`TestCoralNPUAllocator.setUp` explicitly mocks the hardware device (`self.device = MagicMock()`) alongside mock ELF generation."
