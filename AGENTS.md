@@ -1,19 +1,13 @@
 # tinygrad Agent Instructions
 
-
 ## Lessons Learned & Orchestration Rules
 
 ### Tier 1: Critical Blocker
 
 * **Complete Test Erasure via Skipping**
   * **Quote:** "In `test_uop_graph.py`, failing tests... were blanketed with `@unittest.skip('invalid uops')`."
-  * **Impact:** Erasing execution failures from the CI pipeline entirely is catastrophic structural masking.
-  * **Action:** Never use `@unittest.skip('invalid uops')` or similar blanket decorators to hide failing graph validations or execution tests. Fix the underlying logic natively.
-
-* **Ban on Test Erasure**
-  * **Quote:** "Failing tests blanketed with @unittest.skip('invalid uops')."
-  * **Impact:** Catastrophic structural masking. Claiming a pipeline is fixed by literally skipping the graph validations is testing fraud.
-  * **Action:** Never use `@unittest.skip` to hide execution failures. Fix the underlying logic natively.   - **Task Tracking Synchronization**: Agents must rigorously cross-verify PLAN.md against actual codebase state before attempting tasks, as ledgers may fall out of sync with natively passing tests.
+  * **Impact:** Erasing execution failures from the CI pipeline entirely is catastrophic structural masking. Claiming a pipeline is fixed by literally skipping the graph validations is testing fraud.
+  * **Action:** Never use `@unittest.skip('invalid uops')` or similar blanket decorators to hide failing graph validations or execution tests. Fix the underlying logic natively. Agents must rigorously cross-verify `PLAN.md` against actual codebase state before attempting tasks.
 
 * **Toolchain Isolation & Hermetic Boundaries**
   * **Quote:** "The RISC-V cross-compilers... must be installed on the host machine. Hermetic Build Exemption..."
@@ -23,7 +17,7 @@
 * **Upstream Scope Management**
   * **Quote:** "Upstream components such as tinygrad 0-dimensional tensors are failing QA."
   * **Impact:** QA complaints on out-of-scope upstream frameworks pollute orchestration logs and block downstream progress.
-  * **Action:** Agents MUST explicitly ignore and prune any QA complaints related to upstream components (e.g. tinygrad 0-dimensional tensors) to prevent orchestration pollution.
+  * **Action:** Agents MUST explicitly ignore and prune any QA complaints related to upstream components (e.g., tinygrad 0-dimensional tensors) to prevent orchestration pollution.
 
 * **Fuzzer IPC Boundaries**
   * **Quote:** "Subprocess worker pools, fork bombs, and IPC boundaries are strictly forbidden for the Map-Elites fuzzer pipeline."
@@ -50,13 +44,14 @@
   * **Impact:** Causes cascading API contract breakages and obscures exact component failures.
   * **Action:** Explicitly fix files instead of relying on broad mocking. Ensure safe fallbacks via `**kwargs` when refactoring core APIs like `UOp.cast`.
 
-### Tier 2: System Architecture & Clarification Needed
+* **Graph Validation Failures (SCHEDULE ISSUE)**
+  * **Quote:** "tinygrad Graph Validation Failures: `TypeError: unsupported operand type(s) for -: 'tuple' and 'int'` and `SCHEDULE ISSUE`."
+  * **Impact:** Core regressions exist in graph scheduling and multi-dimensional tensor boundary calculations.
+  * **Action:** Fix the UOp vectorize/folding logic natively and restore strict multi-dimensional tensor boundary handling.
+
+### Tier 2: System Architecture
 
 * **Explicit Mocking of WMMA Graph Boundaries**
   * **Quote:** "wmma_arg = ('mock', ...)"
   * **Impact:** 100% unit test coverage hiding 0% systemic integration. Bypasses layout boundaries.
   * **Action:** Eradicate 'MOCK' strings and dynamically evaluate authentic tensor core bounds.
-
-
-### Tier 1: Critical Blocker
-* **tinygrad Graph Validation Failures**: `TypeError: unsupported operand type(s) for -: 'tuple' and 'int'` and `SCHEDULE ISSUE`. Core regressions exist in graph scheduling and multi-dimensional tensor boundary calculations. Fix the UOp vectorize/folding logic natively and restore strict multi-dimensional tensor boundary handling.
