@@ -1,8 +1,8 @@
-# Tinygrad Execution Context & Lessons
 
-## Lessons Learned
 
-### Tier 1: Build, Orchestration & Execution Logic
+## Lessons Learned & Orchestration Rules
+
+### Tier 1: Critical Blocker
 
 * **Compiler Syntax Integrity & Error Catching**
   * **Quote:** "Do not catch `subprocess.CalledProcessError` in test suites to bypass or skip failing tests."
@@ -76,11 +76,6 @@
   * **Impact:** Dynamically injecting sequential edges reduces peak memory consumption but does not reduce the per-kernel AST size if applied incorrectly.
   * **Action:** Explicitly map sequential edges between independent kernels directly in the dependency graph structure rather than relying on global memory buffers.
 
-* **Code Style, Linters & Imports**
-  * **Quote:** "Do not bypass line-length limits in tests or core codebase files using `# noqa: E501`."
-  * **Impact:** Scattered imports and long lines hide structural logic and violate code standards.
-  * **Action:** Move all standard/third-party imports to the top-level scope (except PyBind11 bindings). Actively refactor long lines into properly indented multi-line blocks. Remove unused variables or use them in verifiable assertions.
-
 * **Backward Compatibility & Crash Tracing**
   * **Quote:** "Abstracting root cause locations hides the source of crashes. Legacy keyword arguments must be strictly preserved via `**kwargs`."
   * **Impact:** Causes cascading API contract breakages and obscures exact component failures.
@@ -106,11 +101,6 @@
   * **Impact:** Erasing execution failures from the CI pipeline entirely is catastrophic structural masking.
   * **Action:** Never use `@unittest.skip('invalid uops')` or similar blanket decorators to hide failing graph validations or execution tests. Fix the underlying logic natively.
 
-* [FLAG: stale] **Subprocess Masking (Deadlocks)**
-  * **Quote:** "Another artificial timeout masking the fact that the actual simulation payload execution is permanently deadlocking."
-  * **Impact:** Masking deadlocks with `p.wait(timeout=15.0)` or `with_timeout` hides severe cross-component subsystem failures.
-  * **Action:** [FLAG: stale] Remove artificial framework timeouts. The simulated RTL bounds must trap and cleanly abort invalid flows natively.
-
 * **AxiSlave Mocking in Allocators**
   * **Quote:** "`TestCoralNPUAllocator.setUp` explicitly mocks the hardware device (`self.device = MagicMock()`) alongside mock ELF generation."
   * **Impact:** Allocator logic is tested in total isolation, never proving it can route data through real synthesized AXI allocators.
@@ -118,8 +108,15 @@
 
 # tinygrad Orchestration Guidelines
 
-*   **IPC Shared Memory Teardown Deadlocks**: Explicitly trap expected cleanup exceptions (`AttributeError`, `KeyError`, `OSError`) in Python `__del__` GC lifecycles to prevent `pytest-xdist` parallel workers from crashing with `OSError: cannot send (already closed?)`.
-*   **Test Erasure via Skipping**: Never use `@unittest.skip('invalid uops')` or similar blanket decorators to hide failing graph validations or execution tests.
+* **IPC Shared Memory Teardown Deadlocks**
+  * **Quote:** "Explicitly trap expected cleanup exceptions (AttributeError, KeyError, OSError) in Python __del__ GC lifecycles"
+  * **Impact:** Prevents pytest-xdist parallel workers from crashing during shared memory teardown deadlocks.
+  * **Action:** Explicitly trap expected cleanup exceptions (AttributeError, KeyError, OSError) in Python __del__ GC lifecycles. Release memory via `memoryview(shm.buf).release()` and call `os.unlink()` deterministically.
+
+* **Test Erasure via Skipping**
+  * **Quote:** "Explicitly trap expected cleanup exceptions (AttributeError, KeyError, OSError) in Python __del__ GC lifecycles"
+  * **Impact:** Prevents pytest-xdist parallel workers from crashing during shared memory teardown deadlocks.
+  * **Action:** Explicitly trap expected cleanup exceptions (AttributeError, KeyError, OSError) in Python __del__ GC lifecycles. Release memory via `memoryview(shm.buf).release()` and call `os.unlink()` deterministically.
 
 * **Unbounded IPC Deadlocks (Watchdog Evasion)**
   * **Quote:** "p.wait() completely replaced p.wait(timeout=timeout)"
@@ -130,3 +127,11 @@
   * **Quote:** "wmma_arg = ('mock', ...)"
   * **Impact:** 100% unit test coverage hiding 0% systemic integration. Bypasses layout boundaries.
   * **Action:** Eradicate 'MOCK' strings and dynamically evaluate authentic tensor core bounds.
+
+### Tier 2: System Architecture & Clarification Needed
+
+* **Code Style, Linters & Imports**
+  * **Quote:** "Do not bypass line-length limits in tests or core codebase files using `# noqa: E501`."
+  * **Impact:** Scattered imports and long lines hide structural logic and violate code standards.
+  * **Action:** Move all standard/third-party imports to the top-level scope (except PyBind11 bindings). Actively refactor long lines into properly indented multi-line blocks. Remove unused variables or use them in verifiable assertions.
+
