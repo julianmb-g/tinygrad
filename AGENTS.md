@@ -57,3 +57,6 @@
   * **Impact:** 100% unit test coverage hiding 0% systemic integration. Bypasses layout boundaries.
   * **Action:** Eradicate 'MOCK' strings and dynamically evaluate authentic tensor core bounds.
 
+
+### Tier 1: Critical Blocker
+* **tinygrad Graph Validation Failures**: `TypeError: unsupported operand type(s) for -: 'tuple' and 'int'` and `SCHEDULE ISSUE`. Core regressions exist in graph scheduling and multi-dimensional tensor boundary calculations. Fix the UOp vectorize/folding logic natively and restore strict multi-dimensional tensor boundary handling.
