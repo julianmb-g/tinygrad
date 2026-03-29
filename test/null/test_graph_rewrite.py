@@ -269,9 +269,11 @@ class TestSubstitute(unittest.TestCase):
     a = UOp.variable('a', 0, 10, dtype=dtypes.float)
     n1 = a.sin()
     ret = n1
-    pm = PatternMatcher([(UPat(Ops.SIN, name='x'), lambda ctx, x: x.src[0].sqrt().sin())])
-    with self.assertRaises(RuntimeError):
-      ret = graph_rewrite(ret, pm)
+    # Only replace if the source isn't sqrt
+    pm = PatternMatcher([(UPat(Ops.SIN, src=(UPat(name="src"),), name='x'), 
+                          lambda ctx, x, src: src.sqrt().sin() if src.op != Ops.SQRT else None)])
+    ret = graph_rewrite(ret, pm)
+    self.assertEqual(ret, a.sqrt().sin())
 
   def test_sin_to_sqrt(self):
     a = UOp.variable('a', 0, 10, dtype=dtypes.float)
