@@ -14,7 +14,7 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
         try:
             if hasattr(self, '_mmap') and self._mmap is not None and not getattr(self._mmap, 'closed', True):
                 if hasattr(self, 'buf') and self.buf is not None:
-                    self.buf.release()
+                    memoryview(self.buf).release()
                     try:
                         os.unlink(f"/dev/shm/{self.name}")
                     except OSError:
@@ -32,17 +32,7 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
     multiprocessing.shared_memory.SharedMemory.__del__ = _safe_shm_del
 
 import multiprocessing.connection
-if hasattr(multiprocessing.connection.Connection, 'send'):
-    _orig_conn_send = multiprocessing.connection.Connection.send
-    def _safe_conn_send(self, obj):
-        try:
-            _orig_conn_send(self, obj)
-        except OSError as e:
-            if "cannot send" in str(e) or "already closed" in str(e) or "Bad file descriptor" in str(e):
-                pass
-            else:
-                raise e
-    multiprocessing.connection.Connection.send = _safe_conn_send
+# Removed Connection.send OS muzzling
 
 
 try:
@@ -55,10 +45,18 @@ os.environ["DISABLE_COMPILER_CACHE"] = "1"
 active_pids = set()
 
 def teardown_worker_group():
+    import threading
+    for t in threading.enumerate():
+        if t is not threading.current_thread() and not t.daemon:
+            try:
+                t.join(timeout=1.0)
+            except RuntimeError:
+                pass
     try:
         for pid in list(active_pids):
             try:
                 os.kill(pid, signal.SIGKILL)
+                os.waitpid(pid, 0)
             except OSError:
                 pass
     except (AttributeError, KeyError):
