@@ -57,3 +57,5 @@
   * **Action:** Eradicate 'MOCK' strings and dynamically evaluate authentic tensor core bounds.
 ### Architectural Design & API Contracts
 *   **Mandate:** Ensure all unbuilt requirements and architectural designs reflect clear HW/SW boundaries, exact file paths, and strict API/ABI contracts. Use Mermaid for topology when defining tinygrad.
+* **IPC Thread Synchronization ()**\n  * **Quote:** "Explicitly join detached background threads before the main thread exits."\n  * **Impact:** Prevents asynchronous worker race conditions and shared memory GC deadlocks during teardown.\n  * **Action:** Synchronize IPC thread termination by explicitly joining all non-daemon threading.Thread instances and cleanly wait on PIDs during teardown.
+* **IPC Thread Synchronization (`pytest-xdist`)**\n  * **Quote:** "Explicitly join detached background threads before the main thread exits."\n  * **Impact:** Prevents asynchronous worker race conditions and shared memory GC deadlocks during teardown.\n  * **Action:** Synchronize IPC thread termination by explicitly joining all non-daemon threading.Thread instances and cleanly wait on PIDs during teardown.
