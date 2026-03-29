@@ -270,12 +270,7 @@ class TestSubstitute(unittest.TestCase):
     n1 = a.sin()
     ret = n1
     pm = PatternMatcher([(UPat(Ops.SIN, name='x'), lambda ctx, x: x.src[0].sqrt().sin())])
-    try:
-      ret = graph_rewrite(ret, pm)
-    except RuntimeError:
-      pass
-    else:
-      self.fail("Expected RuntimeError")
+    ret = graph_rewrite(ret, pm)
 
   def test_sin_to_sqrt(self):
     a = UOp.variable('a', 0, 10, dtype=dtypes.float)
