@@ -254,15 +254,16 @@ class TestUOpGraph(unittest.TestCase):
     uops = to_uops_list([out])
     self.assertEqual(len(uops), 2)  # +1 for SINK
 
-  @unittest.skip('invalid uops')
+  
   def test_noop_vectorize_fold(self):
     d0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
     idx = UOp.const(dtypes.int, 0)
-    ld = UOp(Ops.LOAD, dtypes.float.vec(2), (d0, idx))
-    vec = UOp(Ops.VECTORIZE, dtypes.float.vec(2), (ld,))
+    ld = UOp(Ops.LOAD, dtypes.float.vec(2), (d0.index(idx),))
+    geps = (UOp(Ops.GEP, dtypes.float, (ld,), arg=(0,)), UOp(Ops.GEP, dtypes.float, (ld,), arg=(1,)))
+    vec = UOp(Ops.VECTORIZE, dtypes.float.vec(2), geps)
     x = UOp(Ops.GEP, dtypes.float, (vec, ), arg=(0,))
     alu = UOp(Ops.SQRT, dtypes.float, (x, ))
-    out = UOp(Ops.STORE, dtypes.void, (d0, idx, alu))
+    out = UOp(Ops.STORE, dtypes.void, (d0.index(idx), alu))
     uops = to_uops_list([out])
     self.assertEqual(len([x for x in uops if x.op is Ops.VECTORIZE]), 0)
   def test_gep_vec_fold(self):
@@ -312,13 +313,14 @@ class TestUOpGraph(unittest.TestCase):
         for uop, const in zip(uops, consts):
           self.assertEqual(uop, const)
 
-  @unittest.skip('invalid uops')
+  
   def test_wmma_vectorize_fold(self):
     for i in [2, 4, 8]:
       vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i), tuple(UOp.const(dtypes.half, 0.0) for _ in range(i)))
       var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('var', 0, 1))
       acc = UOp.variable('acc', 0, 1, dtypes.half.vec(i))
-      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
+      wmma_arg = ('mock', (16,16,16), dtypes.half, dtypes.half, 'MOCK', 32, ((), (), ((None, i),)), ())
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc), arg=wmma_arg)
       uops = to_uops_list([wmma])
       self.assertEqual(uops[0], acc)
       self.assertEqual(len(uops), 2)  # +1 for SINK
@@ -327,11 +329,12 @@ class TestUOpGraph(unittest.TestCase):
       var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('var', 0, 1))
       vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i), tuple(UOp.const(dtypes.half, 0.0) for _ in range(i)))
       acc = UOp.variable('acc', 0, 1, dtypes.half.vec(i))
-      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
+      wmma_arg = ('mock', (16,16,16), dtypes.half, dtypes.half, 'MOCK', 32, ((), (), ((None, i),)), ())
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc), arg=wmma_arg)
       uops = to_uops_list([wmma])
       self.assertEqual(uops[0], acc)
       self.assertEqual(len(uops), 2)  # +1 for SINK
-  @unittest.skip('invalid uops')
+  
   def test_wmma_vectorize_no_fold(self):
     for i in [4, 8]:
       vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
@@ -339,7 +342,8 @@ class TestUOpGraph(unittest.TestCase):
                 tuple(UOp(Ops.DEFINE_VAR, dtypes.half, arg=(f'tmp{j}', 0, 1)) for j in range(i//2)))
       var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', 0, 1))
       acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', 0, 1))
-      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
+      wmma_arg = ('mock', (16,16,16), dtypes.half, dtypes.half, 'MOCK', 32, ((), (), ((None, i),)), ())
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc), arg=wmma_arg)
       uops = to_uops_list([wmma])
       self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
 
@@ -349,7 +353,8 @@ class TestUOpGraph(unittest.TestCase):
                 tuple(UOp.const(dtypes.half, 0.0) for _ in range(i//2)) +
                 tuple(UOp(Ops.DEFINE_VAR, dtypes.half, arg=(f'tmp{j}', 0, 1)) for j in range(i//2)))
       acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', 0, 1))
-      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
+      wmma_arg = ('mock', (16,16,16), dtypes.half, dtypes.half, 'MOCK', 32, ((), (), ((None, i),)), ())
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc), arg=wmma_arg)
       uops = to_uops_list([wmma])
       self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
 
@@ -358,7 +363,8 @@ class TestUOpGraph(unittest.TestCase):
                 tuple(UOp.const(dtypes.half, 1.0 if j == 0 else 0.0) for j in range(i)))
       var = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=(f'tmp{i}', 0, 1))
       acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', 0, 1))
-      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc))
+      wmma_arg = ('mock', (16,16,16), dtypes.half, dtypes.half, 'MOCK', 32, ((), (), ((None, i),)), ())
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (vec, var, acc), arg=wmma_arg)
       uops = to_uops_list([wmma])
       self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
 
@@ -367,7 +373,8 @@ class TestUOpGraph(unittest.TestCase):
       vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),
                 tuple(UOp.const(dtypes.half, 1.0 if j == 0 else 0.0) for j in range(i)))
       acc = UOp(Ops.DEFINE_VAR, dtypes.half.vec(i), arg=('acc', 0, 1))
-      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc))
+      wmma_arg = ('mock', (16,16,16), dtypes.half, dtypes.half, 'MOCK', 32, ((), (), ((None, i),)), ())
+      wmma = UOp(Ops.WMMA, dtypes.half.vec(i), (var, vec, acc), arg=wmma_arg)
       uops = to_uops_list([wmma])
       self.assertEqual(uops[-2], wmma)  # -2 to skip SINK
   def test_cast_alu_fold(self):

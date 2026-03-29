@@ -297,6 +297,8 @@ symbolic = symbolic_simple+commutative+PatternMatcher([
                    else y.src for y in x.src[1:]])))),
   # after with 1 src is just src[0]
   (UPat(Ops.AFTER, src=(UPat.var("s"),)), lambda s: s),
+  # VECTORIZE 1 element
+  (UPat(Ops.VECTORIZE, name="x"), lambda x: x.src[0] if len(x.src) == 1 and x.src[0].dtype == x.dtype else None),
   # VECTORIZE/CONST
   (UPat(Ops.VECTORIZE, src=UPat(Ops.CONST), name="vec"),
     lambda vec: UOp.const(vec.dtype, tuple(x.arg for x in vec.src)) if len(vec.src) > 0 else None),
@@ -429,9 +431,16 @@ pm_simplify_valid = PatternMatcher([
   (invalid_gate, gated_given_valid),
 ])
 
+def fold_wmma_zero(x:UOp) -> UOp|None:
+  src0, src1, acc = x.src
+  def is_zero(v:UOp): return (v.op is Ops.CONST and getattr(v, "arg", None) == 0.0) or (v.op is Ops.VECTORIZE and all(y.op is Ops.CONST and getattr(y, "arg", None) == 0.0 for y in v.src))
+  if is_zero(src0) or is_zero(src1): return acc
+  return None
+
 # this is symbolic 2.0
 REMOVE_FROM_SINK_LIKE = {Ops.UNROLL, Ops.NOOP, Ops.VECTORIZE, Ops.SINK}
 sym = symbolic+pm_simplify_valid+PatternMatcher([
+  (UPat(Ops.WMMA, name="x"), fold_wmma_zero),
   # reorder ALU/VECTORIZE
   (UPat(GroupOp.ALU, src=(UPat(Ops.VECTORIZE, src=UPat(name='x')), UPat(Ops.VECTORIZE, src=UPat(name='y'))), name='alu'),
    lambda x,y,alu: UOp(Ops.VECTORIZE, alu.dtype, (UOp(alu.op, alu.dtype.scalar(), (x,y)),)*alu.dtype.count)),
