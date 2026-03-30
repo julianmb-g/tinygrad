@@ -694,13 +694,13 @@ class CoralNPURenderer(CStyleLanguage):
       new_src = tuple(barrier_replacements.get(s, s) for s in u.src if s not in barrier_replacements or barrier_replacements[s] is not None)
       if new_src != u.src:
         u_new = UOp(u.op, u.dtype, new_src, u.arg)
-        buffer_masks[u_new] = buffer_masks[u]
+        buffer_masks[u_new] = buffer_masks.get(u, set())
         u = u_new
 
       if u.op is Ops.COPY:
         needs_sync = False
         for c in pending_copies:
-          if bool(buffer_masks[u].intersection(buffer_masks[c])):
+          if bool(buffer_masks[u].intersection(buffer_masks.get(c, set()))):
             needs_sync = True
             break
         if needs_sync:
@@ -712,10 +712,16 @@ class CoralNPURenderer(CStyleLanguage):
       elif u.op in {Ops.LOAD, Ops.STORE, Ops.DEFINE_LOCAL} and pending_copies:
         needs_sync = False
         for c in pending_copies:
-          if bool(buffer_masks[u].intersection(buffer_masks[c])):
+          if bool(buffer_masks.get(u, set()).intersection(buffer_masks.get(c, set()))):
             needs_sync = True
             break
         if needs_sync:
+          last_barrier = UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None)
+          synced_uops.append(last_barrier)
+          pending_copies = []
+        synced_uops.append(u)
+      elif u.op is Ops.SINK:
+        if pending_copies:
           last_barrier = UOp(Ops.BARRIER, dtypes.void, tuple(pending_copies), None)
           synced_uops.append(last_barrier)
           pending_copies = []
@@ -811,12 +817,13 @@ class CoralNPURenderer(CStyleLanguage):
     uops = spilled_uops
 
     # Ensure SINK is updated if needed
-    if uops and uops[-1].op is Ops.SINK:
-      sink_srcs = list(uops[-1].src)
+    sink_idx = next((i for i, u in reversed(list(enumerate(uops))) if u.op is Ops.SINK), -1)
+    if sink_idx != -1:
+      sink_srcs = list(uops[sink_idx].src)
       for u in uops:
         if u.op is Ops.BARRIER and u not in sink_srcs:
           sink_srcs.append(u)
-      uops[-1] = UOp(Ops.SINK, dtypes.void, tuple(sink_srcs), None)
+      uops[sink_idx] = UOp(Ops.SINK, dtypes.void, tuple(sink_srcs), None)
 
     # DTCM Tiling check (mocked for error checks in tests)
     local_lifetimes = {}

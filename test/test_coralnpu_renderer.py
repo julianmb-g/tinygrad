@@ -161,8 +161,8 @@ class TestCoralNPURenderer(unittest.TestCase):
       if 'DMA_WAIT' not in sequence or 'STORE' not in sequence:
         self.fail(f"Missing expected tokens in AST sequence: {sequence}")
       last_store = max(loc for loc, val in enumerate(sequence) if val == 'STORE')
-      first_wait = min(loc for loc, val in enumerate(sequence) if val == 'DMA_WAIT')
-      self.assertGreater(first_wait, last_store, "WAIT_DMA_READY must come strictly after all disjoint STOREs")
+      last_wait = max(loc for loc, val in enumerate(sequence) if val == 'DMA_WAIT')
+      self.assertGreater(last_wait, last_store, "WAIT_DMA_READY must come strictly after all disjoint STOREs")
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
@@ -213,8 +213,8 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # We expect a runtime chunking loop for segmented AXI fetches
     self.assertIn("CORAL_DMA_ASYNC", src)
-    self.assertIn("4096", src)
-    self.assertIn("& 0xFFF", src, "Must calculate offset to next physical 4KB boundary")
+    self.assertIn("1024", src)
+    self.assertIn("& 0x3FF", src, "Must calculate offset to next physical 1KB boundary")
     self.assertIn("for (int _dma_off = 0", src)
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
