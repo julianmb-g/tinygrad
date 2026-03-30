@@ -56,7 +56,7 @@ class CoralNPUAllocator(Allocator):
                         if st_name != 0:
                             name = lib[strtab_offset + st_name:].split(b'\x00')[0]
                             if name == b'_end':
-                                self.vmm_base = st_value
+                                self.vmm_base = st_value + 0x200000  # Bump by 2MB to avoid ELF overlap
                                 break
 
     if self.vmm_base is None:
@@ -172,6 +172,7 @@ SECTIONS {
   .noinit (NOLOAD) : { . = ALIGN(16); *(.noinit*) } > EXTMEM
   .data : { *(.data*) } > EXTMEM
   .bss : { *(.bss*) } > EXTMEM
+  .stack (NOLOAD) : { . = ALIGN(16); . += 0x1000; _stack_top = .; } > EXTMEM
   _end = .;
 }"""
 
@@ -228,11 +229,20 @@ class CoralNPUProgram:
         raise
 
     cmd = ['coralnpu_v2_sim', self.elf_path, '--max_cycles=1000000']
+    args_list = []
+    shm_list = []
     for buf_handle in bufs:
       if buf_handle in self.device.allocator.shms:
-        cmd.extend(["--shm", self.device.allocator.shms[buf_handle].name])
+        shm_name = self.device.allocator.shms[buf_handle].name
+        shm_size = self.device.allocator.shms[buf_handle].size
+        shm_list.append(f"{buf_handle}:{shm_name}:{shm_size}")
+      args_list.append(str(buf_handle))
     for v in vals:
-      cmd.extend(["--val", str(v)])
+      args_list.append(str(v))
+    if shm_list:
+      cmd.extend(["--shm", ",".join(shm_list)])
+    if args_list:
+      cmd.extend(["--arg", ",".join(args_list)])
 
     try:
       p = subprocess.Popen(cmd, preexec_fn=os.setpgrp)

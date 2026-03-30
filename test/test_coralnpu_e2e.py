@@ -20,10 +20,7 @@ class TestCoralNPUE2E(unittest.TestCase):
         with open(cls.src_path, 'w') as f:
             f.write('void _start() { asm volatile(".insn 4, 0x08000073"); }')
 
-        try:
-            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path], timeout=15.0)
-        except FileNotFoundError:
-            raise unittest.SkipTest("Cross-compiler missing")
+        subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path])
 
         cls.env_patcher = patch.dict(os.environ, {"CORALNPU_ELF": cls.elf_path})
         cls.env_patcher.start()
@@ -52,8 +49,9 @@ class TestCoralNPUE2E(unittest.TestCase):
             __attribute__((section(".noinit"))) volatile float noinit_buf[10];
             __attribute__((section(".accum"))) volatile float accum_buf[10];
 
-            void _start() {{
-                float* out = (float*){handle};
+            __attribute__((naked)) void _start() {{
+                asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0");
+                volatile float* out = (volatile float*){handle};
                 ping_buf[0] = 10.0f;
                 pong_buf[0] = 20.0f;
                 noinit_buf[0] = 30.0f;
@@ -64,10 +62,7 @@ class TestCoralNPUE2E(unittest.TestCase):
             """.encode()
 
             prog = CoralNPUProgram(self.device, "_start", src)
-            try:
-                prog(handle, wait=True)
-            except FileNotFoundError:
-                raise unittest.SkipTest("Hardware simulator missing")
+            prog(handle, wait=True)
 
             dest = bytearray(4)
             self.allocator._copyout(memoryview(dest), handle)
@@ -79,21 +74,18 @@ class TestCoralNPUE2E(unittest.TestCase):
     def test_scheduler_dependency_chaining_e2e_execution(self):
         from tinygrad.tensor import Tensor
 
-        try:
-            # We construct a computation graph that uses SQRT and MAX (since SQRT triggers complex node)
-            t1 = Tensor([1.0, 4.0], device="CORALNPU").sqrt()
-            t2 = Tensor([3.0, 2.0], device="CORALNPU").max()
+        # We construct a computation graph that uses SQRT and MAX (since SQRT triggers complex node)
+        t1 = Tensor([1.5, 4.2], device="CORALNPU").sqrt()
+        t2 = Tensor([3.1, 2.8], device="CORALNPU").max()
 
-            # Combine them so they are in the same schedule queue
-            out = t1 + t2
+        # Combine them so they are in the same schedule queue
+        out = t1 + t2
 
-            # Evaluate to extract schedule and run compilation
-            res = out.numpy()
+        # Evaluate to extract schedule and run compilation
+        res = out.numpy()
 
-            # Mathematical correctness validation
-            np.testing.assert_allclose(res, [4.0, 5.0], atol=1e-5, rtol=1e-5, err_msg="Scheduler Dependency Chaining mathematical failure")
-        except FileNotFoundError:
-            raise unittest.SkipTest("Hardware simulator missing")
+        # Mathematical correctness validation
+        np.testing.assert_allclose(res, [np.sqrt(1.5)+3.1, np.sqrt(4.2)+3.1], atol=1e-5, rtol=1e-5, err_msg="Scheduler Dependency Chaining mathematical failure")
 
 if __name__ == '__main__':
     unittest.main()
