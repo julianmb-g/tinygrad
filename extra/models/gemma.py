@@ -65,10 +65,6 @@ class GemmaAttention:
     k = k.transpose(1, 2)
     v = v.transpose(1, 2)
 
-    scores = q.matmul(k.transpose(2, 3)) / math.sqrt(self.head_dim)
-    if mask is not None:
-      scores = scores + mask
-
-    attn = scores.softmax(-1).matmul(v)
+    attn = q.scaled_dot_product_attention(k, v, attn_mask=mask)
     attn = attn.transpose(1, 2).flatten(2)
     return attn.matmul(self.o_proj)

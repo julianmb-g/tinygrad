@@ -1010,7 +1010,7 @@ class CoralNPURenderer(CStyleLanguage):
     buf_names = [name for name, _ in bufs]
     prefix.append(f"// BUF_NAMES: {','.join(buf_names)}")
 
-    prefix.append("#include <stdint.h>\nstatic inline float coralnpu_sqrt(float x) { float res; asm(\"fsqrt.s %0, %1\" : \"=f\"(res) : \"f\"(x)); return res; }")
+    prefix.append("#include <stdint.h>\nstatic inline float coralnpu_exp2(float x) {\n  x = x < -126.0f ? -126.0f : x;\n  union { float f; uint32_t i; } v;\n  v.i = (uint32_t)((1 << 23) * (x + 126.94269504f));\n  return v.f;\n}\nstatic inline float coralnpu_sqrt(float x) { float res; asm(\"fsqrt.s %0, %1\" : \"=f\"(res) : \"f\"(x)); return res; }")
     # Add vector typedefs for GCC
     for dt in uops_to_dtypes(uops):
       if dt.count > 1:
@@ -1055,6 +1055,8 @@ class CoralNPURenderer(CStyleLanguage):
     **CStyleLanguage.code_for_op,
     Ops.MAX: lambda a,b,dtype: f"(({a}>{b})?{a}:{b})",
     Ops.SQRT: lambda a,dtype: f"coralnpu_sqrt({a})",
+    Ops.EXP2: lambda a,dtype: f"coralnpu_exp2({a})",
+    Ops.EXP2: lambda a,dtype: f"coralnpu_exp2({a})",
   }
 
   def _define_local_rewrite(ctx, x):
