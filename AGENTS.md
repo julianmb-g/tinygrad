@@ -106,3 +106,6 @@
 
 ### Orchestration Execution Insights (Cycle 166)
 * **IPC Teardown Deadlock**: Explicitly call `close()` on `parent_conn` and `child_conn` before recreating `multiprocessing.Pipe(duplex=True)` in worker `_respawn` methods to prevent file descriptor leaks and `OSError: cannot send (already closed?)` crashes during `pytest-xdist` teardown.
+### Orchestration Execution Insights (Cycle 166)
+* **IPC Garbage Collection Deadlocks**: Always call `close()` on `parent_conn` and `child_conn` before recreating `multiprocessing.Pipe` in `_respawn` methods to prevent `OSError: cannot send` crashes during pytest worker teardown.
+* **Targeted OSError Exceptions**: Retain targeted `except OSError: pass` wrappers strictly around severed IPC disconnections or teardown routines, while unmasking it globally.
