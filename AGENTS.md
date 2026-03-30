@@ -71,3 +71,20 @@
   * **Quote:** "Removing `try...except RuntimeError` in an explicit infinite loop recursion test causes an unhandled exception that breaks the entire test suite."
   * **Impact:** Blanket eradication of `try...except RuntimeError` without understanding context causes critical CI/CD pipeline crashes and fails to recognize explicit system validations.
   * **Action:** Agents MUST differentiate between "Exception Masking" (hiding real architectural boundaries with `assertRaises`) and "Explicit Limits Verification" (a test explicitly designed to verify a cyclic graph limit natively trapped and raised the expected error). Never remove `try...except RuntimeError` blocks from tests explicitly verifying that the system successfully rejected an infinite loop.
+
+
+### Globally Relevant Execution Rules (Appended)
+
+* **Dangerous Commands & Missing Teardown (Bazel Deadlocks)**
+  * **Quote:** "Launching massive monolithic Bazel test suites concurrently without pkill -f bazel or resource constraints guarantees CI orchestrator timeouts."
+  * **Impact:** CI timeout due to Bazel server memory exhaustion.
+  * **Action:** Prepend and append `pkill -f "bazel" || true` to all Bazel batch executions. Apply strict `--local_resources=cpu=8 --local_resources=memory=HOST_RAM*0.5` flags.
+
+* **Safe C++ API Boundaries**
+  * **Quote:** "Natively generated APIs must utilize `absl::flat_hash_map::find()` rather than `.at(index)`."
+  * **Impact:** Using `.at(index)` triggers C++ exceptions and `std::abort()` crashes on cache misses.
+  * **Action:** Use `.find()` and gracefully return an `absl::NotFoundError` if an element misses.
+
+### Verification Authenticity
+* **Mocked API Bounds**: Masking exceptions like `assertRaises(RuntimeError)` on large tensors artificially evades hardware limits natively trapping.
+* **Action**: Instead of catching execution traps, scale the test boundary (e.g. `seq_len`, `hidden_dim`) to fit naturally within the physical execution limits (e.g. 28KB DTCM Ping/Pong bounds).

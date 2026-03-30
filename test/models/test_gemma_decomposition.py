@@ -72,7 +72,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       dummy_out = rmsnorm_cpu(x_cpu)
       c_name, elf_name = self._compile_layer(dummy_out)
     except FileNotFoundError:
-      c_name, elf_name = None, None
+      raise unittest.SkipTest("hardware unsupported")
 
     expected_out = rmsnorm_cpu(x_cpu).realize().numpy()
 
@@ -89,7 +89,7 @@ class TestGemmaDecomposition(unittest.TestCase):
         out.realize()
         np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
       except FileNotFoundError:
-        pass
+        raise unittest.SkipTest("hardware unsupported")
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:
@@ -115,7 +115,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       dummy_out = mlp_cpu(x_cpu)
       c_name, elf_name = self._compile_layer(dummy_out)
     except FileNotFoundError:
-      return
+      raise unittest.SkipTest("hardware unsupported")
 
     old_default = Device.DEFAULT
     try:
@@ -133,7 +133,7 @@ class TestGemmaDecomposition(unittest.TestCase):
         out.realize()
         np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-1)
       except FileNotFoundError:
-        pass
+        raise unittest.SkipTest("hardware unsupported")
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:
@@ -142,7 +142,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       if elf_name and os.path.exists(elf_name): os.unlink(elf_name)
 
   def test_gemma_rope(self):
-    seq_len = 8
+    seq_len = 4
     head_dim = 16
     x_cpu = ((Tensor.arange(1 * seq_len * 4 * head_dim, device="CPU") % 10) * 0.1).reshape(1, seq_len, 4, head_dim).realize()
 
@@ -156,7 +156,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       dummy_out = apply_rotary_emb(x_cpu, freqs_cis_cpu)
       c_name, elf_name = self._compile_layer(dummy_out)
     except FileNotFoundError:
-      c_name, elf_name = None, None
+      raise unittest.SkipTest("hardware unsupported")
 
     old_default = Device.DEFAULT
     try:
@@ -170,7 +170,7 @@ class TestGemmaDecomposition(unittest.TestCase):
         out.realize()
         np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
       except FileNotFoundError:
-        pass
+        raise unittest.SkipTest("hardware unsupported")
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:
@@ -179,9 +179,9 @@ class TestGemmaDecomposition(unittest.TestCase):
       if elf_name and os.path.exists(elf_name): os.unlink(elf_name)
 
   def test_gemma_attention(self):
-    seq_len = 8
-    hidden_dim = 256
-    num_heads = 4
+    seq_len = 4
+    hidden_dim = 64
+    num_heads = 2
     num_kv_heads = 1
     head_dim = 16
 
@@ -199,7 +199,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       dummy_out = attn_cpu(x_cpu, freqs_cis_cpu)
       c_name, elf_name = self._compile_layer(dummy_out)
     except FileNotFoundError:
-      return
+      raise unittest.SkipTest("hardware unsupported")
 
     old_default = Device.DEFAULT
     try:
@@ -214,10 +214,12 @@ class TestGemmaDecomposition(unittest.TestCase):
         attn.k_proj = attn_cpu.k_proj.to("CORALNPU")
         attn.v_proj = attn_cpu.v_proj.to("CORALNPU")
         attn.o_proj = attn_cpu.o_proj.to("CORALNPU")
-        with self.assertRaises(RuntimeError):
-            attn.q_proj.realize()
+        expected_out = attn_cpu(x_cpu, freqs_cis_cpu).realize().numpy()
+        out = attn(x, freqs_cis)
+        out.realize()
+        np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-1)
       except FileNotFoundError:
-        pass
+        raise unittest.SkipTest("hardware unsupported")
     finally:
       Device.DEFAULT = old_default
       if "CORALNPU_ELF" in os.environ:
