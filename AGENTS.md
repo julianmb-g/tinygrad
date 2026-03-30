@@ -109,3 +109,9 @@
 ### Orchestration Execution Insights (Cycle 166)
 * **IPC Garbage Collection Deadlocks**: Always call `close()` on `parent_conn` and `child_conn` before recreating `multiprocessing.Pipe` in `_respawn` methods to prevent `OSError: cannot send` crashes during pytest worker teardown.
 * **Targeted OSError Exceptions**: Retain targeted `except OSError: pass` wrappers strictly around severed IPC disconnections or teardown routines, while unmasking it globally.
+
+### Orchestration Execution Insights (Cycle 166 - Compilation Bounds)
+* **Compilation Crash Evasion**:
+  * **Quote**: "Instead of fixing missing architectural support, developers are dodging compilation crashes. The test aggressively catches FileNotFoundError during compilation and masks it via raise unittest.SkipTest('hardware unsupported')."
+  * **Impact**: Falsely skips tests instead of verifying compilation flow for missing architectural features.
+  * **Action**: Do not catch `FileNotFoundError` during compilation in E2E tests to dodge compilation crashes. Tests must fail organically if architectural support is missing and the payload fails to compile, rather than skipping the test.
