@@ -689,6 +689,7 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
       case Ops.CONST: return self.arg
       case Ops.VCONST: return self.arg[i]
       case Ops.VECTORIZE: return self.src[i].sintify()
+      case _ if self.dtype.count == 1 and i == 0: return self.sintify()
       case _: raise RuntimeError(f"no sgep on {self.op}")
 
   @functools.cached_property
