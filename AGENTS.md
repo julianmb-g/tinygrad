@@ -1,1 +1,5 @@
-# Tinygrad Orchestration Guidelines\n\n[FLAG: invalid] - Revert global exception muzzling in IPC (conftest.py) but properly wrap Connection.send teardowns with targeted `except OSError: pass`.\n- Ensure tests natively invoke `if __name__ == '__main__': unittest.main()`.\n- Prevent OOM deadlocks by avoiding `size='enormous'` targets.
+# Tinygrad Orchestration Guidelines
+
+- Ensure tests natively invoke `if __name__ == '__main__': unittest.main()`.
+
+- Prevent OOM deadlocks by avoiding `size='enormous'` targets.
