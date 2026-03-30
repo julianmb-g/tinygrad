@@ -61,13 +61,13 @@
   * **Impact:** Issuing generic DMA chunks of 4KB violates the AXI4 specification and hangs the system.
   * **Action:** Enforce strict AXI burst limits. For a 32-bit bus, the maximum burst is 1024 bytes. Segment `_dma_chunk` organically inside `emit_dma_async`.
 *   **Mandate:** Ensure all unbuilt requirements and architectural designs reflect clear HW/SW boundaries, exact file paths, and strict API/ABI contracts. Use Mermaid for topology when defining tinygrad.
-* **Targeted OSError Isolation in Pytest IPC (tinygrad)**
+* [FLAG: invalid] **Targeted OSError Isolation in Pytest IPC (tinygrad)**
   * **Quote:** "Removing `OSError` from global exception masking causes `os.kill` to crash with `ProcessLookupError` during thread garbage collection."
   * **Impact:** Uncontrolled crashing during `atexit` prevents complete pytest session cleanup and spawns zombie workers.
   * **Action:** Global `OSError` exception muzzling (e.g., `except (AttributeError, KeyError, OSError): pass`) must be strictly eradicated to unmask actual deadlocks. However, targeted `except OSError: pass` wrappers MUST be retained explicitly around specific OS execution calls like `os.kill()` or `os.unlink()` where missing processes/files are an organically safe execution path.
 
 
-* **Testing Fraud vs Explicit Execution Bounds Verification**:
+* [FLAG: stale] **Testing Fraud vs Explicit Execution Bounds Verification**:
   * **Quote:** "Removing `try...except RuntimeError` in an explicit infinite loop recursion test causes an unhandled exception that breaks the entire test suite."
   * **Impact:** Blanket eradication of `try...except RuntimeError` without understanding context causes critical CI/CD pipeline crashes and fails to recognize explicit system validations.
   * **Action:** Agents MUST differentiate between "Exception Masking" (hiding real architectural boundaries with `assertRaises`) and "Explicit Limits Verification" (a test explicitly designed to verify a cyclic graph limit natively trapped and raised the expected error). Never remove `try...except RuntimeError` blocks from tests explicitly verifying that the system successfully rejected an infinite loop.
@@ -95,7 +95,7 @@
   * **Impact:** Causes `OSError: cannot send (already closed?)` and crashes the entire `pytest-xdist` session during teardown.
   * **Action:** Always explicitly call `close()` on `parent_conn` and `child_conn` before recreating the `multiprocessing.Pipe(duplex=True)` in any worker `_respawn` method.
 
-* **Targeted OSError Isolation for `Connection.send`**:
+* [FLAG: invalid] **Targeted OSError Isolation for `Connection.send`**:
   * **Quote:** "The master process attempting to send data to a cleanly terminated worker throws OSError if the connection is already closed."
   * **Impact:** Crashing `pytest_sessionfinish` and spawning zombie processes.
   * **Action:** `Connection.send` wrappers MUST catch `OSError` alongside `BrokenPipeError` and `ConnectionResetError` to safely ignore severed IPC disconnections during teardown.
