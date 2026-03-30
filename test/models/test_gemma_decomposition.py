@@ -228,3 +228,4 @@ class TestGemmaDecomposition(unittest.TestCase):
       if elf_name and os.path.exists(elf_name): os.unlink(elf_name)
 if __name__ == '__main__':
   unittest.main()
+# Restored organic boundary
