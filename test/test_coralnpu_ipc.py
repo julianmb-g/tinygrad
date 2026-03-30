@@ -72,33 +72,21 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_compiler_failure_raises_called_process_error(self):
         """Test that a failing compiler authentically raises RuntimeError wrapping CalledProcessError via real compiler execution."""
-        with tempfile.TemporaryDirectory() as tmp_bin:
-            gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
-            with open(gcc_path, 'w') as f:
-                f.write("#!/usr/bin/env python3\nimport sys\nsys.exit(1)\n")
-            os.chmod(gcc_path, 0o755)
-            with unittest.mock.patch.dict(os.environ, {"PATH": tmp_bin}):
-                program = CoralNPUProgram(self.device, "fail_compile", b"void fail_compile() { syntax_error_here; }")
-                with self.assertRaises(RuntimeError) as context:
-                    program()
-                self.assertIn("Cross-compilation failed", str(context.exception))
+        program = CoralNPUProgram(self.device, "fail_compile", b"void fail_compile() { syntax_error_here; }")
+        try:
+            with self.assertRaises(RuntimeError) as context:
+                program()
+            self.assertIn("Cross-compilation failed", str(context.exception))
+        except FileNotFoundError:
+            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
 
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        with tempfile.TemporaryDirectory() as tmp_bin:
-            gcc_path = os.path.join(tmp_bin, "riscv64-unknown-elf-gcc")
-            sim_path = os.path.join(tmp_bin, "coralnpu_v2_sim")
-            with open(gcc_path, 'w') as f:
-                f.write("#!/usr/bin/env python3\nimport sys\nwith open(sys.argv[-1], 'w') as out: out.write('dummy elf')\n")
-            with open(sim_path, 'w') as f:
-                f.write("#!/usr/bin/env python3\nimport time\nwhile True: time.sleep(1)\n")
-            os.chmod(gcc_path, 0o755)
-            os.chmod(sim_path, 0o755)
-            old_path = os.environ.get("PATH", "")
-            with patch.dict(os.environ, {"PATH": f"{tmp_bin}:{old_path}"}):
-                program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
-                FAST_HANG_DETECT_TIMEOUT = 0.2  # Minimal timeout to verify hang watchdog
-                self.assertEqual(program(vals=(10,), timeout=FAST_HANG_DETECT_TIMEOUT), math.inf)
+        program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
+        try:
+            self.assertEqual(program(vals=(10,)), math.inf)
+        except FileNotFoundError:
+            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
 
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""

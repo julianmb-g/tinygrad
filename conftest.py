@@ -39,7 +39,7 @@ _orig_send = multiprocessing.connection.Connection.send
 def _safe_send(self, obj):
     try:
         _orig_send(self, obj)
-    except (BrokenPipeError, ConnectionResetError):
+    except (BrokenPipeError, ConnectionResetError, OSError):
         pass
 
 multiprocessing.connection.Connection.send = _safe_send

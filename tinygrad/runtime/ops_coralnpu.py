@@ -227,7 +227,7 @@ class CoralNPUProgram:
           return math.inf
         raise
 
-    cmd = ['coralnpu_v2_sim', self.elf_path]
+    cmd = ['coralnpu_v2_sim', self.elf_path, '--max_cycles=1000000']
     for buf_handle in bufs:
       if buf_handle in self.device.allocator.shms:
         cmd.extend(["--shm", self.device.allocator.shms[buf_handle].name])
