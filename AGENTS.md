@@ -103,3 +103,6 @@
 ### Orchestration Execution Insights (Cycle 166)
 * **Missing Linker Placement for .noinit**: Emitting `.noinit` in C++ is structurally insufficient. Inject a corresponding `*(.noinit)` memory segment mapping into the `coralnpu_tcm.ld.tpl` linker script to guarantee physical DTCM placement.
 * **Exception Masking**: Wrapping evaluation execution blocks in `with self.assertRaises(RuntimeError):` is testing fraud and is strictly prohibited.
+
+### Orchestration Execution Insights (Cycle 166)
+* **IPC Teardown Deadlock**: Explicitly call `close()` on `parent_conn` and `child_conn` before recreating `multiprocessing.Pipe(duplex=True)` in worker `_respawn` methods to prevent file descriptor leaks and `OSError: cannot send (already closed?)` crashes during `pytest-xdist` teardown.
