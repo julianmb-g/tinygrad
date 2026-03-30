@@ -88,3 +88,14 @@
 ### Verification Authenticity
 * **Mocked API Bounds**: Masking exceptions like `assertRaises(RuntimeError)` on large tensors artificially evades hardware limits natively trapping.
 * **Action**: Instead of catching execution traps, scale the test boundary (e.g. `seq_len`, `hidden_dim`) to fit naturally within the physical execution limits (e.g. 28KB DTCM Ping/Pong bounds).
+
+### Orchestration Execution Insights (Cycle 166 - IPC Bridging)
+* **Missing File Descriptor Cleanup in IPC `_respawn`**:
+  * **Quote:** "Failing to close() old Pipe connections before respawning multiprocessing workers leaks file descriptors and starves shared memory."
+  * **Impact:** Causes `OSError: cannot send (already closed?)` and crashes the entire `pytest-xdist` session during teardown.
+  * **Action:** Always explicitly call `close()` on `parent_conn` and `child_conn` before recreating the `multiprocessing.Pipe(duplex=True)` in any worker `_respawn` method.
+
+* **Targeted OSError Isolation for `Connection.send`**:
+  * **Quote:** "The master process attempting to send data to a cleanly terminated worker throws OSError if the connection is already closed."
+  * **Impact:** Crashing `pytest_sessionfinish` and spawning zombie processes.
+  * **Action:** `Connection.send` wrappers MUST catch `OSError` alongside `BrokenPipeError` and `ConnectionResetError` to safely ignore severed IPC disconnections during teardown.
