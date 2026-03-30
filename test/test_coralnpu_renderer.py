@@ -441,12 +441,12 @@ class TestCoralNPURenderer(unittest.TestCase):
     Device.DEFAULT = "CORALNPU"
     try:
       try:
-        x = (Tensor.arange(16, device=Device.DEFAULT) % 10).reshape((1, 16)).cast("int8").realize()
-        w = (Tensor.arange(256, device=Device.DEFAULT) % 10).reshape((16, 16)).cast("int8").realize()
-        out = x.cast("float16").matmul(w.cast("float16").T)
+        x = Tensor.arange(16, dtype=dtypes.int8, device=Device.DEFAULT).reshape(1, 16).realize()
+        w = Tensor.arange(256, dtype=dtypes.int8, device=Device.DEFAULT).reshape(16, 16).realize()
+        out = x.cast("int32").matmul(w.cast("int32").T)
         schedule = out.schedule()
       except FileNotFoundError:
-        raise unittest.SkipTest("Simulator missing, skipping.")
+        raise unittest.SkipTest("Missing cross-compiler required for organic E2E tests.")
       vdot_found = False
 
       for si in schedule:

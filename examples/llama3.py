@@ -80,7 +80,11 @@ class Int8Linear:
     self.scale = Tensor.ones(out_features, dtype=dtypes.half)
 
   def __call__(self, x):
-    return x.dot(self.weight.cast(self.scale.dtype).T*self.scale)
+    x_scale = x.abs().max(axis=-1, keepdim=True) / 127.0
+    x_scale = x_scale.maximum(1e-5)
+    x_int8 = (x / x_scale).round().cast(dtypes.int8)
+    out_int32 = x_int8.cast(dtypes.int32).dot(self.weight.cast(dtypes.int32).T)
+    return out_int32.cast(self.scale.dtype) * (x_scale * self.scale)
 
   @staticmethod
   def quantize(tensors, device, scale_dtype=dtypes.float16, quantize_embeds=False):

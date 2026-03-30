@@ -577,11 +577,11 @@ class CoralNPUCompiler(Compiler):
     return src.encode()
 
 def _vdot_rewrite(m, a, b):
-  if m.dtype.scalar() != dtypes.float16: return None
+  if m.dtype.scalar() != dtypes.int32: return None
   if a.dtype.scalar() not in (dtypes.int8, dtypes.uint8): return None
   if b.dtype.scalar() not in (dtypes.int8, dtypes.uint8): return None
   out_dtype = dtypes.int32.vec(a.dtype.count) if getattr(a.dtype, 'count', 1) > 1 else dtypes.int32
-  return UOp(Ops.CAST, m.dtype, (UOp(Ops.CUSTOM, out_dtype, (a, b), arg="VDOT({0}, {1})"),))
+  return UOp(Ops.CUSTOM, out_dtype, (a, b), arg="VDOT({0}, {1})")
 
 class CoralNPURenderer(CStyleLanguage):
   """
