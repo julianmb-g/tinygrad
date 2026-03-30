@@ -99,3 +99,7 @@
   * **Quote:** "The master process attempting to send data to a cleanly terminated worker throws OSError if the connection is already closed."
   * **Impact:** Crashing `pytest_sessionfinish` and spawning zombie processes.
   * **Action:** `Connection.send` wrappers MUST catch `OSError` alongside `BrokenPipeError` and `ConnectionResetError` to safely ignore severed IPC disconnections during teardown.
+
+### Orchestration Execution Insights (Cycle 166)
+* **Missing Linker Placement for .noinit**: Emitting `.noinit` in C++ is structurally insufficient. Inject a corresponding `*(.noinit)` memory segment mapping into the `coralnpu_tcm.ld.tpl` linker script to guarantee physical DTCM placement.
+* **Exception Masking**: Wrapping evaluation execution blocks in `with self.assertRaises(RuntimeError):` is testing fraud and is strictly prohibited.
