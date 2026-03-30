@@ -73,20 +73,14 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def test_compiler_failure_raises_called_process_error(self):
         """Test that a failing compiler authentically raises RuntimeError wrapping CalledProcessError via real compiler execution."""
         program = CoralNPUProgram(self.device, "fail_compile", b"void fail_compile() { syntax_error_here; }")
-        try:
-            with self.assertRaises(RuntimeError) as context:
-                program()
-            self.assertIn("Cross-compilation failed", str(context.exception))
-        except FileNotFoundError:
-            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
+        with self.assertRaises(RuntimeError) as context:
+            program()
+        self.assertIn("Cross-compilation failed", str(context.exception))
 
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
         program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
-        try:
-            self.assertEqual(program(vals=(10,)), math.inf)
-        except FileNotFoundError:
-            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
+        self.assertEqual(program(vals=(10,)), math.inf)
 
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
@@ -101,8 +95,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             out = bytearray(3)
             self.allocator._copyout(memoryview(out).cast('B'), handle)
             self.assertEqual(bytes(out), b"AAA")
-        except FileNotFoundError:
-            raise unittest.SkipTest("Toolchain or simulator not found, skipping organic execution test")
+
         finally:
             self.allocator._free(handle, dummy_options)
 
