@@ -20,3 +20,5 @@
 * **Hardware BSS Alignment**: C-Runtime `.bss` allocation must explicitly inject `__attribute__((section(".noinit")))` for hardware reserved zones.
 - **IPC Teardown**: Require targeted exception handling around os.kill/os.unlink to prevent main thread freezing during pytest-xdist teardown. Global OSError muzzling is invalid.
 * **The Fake IPC Shared Memory Integration**: A dummy test that does nothing related to IPC or shared memory is an invalid Integration Test. An authentic test MUST instantiate SharedMemory, transmit payloads, and organically simulate a worker teardown.
+* **IPC Teardown Crashes**: Global exception swallowing (e.g., catching `OSError` in `Connection.send`) masks shared memory teardown deadlocks and orphaned file descriptors. Must use targeted exception handling and proper integration tests for worker teardowns.
+* **Fake IPC Integration Evasion**: A dummy test that does not instantiate `SharedMemory`, transmit payloads, or organically simulate a worker teardown is an invalid Integration Test for IPC.
