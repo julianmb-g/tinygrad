@@ -1104,6 +1104,7 @@ for (int _dma_off = 0; _dma_off < ({size_str}); ) {{
 }}"""
 
   string_rewrite = PatternMatcher([
+    (UPat(Ops.DEFINE_REG, name="x"), lambda ctx, x: f"static {ctx.render_dtype(x.dtype.base)} {ctx[x]}[{x.dtype.size}] __attribute__((section(\".noinit\")));"),
     (UPat(Ops.DEFINE_LOCAL, name="x"), _define_local_rewrite),
     (UPat(Ops.COPY, name="x"), emit_dma_async),
     (UPat(Ops.BARRIER, name="x"), lambda ctx, x: "WAIT_DMA_READY();"),

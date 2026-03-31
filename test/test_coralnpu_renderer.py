@@ -1,6 +1,5 @@
 from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import os
-import re
 import struct
 import subprocess
 import tempfile
@@ -130,7 +129,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf_dest1, buf_src1, copy_uop1, buf_dest2, buf_src2, idx_val, idx2, ld2, st_idx2, st2, sink]
 
     src = renderer.render(uops)
-    
+
     self.assertIn("CORAL_DMA_ASYNC", src)
 
     body = src.split("{", 1)[1] if "{" in src else src
@@ -209,7 +208,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf_dest, buf_src, copy_uop, idx_val, idx, ld, st_idx, st, sink]
 
     src = renderer.render(uops)
-    
 
     # We expect a runtime chunking loop for segmented AXI fetches
     self.assertIn("CORAL_DMA_ASYNC", src)
@@ -261,7 +259,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf_dest, buf_src, copy_uop, idx_val, idx, ld, st_idx, st, sink]
 
     src = renderer.render(uops)
-    
+
     body = src.split("{", 1)[1] if "{" in src else src
     self.assertIn("CORAL_DMA_ASYNC", src)
     self.assertIn("WAIT_DMA_READY();", body)
@@ -612,5 +610,74 @@ class TestCoralNPURenderer(unittest.TestCase):
     finally:
       Device.DEFAULT = old_default
 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  def test_bss_noinit_attribute_generation(self):
+    from tinygrad.tensor import Tensor
+    from tinygrad.device import Device
+    from tinygrad.engine.realize import get_runner
+    import tempfile
+    import struct
+    import os
+    
+    with tempfile.NamedTemporaryFile(suffix=".elf", delete=False) as tf:
+      e_ident = b'\x7fELF\x01\x01\x01\x00' + b'\x00' * 8
+      e_shoff = 0x34
+      elf_hdr = e_ident + struct.pack("<HHIIIIIHHHHHH", 2, 0xf3, 1, 0, 0, e_shoff, 0, 52, 0, 0, 40, 3, 2)
+      sh_null = struct.pack("<10I", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
+      symtab_offset = 0x34 + 3 * 40
+      sh_symtab = struct.pack("<10I", 1, 2, 0, 0, symtab_offset, 32, 2, 0, 4, 16)
+      strtab_offset = symtab_offset + 32
+      strtab_data = b'\x00_end\x00'
+      sh_strtab = struct.pack("<10I", 6, 3, 0, 0, strtab_offset, len(strtab_data), 0, 0, 1, 0)
+      sym_null = struct.pack("<IIIBBH", 0, 0, 0, 0, 0, 0)
+      dynamic_end_addr = 0x80000000 + len(elf_hdr) + 0x2000
+      sym_end = struct.pack("<IIIBBH", 1, dynamic_end_addr, 0, 0, 0, 1)
+      tf.write(elf_hdr + sh_null + sh_symtab + sh_strtab + sym_null + sym_end + strtab_data)
+      dummy_elf_path = tf.name
+
+    old_elf = os.environ.get("CORALNPU_ELF")
+    os.environ["CORALNPU_ELF"] = dummy_elf_path
+
+    old_default = Device.DEFAULT
+    Device.DEFAULT = "CPU"
+    try:
+      # Authentic workload that requires an accumulator (sum reduction)
+      t = Tensor.randn(1024).sum()
+      si = t.schedule()[-1]
+      
+      # Manually compile it to source using CoralNPURenderer without linking or running it
+      runner = get_runner("CORALNPU", si.ast)
+      src = runner.p.src
+      
+      self.assertIn('__attribute__((section(".noinit")))', src)
+      self.assertIn('static float', src) # verify static attribute for registers
+    finally:
+      Device.DEFAULT = old_default
+      if old_elf is not None:
+        os.environ["CORALNPU_ELF"] = old_elf
+      else:
+        del os.environ["CORALNPU_ELF"]
+      os.unlink(dummy_elf_path)
+
+
 if __name__ == '__main__':
+
   unittest.main()
+
