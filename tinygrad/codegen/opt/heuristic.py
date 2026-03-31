@@ -9,7 +9,36 @@ from tinygrad.helpers import AMX, DEBUG, NOLOCALS, TC_OPT, TC_SELECT, USE_TC, ge
 from tinygrad.uop.ops import AxisType, Ops, resolve
 
 
+class OutOfMemoryError(Exception): pass
+CORALNPU_L1_LIMIT = 12288
+
 def hand_coded_optimizations(k:Scheduler) -> Scheduler:
+  if k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU":
+    can_split_k = k.ren.has_local
+    reduction_axes = k.axes_of(AxisType.REDUCE)
+    contiguous_shapes = []
+    if reduction_axes:
+      for axis in reduction_axes:
+        rng = k.rngs[axis]
+        is_contiguous = False
+        for b in k.bufs:
+          idx = b.src[1].get_idx()
+          for c in idx.split_uop(Ops.ADD):
+            if c is rng:
+              is_contiguous = True
+            elif c.op is Ops.MUL and c.src[0] is rng and c.src[1].op is Ops.CONST and c.src[1].arg == 1:
+              is_contiguous = True
+            elif c.op is Ops.MUL and c.src[1] is rng and c.src[0].op is Ops.CONST and c.src[0].arg == 1:
+              is_contiguous = True
+        if is_contiguous:
+          contiguous_shapes.append(k.full_shape[axis])
+      
+      if contiguous_shapes:
+        contiguous_reduction_size = prod(contiguous_shapes)
+        if resolve(contiguous_reduction_size > CORALNPU_L1_LIMIT, False) and not can_split_k:
+          raise OutOfMemoryError("Contiguous reduction axis exceeds Split-K limits")
+
+
   # first try the tensor cores
   """ Attempts to apply a tensor core optimization to the kernel. If one exists and applies properly, return true, otherwise return false.
   Tensor cores are optimized instructions that matrix multiply-accumulate across a wave of threads: D(M, N) = A(M, K) * B(K, N) + C(M, N).

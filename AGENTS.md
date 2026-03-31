@@ -12,3 +12,4 @@
 * **SLVERR Handling**: Ensure `WAIT_DMA_READY` evaluates the underlying AXI response code. If the transaction traps via `SLVERR`, it must assert a Machine Load Access Fault natively.
 * **Host Compiler Compatibility**: Always wrap RISC-V specific inline assembly (like `_start` stubs) with `#ifdef __riscv` to ensure `g++` on x86 test harnesses do not crash.
 * **IPC Teardown**: `tinygrad` OSError requires targeted exception handling around `os.kill`/`os.unlink` to prevent main thread freezing.
+* **Split-K Dimension Boundaries**: Reductions along contiguous tensor axes exceeding the physical `CORALNPU_L1_LIMIT` (e.g., 12KB) must raise a fatal `OutOfMemoryError` early in heuristic hand-coded optimizations when split-k is not supported. This avoids undefined runtime chunking overflow during codegen.

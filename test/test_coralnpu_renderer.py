@@ -594,5 +594,23 @@ class TestCoralNPURenderer(unittest.TestCase):
     finally:
       renderer.MAX_VR_COUNT = old_max
 
+  def test_unsplittable_reduction_oom(self):
+    from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+    from tinygrad.tensor import Tensor
+    from tinygrad.device import Device
+    from tinygrad.codegen.opt.postrange import Scheduler
+    from tinygrad.codegen.opt.heuristic import hand_coded_optimizations
+    old_default = Device.DEFAULT
+    Device.DEFAULT = "CORALNPU"
+    try:
+      with self.assertRaisesRegex(OutOfMemoryError, "Contiguous reduction axis exceeds Split-K limits"):
+        t = Tensor.empty(16384).sum()
+        for si in t.schedule():
+          from tinygrad.renderer.coralnpu import CoralNPURenderer
+          k = Scheduler(si.ast, CoralNPURenderer())
+          hand_coded_optimizations(k)
+    finally:
+      Device.DEFAULT = old_default
+
 if __name__ == '__main__':
   unittest.main()
