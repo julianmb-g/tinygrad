@@ -718,8 +718,19 @@ class TinygradAutoTunerIPC:
       if self.worker.is_alive():
         self.worker.terminate()
         self.worker.join()
-    except (AttributeError, KeyError, OSError, TypeError, ValueError):
+    except (AttributeError, KeyError, TypeError, ValueError):
       pass
+    except OSError as e:
+      if "already closed" not in str(e) and "cannot send" not in str(e) and getattr(e, 'errno', None) != 9:
+        raise
+    if hasattr(self, 'parent_conn'):
+      try: self.parent_conn.close()
+      except OSError as e:
+        if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
+    if hasattr(self, 'child_conn'):
+      try: self.child_conn.close()
+      except OSError as e:
+        if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
 
 _ipc_active_pids = set()
 def _kill_ipc_orphans():
@@ -804,3 +815,12 @@ class IpcWorkerPool:
       except Exception: pass
       _ipc_active_pids.discard(w["pid"])
       w["process"].join(timeout=1)
+
+  def __del__(self):
+    try: self.shutdown()
+    except (AttributeError, KeyError, TypeError, ValueError): pass
+    if hasattr(self, 'workers'):
+      for w in self.workers:
+        try: w["conn"].close()
+        except OSError as e:
+          if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
