@@ -22,7 +22,7 @@ def _kill_orphans():
     for pid in list(active_pids):
       try:
         os.kill(pid, signal.SIGKILL)
-      except OSError:
+      except ProcessLookupError:
         pass
   except (AttributeError, KeyError, TypeError):
     pass
@@ -79,7 +79,7 @@ class CoralNPUAllocator(Allocator):
                 try:
                     import os
                     os.unlink(f"/dev/shm/{shm.name}")
-                except OSError:
+                except FileNotFoundError:
                     pass
             shm.close()
             shm.unlink()

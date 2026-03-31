@@ -18,7 +18,7 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
                     memoryview(self.buf).release()  # Enforce IPC teardown memory release
                     try:
                         os.unlink(f"/dev/shm/{self.name}")
-                    except OSError:
+                    except FileNotFoundError:
                         pass
         except (AttributeError, KeyError, FileNotFoundError): pass
 
@@ -28,7 +28,7 @@ if hasattr(multiprocessing.shared_memory.SharedMemory, '__del__'):
 
         try:
             self.unlink()
-        except (AttributeError, KeyError, FileNotFoundError, OSError): pass
+        except (AttributeError, KeyError, FileNotFoundError): pass
 
     multiprocessing.shared_memory.SharedMemory.__del__ = _safe_shm_del
 
@@ -68,7 +68,7 @@ def teardown_worker_group():
             try:
                 os.kill(pid, signal.SIGKILL)
                 os.waitpid(pid, 0)
-            except OSError:
+            except ProcessLookupError:
                 pass
     except (AttributeError, KeyError):
         pass
@@ -95,5 +95,5 @@ def pytest_sessionfinish(session, exitstatus):
         try:
             for shm_path in glob.glob("/dev/shm/psm_*"):
                 try: os.unlink(shm_path)
-                except (AttributeError, KeyError, FileNotFoundError, OSError): pass
+                except (AttributeError, KeyError, FileNotFoundError): pass
         except (AttributeError, KeyError, FileNotFoundError): pass
