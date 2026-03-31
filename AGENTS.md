@@ -10,3 +10,4 @@
 ### DMA Coherency & Chunk Constraints
 * **Physical DTCM Limit**: The Tinygrad compiler must strictly enforce `AddrSpace.LOCAL` to 32KB, generating <= 12KB ping/pong chunks to accommodate `.bss` and stack overheads.
 * **SLVERR Handling**: Ensure `WAIT_DMA_READY` evaluates the underlying AXI response code. If the transaction traps via `SLVERR`, it must assert a Machine Load Access Fault natively.
+* **Host Compiler Compatibility**: Always wrap RISC-V specific inline assembly (like `_start` stubs) with `#ifdef __riscv` to ensure `g++` on x86 test harnesses do not crash.
