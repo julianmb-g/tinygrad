@@ -8,3 +8,6 @@
 * **Register Bounds Limits vs DTCM**: Explicitly cap unroll sizes at `max_upcast = 28` for the `CORALNPU` target to preserve at least 4KB of DTCM for C-stack overhead, preventing stack overflows.
 * **Python Line Length & Timeout Obfuscation**: Enforce strict 80-character line lengths to prevent the obfuscation of arbitrary hardware execution bounds (e.g., `timeout=15.0`) within massive one-liners.
 * **IPC Authentic Testing**: Ensure that IPC worker communication tests allocate genuine `shared_memory.SharedMemory` objects and simulate authentic worker payloads, rather than asserting on mock primitive values.
+
+### Lessons Learned
+* **Ops.EXPAND Shape Requirement**: Ensure Ops.EXPAND operations correctly handle shape expansion mismatches to avoid unhandled RuntimeError and ValueError crashes.
