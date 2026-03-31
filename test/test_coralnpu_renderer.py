@@ -130,7 +130,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf_dest1, buf_src1, copy_uop1, buf_dest2, buf_src2, idx_val, idx2, ld2, st_idx2, st2, sink]
 
     src = renderer.render(uops)
-    src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
+    
     self.assertIn("CORAL_DMA_ASYNC", src)
 
     body = src.split("{", 1)[1] if "{" in src else src
@@ -209,7 +209,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf_dest, buf_src, copy_uop, idx_val, idx, ld, st_idx, st, sink]
 
     src = renderer.render(uops)
-    src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
+    
 
     # We expect a runtime chunking loop for segmented AXI fetches
     self.assertIn("CORAL_DMA_ASYNC", src)
@@ -261,7 +261,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf_dest, buf_src, copy_uop, idx_val, idx, ld, st_idx, st, sink]
 
     src = renderer.render(uops)
-    src = re.sub(r"#ifndef CORAL_DMA_ASYNC.*?#endif", "", src, flags=re.DOTALL)
+    
     body = src.split("{", 1)[1] if "{" in src else src
     self.assertIn("CORAL_DMA_ASYNC", src)
     self.assertIn("WAIT_DMA_READY();", body)

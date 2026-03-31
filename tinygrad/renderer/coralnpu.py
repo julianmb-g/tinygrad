@@ -978,8 +978,10 @@ class CoralNPURenderer(CStyleLanguage):
       raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
 
     prefix.append("#ifndef CORAL_DMA_ASYNC")
-    prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) memcpy(dest, src, size)")
-    prefix.append("#define WAIT_DMA_READY() /* sync */")
+    prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) __builtin_memcpy(dest, src, size)")
+    prefix.append("#ifdef __riscv")
+    prefix.append("#define WAIT_DMA_READY() if (AXI_STATUS_REG == SLVERR) { __asm__ volatile (\"ebreak\"); }")
+    prefix.append("#endif")
     prefix.append("#endif")
 
     # Inject UOp Graph as a human-readable comment block
@@ -1059,7 +1061,7 @@ class CoralNPURenderer(CStyleLanguage):
         src = src.replace("extern \"C\" void", "void")
 
     # Inject baremetal hardware initialization stub
-    src += f'\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\n.insn 4, 0x08000073");\n}}\n'
+    src += f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\n.insn 4, 0x08000073");\n}}\n#endif\n'
 
     return src
 
