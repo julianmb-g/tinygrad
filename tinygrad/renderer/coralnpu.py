@@ -980,7 +980,9 @@ class CoralNPURenderer(CStyleLanguage):
     prefix.append("#ifndef CORAL_DMA_ASYNC")
     prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) __builtin_memcpy(dest, src, size)")
     prefix.append("#ifdef __riscv")
-    prefix.append("#define WAIT_DMA_READY() if (AXI_STATUS_REG == SLVERR) { __asm__ volatile (\"ebreak\"); }")
+    prefix.append("#define SLVERR 2")
+    prefix.append("#define AXI_STATUS_REG (*(volatile uint32_t*)0x30000)")
+    prefix.append("#define WAIT_DMA_READY() do { if (AXI_STATUS_REG == SLVERR) { __asm__ volatile (\"ebreak\"); } } while(0)")
     prefix.append("#endif")
     prefix.append("#endif")
 
