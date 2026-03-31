@@ -207,5 +207,16 @@ extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
             if os.path.exists(f.name): os.unlink(f.name)
             if os.path.exists(so_path): os.unlink(so_path)
 
+    def test_bss_section_bounds_exceeded(self):
+        from tinygrad.renderer.coralnpu import CoralNPURenderer
+        from tinygrad.uop.ops import UOp, Ops
+        from tinygrad.dtype import dtypes
+        r = CoralNPURenderer()
+        # Create a DEFINE_LOCAL with size > 4096 elements of int8 (4097 bytes) 
+        # so it passes DTCM tiling (12KB pool) but triggers the BSS limits trap.
+        u = UOp(Ops.DEFINE_LOCAL, dtypes.int8.ptr(), (), ("too_big_bss", 4097))
+        with self.assertRaisesRegex(RuntimeError, "BSS section bounds exceeded"):
+            r.render_kernel("test_kernel", [], [], [u])
+
 if __name__ == '__main__':
     unittest.main()

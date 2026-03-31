@@ -885,7 +885,7 @@ class CoralNPURenderer(CStyleLanguage):
     for u in uops:
       if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None):
         size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
-        if size > 1000000:
+        if size > 4096:
           raise RuntimeError("BSS section bounds exceeded")
 
     return self.render_kernel(*self._render(uops), uops)
@@ -956,7 +956,7 @@ class CoralNPURenderer(CStyleLanguage):
     for u in uops:
       if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None):
         size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
-        if size > 1000000:
+        if size > 4096:
           raise RuntimeError("BSS section bounds exceeded")
 
     # Task 3.3.3.2: Floating Point Allocation Cap
