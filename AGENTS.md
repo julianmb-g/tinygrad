@@ -10,3 +10,5 @@
 
 ### New Lessons Learned (Current Cycle)
 * **IPC Teardown Reversion**: Monkeypatching `pytest_sessionfinish` and `multiprocessing.shared_memory` to forcefully terminate worker groups causes premature OS-level deadlocks (e.g., `OSError: cannot send (already closed?)`) during `pytest-xdist` execution. Authentic Python IPC lifecycles must be respected without unauthorized `atexit` OS-level `SIGKILL` interventions.
+
+* **Suite Unmasking Audit**: Resolving the OSError worker crash mandates an immediate QA audit to evaluate the newly revealed test assertions.
