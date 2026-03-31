@@ -32,12 +32,11 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
               is_contiguous = True
         if is_contiguous:
           contiguous_shapes.append(k.full_shape[axis])
-      
+
       if contiguous_shapes:
         contiguous_reduction_size = prod(contiguous_shapes)
         if resolve(contiguous_reduction_size > CORALNPU_L1_LIMIT, False) and not can_split_k:
           raise OutOfMemoryError("Contiguous reduction axis exceeds Split-K limits")
-
 
   # first try the tensor cores
   """ Attempts to apply a tensor core optimization to the kernel. If one exists and applies properly, return true, otherwise return false.

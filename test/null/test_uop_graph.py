@@ -254,7 +254,6 @@ class TestUOpGraph(unittest.TestCase):
     uops = to_uops_list([out])
     self.assertEqual(len(uops), 2)  # +1 for SINK
 
-  
   def test_noop_vectorize_fold(self):
     d0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
     idx = UOp.const(dtypes.int, 0)
@@ -313,7 +312,6 @@ class TestUOpGraph(unittest.TestCase):
         for uop, const in zip(uops, consts):
           self.assertEqual(uop, const)
 
-  
   def test_wmma_vectorize_fold(self):
     for i in [2, 4, 8]:
       vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i), tuple(UOp.const(dtypes.half, 0.0) for _ in range(i)))
@@ -334,7 +332,7 @@ class TestUOpGraph(unittest.TestCase):
       uops = to_uops_list([wmma])
       self.assertEqual(uops[0], acc)
       self.assertEqual(len(uops), 2)  # +1 for SINK
-  
+
   def test_wmma_vectorize_no_fold(self):
     for i in [4, 8]:
       vec = UOp(Ops.VECTORIZE, dtypes.half.vec(i),

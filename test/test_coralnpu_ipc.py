@@ -102,7 +102,16 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
-def _dummy_worker(x): return x * 2
+def _shared_worker(shm_name, shape_size):
+    from multiprocessing import shared_memory
+    import numpy as np
+    shm = shared_memory.SharedMemory(name=shm_name)
+    try:
+        arr = np.ndarray((shape_size,), dtype=np.float32, buffer=shm.buf)
+        arr[:] = arr * 2.0
+        return True
+    finally:
+        shm.close()
 
 def _hanging_worker(*args, **kwargs):
     while True: time.sleep(1)
@@ -113,13 +122,25 @@ def _blocking_worker(*args, **kwargs):
 class TestIpcWorkerPool(unittest.TestCase):
     def test_worker_execution(self):
         """Test that the IPC worker correctly receives and executes a task across the boundary."""
-        pool = IpcWorkerPool(_dummy_worker, 1)
+        from multiprocessing import shared_memory
+        import numpy as np
+        shm = shared_memory.SharedMemory(create=True, size=1024)
         try:
-            pool.submit(0, 5)
-            IPC_WORKER_TIMEOUT = 1.0  # Standard SLA for IPC worker task response
-            self.assertEqual(pool.get_result(0, timeout=IPC_WORKER_TIMEOUT), 10)
+            arr = np.ndarray((100,), dtype=np.float32, buffer=shm.buf)
+            arr[:] = 5.0
+
+            pool = IpcWorkerPool(_shared_worker, 1)
+            try:
+                pool.submit(0, shm.name, 100)
+                IPC_WORKER_TIMEOUT = 5.0  # Standard SLA for IPC worker task response
+                result = pool.get_result(0, timeout=IPC_WORKER_TIMEOUT)
+                self.assertTrue(result)
+                self.assertEqual(arr[0], 10.0)
+            finally:
+                pool.shutdown()
         finally:
-            pool.shutdown()
+            shm.close()
+            shm.unlink()
 
     def test_worker_timeout(self):
         """Test that a hanging worker correctly triggers a TimeoutError on the parent without deadlocking."""

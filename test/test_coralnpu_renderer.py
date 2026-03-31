@@ -610,24 +610,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     finally:
       Device.DEFAULT = old_default
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
   def test_bss_noinit_attribute_generation(self):
     from tinygrad.tensor import Tensor
     from tinygrad.device import Device
@@ -635,7 +617,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     import tempfile
     import struct
     import os
-    
+
     with tempfile.NamedTemporaryFile(suffix=".elf", delete=False) as tf:
       e_ident = b'\x7fELF\x01\x01\x01\x00' + b'\x00' * 8
       e_shoff = 0x34
@@ -661,11 +643,11 @@ class TestCoralNPURenderer(unittest.TestCase):
       # Authentic workload that requires an accumulator (sum reduction)
       t = Tensor.randn(1024).sum()
       si = t.schedule()[-1]
-      
+
       # Manually compile it to source using CoralNPURenderer without linking or running it
       runner = get_runner("CORALNPU", si.ast)
       src = runner.p.src
-      
+
       self.assertIn('__attribute__((section(".noinit")))', src)
       self.assertIn('static float', src) # verify static attribute for registers
     finally:

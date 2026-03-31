@@ -271,7 +271,7 @@ class TestSubstitute(unittest.TestCase):
     n1 = a.sin()
     ret = n1
     # Only replace if the source isn't sqrt
-    pm = PatternMatcher([(UPat(Ops.SIN, src=(UPat(name="src"),), name='x'), 
+    pm = PatternMatcher([(UPat(Ops.SIN, src=(UPat(name="src"),), name='x'),
                           lambda ctx, x, src: src.sqrt().sin() if src.op != Ops.SQRT else None)])
     ret = graph_rewrite(ret, pm)
     self.assertEqual(ret, a.sqrt().sin())
