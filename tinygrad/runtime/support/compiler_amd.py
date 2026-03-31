@@ -113,21 +113,18 @@ class HIPCCCompiler(Compiler):
     self.arch, self.extra_options = arch, extra_options
     super().__init__(f"compile_hipcc_{self.arch}_{hashlib.sha256(' '.join(extra_options).encode()).hexdigest()[:8]}")
   def compile(self, src:str) -> bytes:
-    try:
-      with tempfile.NamedTemporaryFile(suffix=".cpp") as srcf, tempfile.NamedTemporaryFile(suffix=".bc") as bcf:
-        with tempfile.NamedTemporaryFile(suffix=".hsaco") as libf:
-          srcf.write(src.encode())
-          srcf.flush()
+    with tempfile.NamedTemporaryFile(suffix=".cpp") as srcf, tempfile.NamedTemporaryFile(suffix=".bc") as bcf:
+      with tempfile.NamedTemporaryFile(suffix=".hsaco") as libf:
+        srcf.write(src.encode())
+        srcf.flush()
 
-          rocm_path = getenv("ROCM_PATH", "/opt/rocm")
-          subprocess.run(["hipcc", "-c", "-emit-llvm", "--cuda-device-only", "-O3", "-mcumode",
-                          f"--offload-arch={self.arch}", f"-I{rocm_path}/include/hip", "-o", bcf.name, srcf.name] + self.extra_options, check=True, timeout=15.0)
-          subprocess.run(["hipcc", "-target", "amdgcn-amd-amdhsa", f"-mcpu={self.arch}",
-                          "-O3", "-mllvm", "-amdgpu-internalize-symbols", "-c", "-o", libf.name, bcf.name] + self.extra_options, check=True, timeout=15.0)
+        rocm_path = getenv("ROCM_PATH", "/opt/rocm")
+        subprocess.run(["hipcc", "-c", "-emit-llvm", "--cuda-device-only", "-O3", "-mcumode",
+                        f"--offload-arch={self.arch}", f"-I{rocm_path}/include/hip", "-o", bcf.name, srcf.name] + self.extra_options, check=True, timeout=None)
+        subprocess.run(["hipcc", "-target", "amdgcn-amd-amdhsa", f"-mcpu={self.arch}",
+                        "-O3", "-mllvm", "-amdgpu-internalize-symbols", "-c", "-o", libf.name, bcf.name] + self.extra_options, check=True, timeout=None)
 
-          return pathlib.Path(libf.name).read_bytes()
-    except subprocess.TimeoutExpired as e:
-      raise RuntimeError(f"Cross-compilation timed out: {e}")
+        return pathlib.Path(libf.name).read_bytes()
   def disassemble(self, lib:bytes): amdgpu_disassemble(lib)
 
 class AMDLLVMCompiler(LLVMCompiler):

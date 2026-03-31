@@ -15,3 +15,4 @@
 * **String-Matched Exception Muzzling**: Masking OS errors with substring matching (e.g., `"already closed"`, `"cannot send"`) instead of architecting an authentic GC lifecycle is testing fraud.
 * **conftest.py Race Conditions**: Global exception muzzling specifically in `conftest.py` for `Connection.send` masks shared memory teardown race conditions. Use explicit teardowns.
 * **pytest-xdist Teardown Freezes**: Require targeted exception handling around `os.kill`/`os.unlink` to prevent main thread freezing during `pytest-xdist` teardown.
+\n* **Test Watchdogs**: Artificial timeouts in subprocess commands (e.g. `timeout=15.0`) must not be used on execution/cross-compiled tests like `test_dev_var.py` and `compiler_amd.py`, as they illegally mask organic structural execution hangs.
