@@ -17,17 +17,6 @@ from tinygrad.renderer.coralnpu import CoralNPURenderer
 kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks while allowing sufficient time for cross-compiling complex models.
 
 active_pids = set()
-def _kill_orphans():
-  try:
-    for pid in list(active_pids):
-      try:
-        os.kill(pid, signal.SIGKILL)
-      except ProcessLookupError:
-        pass
-  except (AttributeError, KeyError, TypeError):
-    pass
-atexit.register(_kill_orphans)
-
 
 class CoralNPUAllocator(Allocator):
   def __init__(self, device):
@@ -71,7 +60,7 @@ class CoralNPUAllocator(Allocator):
     try:
       for mem in getattr(self, 'mem', {}).values():
           try: mem.release()
-          except (AttributeError, KeyError, OSError): pass
+          except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
       for shm in getattr(self, 'shms', {}).values():
           try:
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
@@ -83,8 +72,8 @@ class CoralNPUAllocator(Allocator):
                     pass
             shm.close()
             shm.unlink()
-          except (AttributeError, KeyError, OSError): pass
-    except (AttributeError, KeyError, OSError): pass
+          except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
+    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
 
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:
@@ -139,11 +128,11 @@ class CoralNPUAllocator(Allocator):
                     try:
                         view = memoryview(shm.buf)
                         view.release()
-                    except (AttributeError, KeyError, OSError): pass
+                    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
                     try: shm.close()
-                    except (AttributeError, KeyError, OSError): pass
+                    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
                     try: shm.unlink()
-                    except (AttributeError, KeyError, OSError): pass
+                    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()
@@ -254,8 +243,8 @@ class CoralNPUProgram:
     finally:
       if p.poll() is None:
         try:
-          os.kill(p.pid, signal.SIGKILL)
-        except OSError:
+          p.kill()
+        except ProcessLookupError:
           pass
       active_pids.discard(p.pid)
 
@@ -266,4 +255,4 @@ class CoralNPUProgram:
 
 class CoralNPUDevice(Compiled):
   def __init__(self, device:str):
-    super().__init__(device, CoralNPUAllocator(self), CompilerSet([(CoralNPURenderer, None)]), functools.partial(CoralNPUProgram, self))
+    super().__init__(device, CoralNPUAllocator(self), CompilerSet([CoralNPURenderer]), functools.partial(CoralNPUProgram, self))

@@ -17,6 +17,8 @@ import inspect
 import itertools
 import math
 import multiprocessing
+try: multiprocessing.set_start_method("spawn", force=True)
+except RuntimeError: pass
 import operator
 import os
 import pathlib
@@ -592,32 +594,14 @@ class count:
     self.n += self.step
     return cur
 
-def _kill_pg_children():
-  try:
-    pid = os.getpid()
-    pgid = os.getpgid(pid)
-    for stat_file in glob.glob("/proc/[0-9]*/stat"):
-      try:
-        with open(stat_file, "r") as f:
-          parts = f.read().split()
-          child_pid = int(parts[0])
-          child_pgid = int(parts[4])
-          if child_pgid == pgid and child_pid != pid:
-            os.kill(child_pid, signal.SIGKILL)
-      except (FileNotFoundError, ProcessLookupError, PermissionError, OSError):
-        pass
-  except (ProcessLookupError, OSError):
-    pass
-
 def init_worker_process_group():
-  """Severs the process group and registers atexit to kill children"""
+  """Severs the process group and binds lifecycle to parent"""
   try:
     os.setpgrp()
     libc = ctypes.CDLL("libc.so.6")
     libc.prctl(1, signal.SIGKILL) # PR_SET_PDEATHSIG
   except OSError:
     pass
-  atexit.register(_kill_pg_children)
 
 def init_c_process_group():
   """Severs the process group and binds lifecycle to parent (no atexit hooks needed)"""
@@ -720,29 +704,23 @@ class TinygradAutoTunerIPC:
         self.worker.join()
     except (AttributeError, KeyError, TypeError, ValueError):
       pass
+    except (ProcessLookupError, FileNotFoundError) as e:
+      pass
     except OSError as e:
       if "already closed" not in str(e) and "cannot send" not in str(e) and getattr(e, 'errno', None) != 9:
         raise
     if hasattr(self, 'parent_conn'):
       try: self.parent_conn.close()
+      except (ProcessLookupError, FileNotFoundError): pass
       except OSError as e:
         if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
     if hasattr(self, 'child_conn'):
       try: self.child_conn.close()
+      except (ProcessLookupError, FileNotFoundError): pass
       except OSError as e:
         if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
 
 _ipc_active_pids = set()
-def _kill_ipc_orphans():
-  try:
-    for pid in list(_ipc_active_pids):
-      try:
-        os.kill(pid, signal.SIGKILL)
-      except Exception:
-        pass
-  except (AttributeError, KeyError, TypeError):
-    pass
-atexit.register(_kill_ipc_orphans)
 
 class IpcWorkerPool:
   """Stateful Python daemon boundaries to prevent Pytest-xdist node collapses and zombie deadlocks."""
@@ -811,7 +789,8 @@ class IpcWorkerPool:
       try: self._send_with_timeout(w["conn"], None, 1.0)
       except Exception: pass
 
-      try: os.kill(w["pid"], signal.SIGKILL)
+      try: w["process"].kill()
+      except ProcessLookupError: pass
       except Exception: pass
       _ipc_active_pids.discard(w["pid"])
       w["process"].join(timeout=1)
@@ -822,5 +801,6 @@ class IpcWorkerPool:
     if hasattr(self, 'workers'):
       for w in self.workers:
         try: w["conn"].close()
+        except (ProcessLookupError, FileNotFoundError): pass
         except OSError as e:
           if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise

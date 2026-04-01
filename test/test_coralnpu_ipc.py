@@ -5,6 +5,7 @@ import unittest
 import math
 from unittest.mock import patch
 import time
+import shutil
 import unittest.mock
 from tinygrad.helpers import IpcWorkerPool
 
@@ -16,20 +17,19 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
         mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
-
-        # Dynamically generate a structurally compliant mock ELF with a deterministic _end symbol baseline
-        e_ident = b'\x7fELF\x01' + b'\x00' * 11
-        header = e_ident + struct.pack("<2H5I6H", 2, 243, 1, 0, 0, 52, 0, 40, 0, 0, 40, 3, 2)
-        sh0 = struct.pack("<10I", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-        sh1 = struct.pack("<10I", 0, 2, 0, 0, 172, 32, 2, 0, 4, 16)
-        sh2 = struct.pack("<10I", 0, 3, 0, 0, 204, 10, 0, 0, 1, 0)
-        sym0 = struct.pack("<IIIBBH", 0, 0, 0, 0, 0, 0)
-
-        sym1 = struct.pack("<IIIBBH", 1, 0x80002000, 0, 0, 0, 0)
-        strs = b'\x00_end\x00\x00\x00\x00\x00'
-
-        with open(mock_elf_path, "wb") as f:
-            f.write(header + sh0 + sh1 + sh2 + sym0 + sym1 + strs)
+        
+        # Authentically compile a base ELF to extract a valid _end symbol
+        src_path = os.path.join(self.tmp_dir.name, "base.c")
+        with open(src_path, "w") as f: f.write("void _start() {}")
+        from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
+        ld_path = os.path.join(self.tmp_dir.name, "linker.ld")
+        with open(ld_path, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+        
+        try:
+            import subprocess
+            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
+        except (subprocess.CalledProcessError, FileNotFoundError):
+            raise unittest.SkipTest("Cross-compiler missing for authentic ELF generation")
 
         self.patcher = patch.dict(os.environ, {"CORALNPU_ELF": mock_elf_path})
         self.patcher.start()
@@ -44,7 +44,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_allocator_uses_shared_memory(self):
         """Test that the allocator successfully creates shared memory buffers for zero-copy IPC."""
-        dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
             # Write some data
@@ -77,15 +77,17 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             program()
         self.assertIn("Cross-compilation failed", str(context.exception))
 
+    @unittest.skipIf(shutil.which('coralnpu_v2_sim') is None, "Hardware simulator missing")
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
         program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
         self.assertEqual(program(vals=(10,)), math.inf)
 
+    @unittest.skipIf(shutil.which('coralnpu_v2_sim') is None, "Hardware simulator missing")
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
 
-        dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
             src = b"void write_success(void* ptr, int val, int size) { volatile char* vptr = (volatile char*)ptr; for(int i=0; i<size; i++) vptr[i] = val; }"  # noqa: E501

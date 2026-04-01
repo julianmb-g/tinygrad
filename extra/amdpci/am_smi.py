@@ -362,7 +362,7 @@ if __name__ == "__main__":
               exit(1)
 
             print(f"{dev[8:-5]}: killing process {pid}")
-            os.system(f'sudo pkill -g -9 {pid}')
+            subprocess.run(['sudo', 'kill', '-TERM', f'-{pid}'])
             stopped_pids[pid] += 1
         else:
           pid = subprocess.check_output(['sudo', 'lsof', dev]).decode('utf-8').strip().split('\n')[1].split()[1]

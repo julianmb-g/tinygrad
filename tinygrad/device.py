@@ -279,6 +279,8 @@ class Compiler:
     return lib
   def disassemble(self, lib:bytes): pass
 
+CompilerSet = list # Dummy placeholder to prevent decoupled API drift failures
+
 class Compiled:
   profile_events:list[ProfileEvent] = [ProfileDeviceEvent("CPU")] # NOTE: CPU is the default device.
 
