@@ -27,3 +27,5 @@
 * **Refactoring Void Trapping**: Aggressively removing imports like `run_schedule` and `unittest` without verifying downstream test file dependencies leads to catastrophic collection failures (100% test void). All refactoring must execute a full `pytest --collect-only` before committing.
 ## Lessons Learned
 * **Upstream Synchronization Priority:** Upstream changes (e.g. CUDARenderer refactoring) can break local dependencies. JIT Upstream sync tasks must be scheduled atomically per-submodule when divergent.
+* **Mocked Fetching Prevention**: Do not isolate logic by instantiating `MockResponse(img_bytes)` via `@patch('urllib.request.urlopen')` to fake image fetching. Authentic E2E validations proving cross-component fetch viability are required.
+* **IPC Worker Mocking Ban**: Parallel execution state MUST NOT be mocked with purely Python-based dummy workers. Tests must schedule authentic cross-compiled compute kernels to accurately measure shared memory teardown boundaries natively.
