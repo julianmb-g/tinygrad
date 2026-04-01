@@ -1,16 +1,13 @@
 from __future__ import annotations
-
+from typing import Callable, cast
 import functools
 from dataclasses import dataclass, field
-from typing import Callable, cast
-
-from tinygrad.codegen.opt import Opt
-from tinygrad.codegen.opt.tc import TensorCore
-from tinygrad.device import Compiler
+from tinygrad.helpers import to_function_name, dedup, prod, DEBUG
+from tinygrad.uop.ops import Ops, UOp, sym_infer, sint, Variable, ssimplify, smin, GroupOp, PatternMatcher, print_uops
 from tinygrad.dtype import AddrSpace, PtrDType
-from tinygrad.helpers import DEBUG, dedup, prod, to_function_name
-from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, Variable, print_uops, sint, smin, ssimplify, sym_infer
-
+from tinygrad.codegen.opt.tc import TensorCore
+from tinygrad.codegen.opt import Opt
+from tinygrad.device import Compiler
 
 @dataclass(frozen=True)
 class Estimates:

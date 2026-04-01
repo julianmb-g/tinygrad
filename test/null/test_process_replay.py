@@ -1,7 +1,9 @@
 import unittest
 
-from test.external.process_replay.process_replay import replay_get_program
+
+
 from tinygrad import Device, Tensor
+from test.external.process_replay.process_replay import replay_get_program
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.engine.realize import get_program
 

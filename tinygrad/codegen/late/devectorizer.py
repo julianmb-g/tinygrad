@@ -1,3 +1,4 @@
+from typing import cast
 import functools
 import itertools
 from collections import defaultdict

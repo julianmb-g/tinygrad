@@ -16,6 +16,9 @@ from contextlib import ContextDecorator
 from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Literal, ParamSpec, Sequence, SupportsIndex, TypeVar, cast, get_args
 
 if TYPE_CHECKING: import numpy
+
+from tinygrad.engine.schedule import ExecItem, complete_create_schedule_with_vars
+from tinygrad.engine.allocations import transform_to_call
 from tinygrad.dtype import DType, DTypeLike, dtypes, ConstType, least_upper_float, least_upper_dtype, sum_acc_dtype, to_dtype, truncate
 from tinygrad.dtype import _from_np_dtype, _to_np_dtype, PyConst, Invalid, InvalidType
 from tinygrad.helpers import argfix, make_tuple, flatten, prod, all_int, round_up, merge_dicts, argsort, getenv, all_same, fully_flatten
@@ -51,13 +54,10 @@ from tinygrad.helpers import (
 from tinygrad.mixin import OpMixin
 from tinygrad.uop.ops import smax, smin, resolve, UOp, Ops, sint, identity_element, all_metadata, _index_to_concrete_int, sint_to_uop, Variable
 from tinygrad.uop.ops import _broadcast_shape
-from tinygrad.engine.schedule import ExecItem, complete_create_schedule_with_vars
 from tinygrad.device import Buffer
-from tinygrad.engine.realize import run_schedule
-from tinygrad.engine.allocations import transform_to_call
+from tinygrad.device import Device
 
 def canonicalize_device(device:str|tuple|list|None) -> str|tuple[str, ...]:
-  from tinygrad.device import Device
   if not isinstance(device, (tuple, list)): return Device.canonicalize(device)
   return canonical[0] if len(canonical:=tuple(Device.canonicalize(d) for d in device)) == 1 else canonical
 
@@ -141,7 +141,7 @@ class Tensor(OpMixin):
 
   ```python exec="true" session="tensor"
   from tinygrad import Tensor, dtypes, nn
-  import numpy as np
+if TYPE_CHECKING: import numpy as np
   import math
   np.set_printoptions(precision=4)
   ```
@@ -287,6 +287,7 @@ class Tensor(OpMixin):
     return self
 
   def schedule_with_vars(self, *lst:Tensor) -> tuple[list[ExecItem], dict[str, int]]:
+    from tinygrad.engine.schedule import complete_create_schedule_with_vars
     """
     Creates the schedule needed to realize these Tensor(s), with Variables.
 

@@ -4,10 +4,10 @@ from collections import deque
 from typing import cast
 
 from tinygrad.device import Buffer, MultiBuffer
+from tinygrad.uop.spec import tensor_spec, type_verify
 from tinygrad.engine.realize import ExecItem
 from tinygrad.helpers import BASEDIR, DEBUG, SCACHE, SPEC, TracingKey, cpu_profile, flatten, pluralize
 from tinygrad.uop.ops import KernelInfo, Ops, UOp, UOpMetaClass, buffers, gate_kernel_sink, graph_rewrite, track_rewrites
-from tinygrad.uop.spec import tensor_spec, type_verify
 
 # **** schedule linearizer
 
