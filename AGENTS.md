@@ -54,3 +54,7 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 ### Python Multiprocessing & Shared Memory GC
 * **Shared Memory Exhaustion:** Overarching CI timeouts or crashes leave orphaned SharedMemory blocks in `/dev/shm`, causing physical memory exhaustion across subsequent test runs. Always implement a `pytest_sessionfinish` hook in `conftest.py` to aggressively garbage collect `/dev/shm` blocks upon suite termination.
 * **Watchdog Bounding (Unbounded `p.wait()`):** Do not enforce overarching test timeouts using unbounded blocking waits (e.g., `subprocess.Popen.wait()`) on simulator subprocesses. If the simulator hangs (e.g., AXI bus lock), the wait will deadlock the entire CI pipeline. Use native PyBind11 timeouts instead.
+# Tinygrad Module Testing Directives
+* **E2E IPC Enforcement**: Never mock parallel NPU execution with Python `time.sleep` loops. E2E tests must schedule authentic cross-compiled compute kernels on the NPU simulator.
+* **Watchdog Boundaries**: The python-level timeout watchdog tests must prove cross-boundary simulation termination (e.g., verifying `SimTimeoutError` from C++), not just block on `p.wait()`.
+* **Subsystem Mock Banning**: Never mock memory map initializers by compiling empty ELFs to extract an `_end` symbol.
