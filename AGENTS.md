@@ -36,3 +36,7 @@ Exercising Python SharedMemory primitives with mocked tasks (e.g., numpy array d
 
 ## Global Evasion via Toolchain Bypassing
 Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) to skip tests mathematically erases architectural test failures and evades E2E constraints.
+
+## Compiler & Execution Bounds
+* **Unaligned DMA Evasion**: The ML compiler MUST strictly assert that all `GLOBAL` memory pointers passed to DMA copy intrinsics are aligned to the exact AXI bus width prior to compilation to prevent bus faults.
+* **Beam Search False-Positive Evasion**: The Python simulation wrapper MUST evaluate semantic correctness BEFORE accepting the `mcycle` cost to prevent poisoning the optimizer with zero-cost early exits.
