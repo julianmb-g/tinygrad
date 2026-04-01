@@ -3,6 +3,7 @@ import unittest
 import numpy as np
 
 from tinygrad import Device, GlobalCounters, Tensor, Variable, dtypes, nn
+from tinygrad.uop.ops import Ops
 from tinygrad.engine.realize import CompiledRunner, get_program, run_schedule
 from tinygrad.engine.schedule import ExecItem
 from tinygrad.helpers import EMULATE, Context, getenv

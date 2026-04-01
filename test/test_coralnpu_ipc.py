@@ -3,6 +3,9 @@ import struct
 import tempfile
 import unittest
 import math
+import multiprocessing
+if multiprocessing.get_start_method(allow_none=True) != 'spawn':
+    multiprocessing.set_start_method('spawn', force=True)
 from unittest.mock import patch
 import time
 import shutil
@@ -25,11 +28,8 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         ld_path = os.path.join(self.tmp_dir.name, "linker.ld")
         with open(ld_path, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
         
-        try:
-            import subprocess
-            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
-        except (subprocess.CalledProcessError, FileNotFoundError):
-            raise unittest.SkipTest("Cross-compiler missing for authentic ELF generation")
+        import subprocess
+        subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
 
         self.patcher = patch.dict(os.environ, {"CORALNPU_ELF": mock_elf_path})
         self.patcher.start()
@@ -77,13 +77,11 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             program()
         self.assertIn("Cross-compilation failed", str(context.exception))
 
-    @unittest.skipIf(shutil.which('coralnpu_v2_sim') is None, "Hardware simulator missing")
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
         program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
         self.assertEqual(program(vals=(10,)), math.inf)
 
-    @unittest.skipIf(shutil.which('coralnpu_v2_sim') is None, "Hardware simulator missing")
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
 
@@ -104,13 +102,17 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 if __name__ == '__main__':
     unittest.main()
 
-def _shared_worker(shm_name, shape_size):
+def _shared_worker(handle, shm_name, shape_size):
+    from tinygrad.device import BufferSpec
+    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
     from multiprocessing import shared_memory
-    import numpy as np
+    device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
+    device.allocator.shms[handle] = shm
     try:
-        arr = np.ndarray((shape_size,), dtype=np.float32, buffer=shm.buf)
-        arr[:] = arr * 2.0
+        src = b"void double_array(float* ptr, int size) { for(int i=0; i<size; i++) ptr[i] = ptr[i] * 2.0f; }"
+        program = CoralNPUProgram(device, "double_array", src)
+        program(handle, vals=(shape_size,))
         return True
     finally:
         shm.close()
@@ -124,16 +126,20 @@ def _blocking_worker(*args, **kwargs):
 class TestIpcWorkerPool(unittest.TestCase):
     def test_worker_execution(self):
         """Test that the IPC worker correctly receives and executes a task across the boundary."""
-        from multiprocessing import shared_memory
+        from tinygrad.device import BufferSpec
         import numpy as np
-        shm = shared_memory.SharedMemory(create=True, size=1024)
+
+        device = CoralNPUDevice("CORALNPU")
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
+        handle = device.allocator._alloc(100 * 4, dummy_options)
         try:
-            arr = np.ndarray((100,), dtype=np.float32, buffer=shm.buf)
+            arr = np.ndarray((100,), dtype=np.float32, buffer=device.allocator.shms[handle].buf)
             arr[:] = 5.0
+            shm_name = device.allocator.shms[handle].name
 
             pool = IpcWorkerPool(_shared_worker, 1)
             try:
-                pool.submit(0, shm.name, 100)
+                pool.submit(0, handle, shm_name, 100)
                 IPC_WORKER_TIMEOUT = 5.0  # Standard SLA for IPC worker task response
                 result = pool.get_result(0, timeout=IPC_WORKER_TIMEOUT)
                 self.assertTrue(result)
@@ -141,8 +147,7 @@ class TestIpcWorkerPool(unittest.TestCase):
             finally:
                 pool.shutdown()
         finally:
-            shm.close()
-            shm.unlink()
+            device.allocator._free(handle, dummy_options)
 
     def test_worker_timeout(self):
         """Test that a hanging worker correctly triggers a TimeoutError on the parent without deadlocking."""

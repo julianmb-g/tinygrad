@@ -50,15 +50,15 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
                 if os.path.exists(path): os.unlink(path)
 
     def test_alloc_and_free(self):
-        handle = self.allocator._alloc(100, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        handle = self.allocator._alloc(100, BufferSpec(uncached=False, cpu_access=False, nolru=False))
         self.assertIn(handle, self.allocator.mem)
         self.assertEqual(len(self.allocator.mem[handle]), 100)
 
-        self.allocator._free(handle, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        self.allocator._free(handle, BufferSpec(uncached=False, cpu_access=False, nolru=False))
         self.assertNotIn(handle, self.allocator.mem)
 
     def test_copyin_copyout(self):
-        handle = self.allocator._alloc(10, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        handle = self.allocator._alloc(10, BufferSpec(uncached=False, cpu_access=False, nolru=False))
         src_data = b"0123456789"
 
         self.allocator._copyin(handle, memoryview(src_data))
@@ -78,14 +78,14 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
 
     def test_invalid_tensor_extmem_boundary(self):
         # Assert that the allocator preserves EXTMEM before space and handles NaN during execution
-        handle = self.allocator._alloc(4, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        handle = self.allocator._alloc(4, BufferSpec(uncached=False, cpu_access=False, nolru=False))
 
         # Pack a NaN float into 4 bytes
         nan_bytes = struct.pack('f', float('nan'))
         self.allocator._copyin(handle, memoryview(nan_bytes))
 
         # Allocate adjacent tensor for the execution to write to, ensuring it doesn't overflow to handle
-        handle2 = self.allocator._alloc(4, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        handle2 = self.allocator._alloc(4, BufferSpec(uncached=False, cpu_access=False, nolru=False))
 
         # Execute a program that does nothing (or writes to handle2) to see if simulator clobbers handle's memory space
         self.allocator.device.allocator = self.allocator
@@ -96,14 +96,14 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         self.allocator._copyout(memoryview(dest), handle)
         out_val = struct.unpack('f', dest)[0]
         self.assertTrue(math.isnan(out_val), "EXTMEM before space clobbered by simulator execution")
-        self.allocator._free(handle, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
-        self.allocator._free(handle2, BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False))
+        self.allocator._free(handle, BufferSpec(uncached=False, cpu_access=False, nolru=False))
+        self.allocator._free(handle2, BufferSpec(uncached=False, cpu_access=False, nolru=False))
 
     def test_ops_coralnpu_bridge_execution(self):
         """Test the organic out-of-band IPC execution boundary natively."""
         from tinygrad.device import BufferSpec
 
-        dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
             self.device.allocator = self.allocator
@@ -120,7 +120,7 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
 
     def test_dma_timeout_watchdog(self):
         """Test the organic timeout execution boundary natively."""
-        dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
             self.device.allocator = self.allocator
