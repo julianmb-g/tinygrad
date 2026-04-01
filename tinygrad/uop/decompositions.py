@@ -2,7 +2,7 @@ import functools
 import math
 from typing import Callable
 
-from tinygrad.dtype import dtypes, DType
+from tinygrad.dtype import dtypes, DType, truncate, promo_lattice
 from tinygrad.device import is_dtype_supported
 from tinygrad.helpers import flatten, polyN, EMULATED_DTYPES
 from tinygrad.uop import GroupOp
