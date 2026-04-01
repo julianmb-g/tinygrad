@@ -488,7 +488,11 @@ class TestTinygradKernels(unittest.TestCase):
     from tinygrad import dtypes
     self._test_kernel(lambda T: T([1, 10, -10, 7], dtype=dtypes.int64) % T([-1, 3, 3, -3], dtype=dtypes.int64))
   def test_expand_flatten_sum(self):
-    """Test flatten of expanded tensor followed by sum.
+    """Test flatten of expanded tensor followed by sum."""
+    import numpy as np
+    x_np = ((np.arange(30) % 10) * 0.1).astype(np.float32).reshape(5, 3, 2)
+    self._test_kernel(lambda T: T(x_np.tolist()).expand((4, 5, 3, 2)).flatten().sum())
+
 
   @unittest.skip("slow and broken with AMD:LLVM")
   def test_nonzero(self):

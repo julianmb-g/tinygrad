@@ -67,7 +67,11 @@ from tinygrad.helpers import DEBUG, PROFILE, Context, colored
 from tinygrad.renderer.amd import decode_inst
 from tinygrad.renderer.amd.dsl import EXEC_LO, SCC, VCC_LO, ttmp
 from tinygrad.runtime.autogen import hsa
+from tinygrad.runtime.autogen.amd.rdna3 import ins as ir3
+from tinygrad.runtime.autogen.amd.rdna4 import ins as ir4
 from tinygrad.runtime.autogen.amd.cdna import ins as irc
+from tinygrad.runtime.autogen.amd.rdna3.str_pcode import PCODE as PCODE_RDNA3
+from tinygrad.runtime.autogen.amd.rdna4.str_pcode import PCODE as PCODE_RDNA4
 from tinygrad.runtime.autogen.amd.cdna.str_pcode import PCODE as PCODE_CDNA
 from tinygrad.runtime.autogen.amd.common import Fmt, OpType
 from test.mockgpu.amd.pcode import parse_block, _FUNCS, _set_bits, _val_to_bits

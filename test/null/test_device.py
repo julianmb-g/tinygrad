@@ -82,8 +82,8 @@ class TestDevice(unittest.TestCase):
   def test_env_online(self):
     try:
       from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, ClangJITCompiler
-      try: _, _ = CPULLVMCompiler(), ClangJITCompiler()
-      except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
+      _, _ = CPULLVMCompiler(), ClangJITCompiler()
+    except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
 
     with Context(DEV="CPU:LLVM"):
       inst = Device["CPU"].compiler

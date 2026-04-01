@@ -10,7 +10,7 @@ from tinygrad.renderer.amd import detect_format
 from test.amd.test_compare_emulators import get_kernels_from_tinygrad
 from tinygrad.runtime.support.elf import elf_loader
 from tinygrad.runtime.support.compiler_amd import HIPCompiler, AMDLLVMCompiler
-from tinygrad.helpers import AMD_LLVM
+
 
 def disassemble_lib(lib: bytes, compiler) -> list[tuple[str, bytes]]:
   """Disassemble ELF binary and return list of (instruction_text, machine_code_bytes)."""

@@ -3,6 +3,7 @@ import math
 import unittest
 from typing import Any, List
 
+from tinygrad.renderer.ptx import PTXRenderer
 import numpy as np
 import pytest
 import torch
@@ -11,7 +12,7 @@ from hypothesis import strategies as strat
 
 from test.helpers import rand_for_dtype
 from test.unit.test_dtype_spec import FP8E4M3_MAX, FP8E4M3FNUZ_MAX, FP8E5M2_MAX, FP8E5M2FNUZ_MAX, _assert_eq, core_dtypes, dtype_floats, dtype_ints
-from tinygrad import Context, Tensor, dtypes
+from tinygrad import Context, Tensor, dtypes, Device
 from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DTYPES_DICT, DType, _to_np_dtype, _to_torch_dtype, float_to_fp8, fp8_to_float, least_upper_dtype, truncate
 from tinygrad.helpers import DEBUG, EMULATED_DTYPES, getenv

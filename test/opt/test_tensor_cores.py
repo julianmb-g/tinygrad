@@ -22,7 +22,7 @@ from tinygrad.codegen.opt.tc import amd_cdna_1616128
 from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DType
 from tinygrad.engine.realize import CompiledRunner, get_program
-from tinygrad.helpers import AMD_LLVM, AMX, CPU_LLVM, Context
+from tinygrad.helpers import AMX, Context
 from tinygrad.tensor import _to_np_dtype
 from tinygrad.uop.ops import Ops
 

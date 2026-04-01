@@ -56,6 +56,7 @@ from tinygrad.uop.ops import smax, smin, resolve, UOp, Ops, sint, identity_eleme
 from tinygrad.uop.ops import _broadcast_shape
 from tinygrad.device import Buffer
 from tinygrad.device import Device
+from tinygrad.engine.realize import run_schedule
 
 def canonicalize_device(device:str|tuple|list|None) -> str|tuple[str, ...]:
   if not isinstance(device, (tuple, list)): return Device.canonicalize(device)

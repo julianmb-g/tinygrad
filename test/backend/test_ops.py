@@ -11,7 +11,7 @@ from tinygrad.helpers import getenv, CI, DEBUG, DEV, EMULATE, IMAGE, Context
 from tinygrad import Tensor, Device, dtypes
 from tinygrad.tensor import _to_np_dtype
 from tinygrad.device import is_dtype_supported
-from tinygrad.helpers import AMD_LLVM, CI, CPU_LLVM, DEBUG, EMULATE, IMAGE, Context, getenv
+from tinygrad.helpers import CI, DEBUG, EMULATE, IMAGE, Context, getenv
 from tinygrad.renderer.cstyle import QCOMCLRenderer
 from tinygrad.renderer.nir import NIRRenderer
 from tinygrad.tensor import _to_np_dtype

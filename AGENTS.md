@@ -18,3 +18,4 @@
 
 * **Decoupled API Boundaries & Missing Standard Imports**: Cross-component refactoring must be strictly atomic. Modifying bindings or decoupling core modules (like 'CompilerSet' from 'tinygrad.device') without updating all downstream callers causes catastrophic test collection failures. Always ensure standard library imports (e.g., 'unittest') are explicitly declared in test files.
 * **Multiprocessing Spawn Method**: Enforcing `multiprocessing.set_start_method("spawn")` globally at module scope prevents `pytest-xdist` fork deadlocks and gracefully supports native IPC teardown.
+* **Refactoring Void Trapping**: Aggressively removing imports like `run_schedule` and `unittest` without verifying downstream test file dependencies leads to catastrophic collection failures (100% test void). All refactoring must execute a full `pytest --collect-only` before committing.
