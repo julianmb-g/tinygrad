@@ -414,33 +414,23 @@ class TestCoralNPURenderer(unittest.TestCase):
 
   def test_vdot_mapping(self):
 
-    with tempfile.NamedTemporaryFile(suffix=".elf", delete=False) as tf:
-      # SHT_SYMTAB = 2, SHT_STRTAB = 3
-      e_ident = b'\x7fELF\x01\x01\x01\x00' + b'\x00' * 8
-      e_shoff = 0x34
-      elf_hdr = e_ident + struct.pack("<HHIIIIIHHHHHH", 2, 0xf3, 1, 0, 0, e_shoff, 0, 52, 0, 0, 40, 3, 2)
-      sh_null = struct.pack("<10I", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-      symtab_offset = 0x34 + 3 * 40
-      sh_symtab = struct.pack("<10I", 1, 2, 0, 0, symtab_offset, 32, 2, 0, 4, 16)
-      strtab_offset = symtab_offset + 32
-      strtab_data = b'\x00_end\x00'
-      sh_strtab = struct.pack("<10I", 6, 3, 0, 0, strtab_offset, len(strtab_data), 0, 0, 1, 0)
-      sym_null = struct.pack("<IIIBBH", 0, 0, 0, 0, 0, 0)
-      # Calculate a dynamic _end boundary avoiding hardcoded .bss baselines
-      dynamic_end_addr = 0x80000000 + len(elf_hdr) + 0x2000
-      sym_end = struct.pack("<IIIBBH", 1, dynamic_end_addr, 0, 0, 0, 1)
-      tf.write(elf_hdr + sh_null + sh_symtab + sh_strtab + sym_null + sym_end + strtab_data)
-      dummy_elf_path = tf.name
+    with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as tfc:
+      tfc.write("void _start() {}\n")
+      dummy_c_path = tfc.name
+    dummy_elf_path = dummy_c_path.replace(".c", ".elf")
+    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', dummy_c_path, '-o', dummy_elf_path])
+    os.unlink(dummy_c_path)
 
     old_elf = os.environ.get("CORALNPU_ELF")
     os.environ["CORALNPU_ELF"] = dummy_elf_path
 
-    old_default = Device.DEFAULT
-    Device.DEFAULT = "CORALNPU"
+    from tinygrad.helpers import DEV
+    old_default = DEV.value
+    DEV.value = "CORALNPU"
     try:
       try:
-        x = Tensor.arange(16, dtype=dtypes.int8, device=Device.DEFAULT).reshape(1, 16).realize()
-        w = Tensor.arange(256, dtype=dtypes.int8, device=Device.DEFAULT).reshape(16, 16).realize()
+        x = Tensor.arange(16, dtype=dtypes.int8, device="CORALNPU").reshape(1, 16).realize()
+        w = Tensor.arange(256, dtype=dtypes.int8, device="CORALNPU").reshape(16, 16).realize()
         out = x.cast("int32").matmul(w.cast("int32").T)
         schedule = out.schedule()
       except FileNotFoundError:
@@ -463,7 +453,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
       self.assertTrue(vdot_found, "VDOT found organically, and intermediate int64_t chunked dequantization successfully eradicated.")
     finally:
-      Device.DEFAULT = old_default
+      DEV.value = old_default
       if old_elf:
         os.environ["CORALNPU_ELF"] = old_elf
       else:
@@ -598,8 +588,9 @@ class TestCoralNPURenderer(unittest.TestCase):
     from tinygrad.device import Device
     from tinygrad.codegen.opt.postrange import Scheduler
     from tinygrad.codegen.opt.heuristic import hand_coded_optimizations
-    old_default = Device.DEFAULT
-    Device.DEFAULT = "CORALNPU"
+    from tinygrad.helpers import DEV
+    old_default = DEV.value
+    DEV.value = "CORALNPU"
     try:
       with self.assertRaisesRegex(OutOfMemoryError, "Contiguous reduction axis exceeds Split-K limits"):
         t = Tensor.empty(16384).sum()
@@ -608,7 +599,7 @@ class TestCoralNPURenderer(unittest.TestCase):
           k = Scheduler(si.ast, CoralNPURenderer())
           hand_coded_optimizations(k)
     finally:
-      Device.DEFAULT = old_default
+      DEV.value = old_default
 
   def test_bss_noinit_attribute_generation(self):
     from tinygrad.tensor import Tensor
@@ -618,27 +609,19 @@ class TestCoralNPURenderer(unittest.TestCase):
     import struct
     import os
 
-    with tempfile.NamedTemporaryFile(suffix=".elf", delete=False) as tf:
-      e_ident = b'\x7fELF\x01\x01\x01\x00' + b'\x00' * 8
-      e_shoff = 0x34
-      elf_hdr = e_ident + struct.pack("<HHIIIIIHHHHHH", 2, 0xf3, 1, 0, 0, e_shoff, 0, 52, 0, 0, 40, 3, 2)
-      sh_null = struct.pack("<10I", 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
-      symtab_offset = 0x34 + 3 * 40
-      sh_symtab = struct.pack("<10I", 1, 2, 0, 0, symtab_offset, 32, 2, 0, 4, 16)
-      strtab_offset = symtab_offset + 32
-      strtab_data = b'\x00_end\x00'
-      sh_strtab = struct.pack("<10I", 6, 3, 0, 0, strtab_offset, len(strtab_data), 0, 0, 1, 0)
-      sym_null = struct.pack("<IIIBBH", 0, 0, 0, 0, 0, 0)
-      dynamic_end_addr = 0x80000000 + len(elf_hdr) + 0x2000
-      sym_end = struct.pack("<IIIBBH", 1, dynamic_end_addr, 0, 0, 0, 1)
-      tf.write(elf_hdr + sh_null + sh_symtab + sh_strtab + sym_null + sym_end + strtab_data)
-      dummy_elf_path = tf.name
+    with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as tfc:
+      tfc.write("void _start() {}\n")
+      dummy_c_path = tfc.name
+    dummy_elf_path = dummy_c_path.replace(".c", ".elf")
+    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', dummy_c_path, '-o', dummy_elf_path])
+    os.unlink(dummy_c_path)
 
     old_elf = os.environ.get("CORALNPU_ELF")
     os.environ["CORALNPU_ELF"] = dummy_elf_path
 
-    old_default = Device.DEFAULT
-    Device.DEFAULT = "CPU"
+    from tinygrad.helpers import DEV
+    old_default = DEV.value
+    DEV.value = "CPU"
     try:
       # Authentic workload that requires an accumulator (sum reduction)
       t = Tensor.randn(1024).sum()
@@ -651,7 +634,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       self.assertIn('__attribute__((section(".noinit")))', src)
       self.assertIn('static float', src) # verify static attribute for registers
     finally:
-      Device.DEFAULT = old_default
+      DEV.value = old_default
       if old_elf is not None:
         os.environ["CORALNPU_ELF"] = old_elf
       else:

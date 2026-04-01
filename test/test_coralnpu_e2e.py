@@ -39,7 +39,7 @@ class TestCoralNPUE2E(unittest.TestCase):
         self.allocator = self.device.allocator
 
     def test_dtcm_linker_contract_e2e_execution(self):
-        dummy_options = BufferSpec(image=None, uncached=False, cpu_access=False, nolru=False)
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
             # Inject handle as the target address

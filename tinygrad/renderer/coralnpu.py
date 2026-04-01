@@ -977,6 +977,7 @@ class CoralNPURenderer(CStyleLanguage):
     if active_fp_count > 32:
       raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
 
+    prefix.append("#include <stdint.h>")
     prefix.append("#ifndef CORAL_DMA_ASYNC")
     prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) __builtin_memcpy(dest, src, size)")
     prefix.append("#ifdef __riscv")
@@ -988,7 +989,7 @@ class CoralNPURenderer(CStyleLanguage):
     prefix.append("  }")
     prefix.append("}")
     prefix.append("#else")
-    prefix.append("#define WAIT_DMA_READY() /* sync */")
+    prefix.append("static inline void WAIT_DMA_READY() { /* sync */ }")
     prefix.append("#endif")
     prefix.append("#endif")
 
