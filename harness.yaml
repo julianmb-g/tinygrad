@@ -1,4 +1,4 @@
-setup_cmd: "sudo apt-get update && sudo apt-get install -y clang libclang-19-dev && pip install ruff pillow onnxruntime librosa gguf huggingface_hub pytest-xdist pytest-timeout openai torch safetensors transformers libclang && sudo -E PYTHONPATH=. python3 ./extra/sqtt/install_rocprof_decoder.py"
+setup_cmd: "sudo apt-get update && sudo apt-get install -y clang libclang-19-dev && pip install ruff pillow onnxruntime librosa gguf huggingface_hub pytest-xdist pytest-timeout openai torch safetensors transformers libclang pytest-cov coverage && sudo -E PYTHONPATH=. python3 ./extra/sqtt/install_rocprof_decoder.py"
 build_cmd: "python3 setup.py build || echo 'No build required'"
-test_cmd: "LIBCLANG_PATH=/usr/lib/llvm-19/lib/libclang.so DEV=CPU PYTHONUNBUFFERED=1 python3 -m pytest -n 4 --timeout=120 --timeout-method=thread test/backend/ test/unit/ test/null/ test/test_tiny.py"
+test_cmd: "LIBCLANG_PATH=/usr/lib/llvm-19/lib/libclang.so DEV=CPU PYTHONUNBUFFERED=1 python3 -m pytest -n 4 --timeout=120 --timeout-method=thread --cov=tinygrad --cov-report=html test/backend/ test/unit/ test/null/ test/test_tiny.py"
 lint_cmd: "python3 -m ruff check . --extend-select F401 --fix || true; python3 -m ruff check ."
