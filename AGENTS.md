@@ -30,3 +30,9 @@
 * **Mocked Fetching Prevention**: Do not isolate logic by instantiating `MockResponse(img_bytes)` via `@patch('urllib.request.urlopen')` to fake image fetching. Authentic E2E validations proving cross-component fetch viability are required.
 * **IPC Worker Mocking Ban**: Parallel execution state MUST NOT be mocked with purely Python-based dummy workers. Tests must schedule authentic cross-compiled compute kernels to accurately measure shared memory teardown boundaries natively.
 * **Configuration Obsolescence**: Tests failing due to `CPU=1` deprecation mask authentic architecture faults. Ensure `DEV=CPU` and current API targets are strictly preserved in orchestration configs to avoid 100% test failure loops.
+
+## IPC Worker E2E Mocking Illusion
+Exercising Python SharedMemory primitives with mocked tasks (e.g., numpy array doubling) fails to prove NPU execution. Tests must schedule authentic cross-compiled compute kernels to accurately measure shared memory teardown boundaries natively.
+
+## Global Evasion via Toolchain Bypassing
+Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) to skip tests mathematically erases architectural test failures and evades E2E constraints.
