@@ -349,7 +349,7 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
           if prod(ps) != prod(self.marg): raise ValueError(f"bad reshape: {ps} -> {self.marg}")
           return self.marg
         case Ops.EXPAND:
-          if len(ps) != len(self.marg) or not all(s==ns or (s==1 and ns>=0) for s,ns in zip(ps, self.marg)):
+          if len(ps) != len(self.marg) or not all(resolve(s==ns) or (resolve(s==1) and resolve(ns>=0)) for s,ns in zip(ps, self.marg)):
             raise ValueError(f"bad expand: {ps} -> {self.marg}")
           return self.marg
         case Ops.PERMUTE:
