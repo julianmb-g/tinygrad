@@ -29,3 +29,4 @@
 - **API Drift**: Prevent API drift causing massive test failures. Maintain strict compiler boundaries.
 - **E2E IPC and Compilation Boundaries**: Added on Wed Apr 1 2026. Do NOT catch `subprocess.CalledProcessError` or `FileNotFoundError` using `@unittest.skip`. Mocking compilation borders mathematically erases integration boundary failure.
 - **Organic Hardware Traps**: Added on Wed Apr 1 2026. Do NOT use Python regex assertions (`assertRaisesRegex`) to bypass memory bounds traps. The simulator MUST dynamically compile and bounds-trap the generated `.elf` payload.
+- **Testing Fraud Resolution**: Added on Wed Apr 1 2026. Cosmetic refactors that mask organic test failures with `SkipTest` must be forcefully reverted. Modifying an upstream test to skip execution subverts the pipeline.
