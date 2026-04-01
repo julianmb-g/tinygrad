@@ -44,3 +44,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 
 ### Execution Evasion Remediation (Lesson)
 - **Authentic ELF Generation Constraints:** When testing `CoralNPURenderer` outputs, never mock ELF structures via Python byte arrays. Use `subprocess` pointing to `riscv64-unknown-elf-gcc -nostdlib` to organically verify `.bss`, `.noinit`, and `.text` section bounds, ensuring that missing cross-compilers cause the pipeline to organically fail.
+* **Pytest Fatal Watchdog Termination & Debugging**: When the CI pipeline is brutally terminated by a global timeout watchdog mid-execution (e.g., 120s limit), `pytest` will not emit its standard failure summary or stack traces. To diagnose explicit test failures (`F`) that occur before the timeout, developers MUST run the suite with fail-fast enabled (`pytest -x`) or disable parallel workers (`-n 0`) so the test runner organically halts and prints the exact stack trace of the first failure.
