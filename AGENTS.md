@@ -27,3 +27,5 @@
 * **IPC Isolation and Worker Lifecycle**: Tests such as `TestIpcWorkerPool` MUST evaluate true multiprocess lockstep execution using `multiprocessing.shared_memory`. Overarching OS signal injections are banned; worker execution timeout limits MUST trigger native graceful `TimeoutError` exceptions.
 * **Exception Swallowing Prohibition**: Catching integration/compilation failures via generic `except (FileNotFoundError, subprocess.CalledProcessError)` and routing to `unittest.SkipTest` mathematically erases test failures and is explicitly forbidden.
 - **API Drift**: Prevent API drift causing massive test failures. Maintain strict compiler boundaries.
+- **E2E IPC and Compilation Boundaries**: Added on Wed Apr 1 2026. Do NOT catch `subprocess.CalledProcessError` or `FileNotFoundError` using `@unittest.skip`. Mocking compilation borders mathematically erases integration boundary failure.
+- **Organic Hardware Traps**: Added on Wed Apr 1 2026. Do NOT use Python regex assertions (`assertRaisesRegex`) to bypass memory bounds traps. The simulator MUST dynamically compile and bounds-trap the generated `.elf` payload.
