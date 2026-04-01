@@ -21,3 +21,8 @@
 * **Refactoring Void Trapping**: Aggressively removing imports like `run_schedule` and `unittest` without verifying downstream test file dependencies leads to catastrophic collection failures (100% test void). All refactoring must execute a full `pytest --collect-only` before committing.
 * **Ops.EXPAND Symbolic Evaluation**: Use the `resolve()` helper to safely evaluate symbolic ranges (UOp) within `Ops.EXPAND` boolean matching, preventing `ValueError` crashes on unresolved vars.
 * **Collection Unmasking Audit**: Resolving pytest collection failures (e.g., missing imports or API drift) will unmask massive underlying functional failures. A full QA triage is mandatory immediately after unblocking `pytest`.
+
+### Knowledge Accumulation (Design Phase)
+* **Cross-Compiler Testing Bound**: `tinygrad` tests (like `TestCoralNPURenderer`) MUST explicitly use the host `riscv64-unknown-elf-gcc` toolchain and Clang python bindings to parse the generated C++ AST, ensuring asynchronous DMA macros (`CORAL_DMA_ASYNC`) precede barriers.
+* **IPC Isolation and Worker Lifecycle**: Tests such as `TestIpcWorkerPool` MUST evaluate true multiprocess lockstep execution using `multiprocessing.shared_memory`. Overarching OS signal injections are banned; worker execution timeout limits MUST trigger native graceful `TimeoutError` exceptions.
+* **Exception Swallowing Prohibition**: Catching integration/compilation failures via generic `except (FileNotFoundError, subprocess.CalledProcessError)` and routing to `unittest.SkipTest` mathematically erases test failures and is explicitly forbidden.
