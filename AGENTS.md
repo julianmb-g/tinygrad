@@ -58,3 +58,7 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **E2E IPC Enforcement**: Never mock parallel NPU execution with Python `time.sleep` loops. E2E tests must schedule authentic cross-compiled compute kernels on the NPU simulator.
 * **Watchdog Boundaries**: The python-level timeout watchdog tests must prove cross-boundary simulation termination (e.g., verifying `SimTimeoutError` from C++), not just block on `p.wait()`.
 * **Subsystem Mock Banning**: Never mock memory map initializers by compiling empty ELFs to extract an `_end` symbol.
+# Tinygrad Submodule Constraints
+* **Hermetic Toolchain Exemption**: Tinygrad tests are allowed to use host-installed GCC and Clang RISC-V cross-compilers.
+* **Double-Buffering DMA**: All schedules must physically tile into <= 12KB chunks and use explicit AXI synchronization (`WAIT_DMA_READY`). The `AddrSpace.LOCAL` limit is strictly 28KB.
+* **Hardware Evasion Ban**: Masking architectural constraints via python exceptions or `@unittest.skipIf` without native E2E payload execution constitutes testing fraud.
