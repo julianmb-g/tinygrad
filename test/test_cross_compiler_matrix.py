@@ -38,7 +38,7 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
     flags = ["-O0", "-O1", "-O2", "-O3"]
 
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "#include <cstring>\n#include <stdint.h>\nextern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\ntypedef float float8 __attribute__((vector_size(32)));\n"  # noqa: E501
+      dummy_includes = "#include <cstring>\n#include <stdint.h>\nextern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\ntypedef float float8 __attribute__((vector_size(32)));\n"  # noqa: E501
       f.write((dummy_includes + self.src).encode())
       f.flush()
 

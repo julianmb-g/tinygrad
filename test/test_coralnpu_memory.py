@@ -157,7 +157,6 @@ extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
     }
     memcpy(dest, src, size);
 }
-#define WAIT_DMA_READY() /* sync */
 #endif
 """
             f.write((dummy_includes + src).encode())

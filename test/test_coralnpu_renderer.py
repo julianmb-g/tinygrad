@@ -142,7 +142,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
 
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n"  # noqa: E501
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
       tu = index.parse(f.name, args=['-std=c++11'])
@@ -165,7 +165,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -217,7 +217,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -265,7 +265,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn("WAIT_DMA_READY();", body)
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\nextern \"C\" void WAIT_DMA_READY();\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
+      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
