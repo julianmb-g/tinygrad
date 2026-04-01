@@ -25,3 +25,5 @@
 * **NV Interface Global Swallowing**: Instantiating objects like `Tensor(dat, device="NV")` wrapped in a blanket `except Exception: raise SkipTest` silences real architectural crashes (AttributeError, TypeError) and is strictly forbidden.
 * **Recursion Limit Masking**: Wrapping deep graph evaluations in `try...except RecursionError: raise SkipTest` instead of fixing AST bounds is mathematically erasing test failures and is prohibited.
 * **Refactoring Void Trapping**: Aggressively removing imports like `run_schedule` and `unittest` without verifying downstream test file dependencies leads to catastrophic collection failures (100% test void). All refactoring must execute a full `pytest --collect-only` before committing.
+## Lessons Learned
+* **Upstream Synchronization Priority:** Upstream changes (e.g. CUDARenderer refactoring) can break local dependencies. JIT Upstream sync tasks must be scheduled atomically per-submodule when divergent.
