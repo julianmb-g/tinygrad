@@ -259,6 +259,17 @@ def xlog2(d:UOp) -> UOp:
   return d.reciprocal().ne(-math.inf).where(r, r.const_like(-math.inf))
 
 def xpow(base:UOp, exponent:UOp) -> UOp:
+  if dtypes.is_int(base.dtype) and dtypes.is_int(exponent.dtype):
+    orig_base = base
+    exp_abs = (exponent < 0).where(-exponent, exponent)
+    res = base.const_like(1)
+    mask = (1 << (base.dtype.itemsize * 8)) - 1
+    for i in range(31):
+      res = ((exp_abs >> i).bitwise_and(1).eq(1)).where((res * base).bitwise_and(mask), res)
+      base = (base * base).bitwise_and(mask)
+    neg_exp_res = (orig_base.eq(1) | orig_base.eq(-1)).where(res, orig_base.const_like(0))
+    return (exponent < 0).where(neg_exp_res, res)
+
   # start with b ** e = exp2(e * log2(b))
   ret = (base < 0).where(-base, base).log2().mul(exponent).exp2()
   # negative base: nan for non-integer exponent, negate for odd integer exponent
