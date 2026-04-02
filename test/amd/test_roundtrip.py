@@ -50,6 +50,9 @@ def compile_and_disasm_batch(instrs: list[str], arch: str = 'rdna3') -> list[str
   code = b''.join(llvm_assemble(instrs, mcpu, mattr))
   return llvm_disasm(code, mcpu, mattr)[:len(instrs)]
 
+from tinygrad.device import Device
+
+@unittest.skipUnless(Device.DEFAULT == "AMD", "requires AMD device")
 class TestTinygradKernelRoundtrip(unittest.TestCase):
   """Test roundtrip on real tinygrad-generated kernels using get_kernels_from_tinygrad pattern."""
   arch = 'rdna3'
@@ -63,10 +66,12 @@ class TestTinygradKernelRoundtrip(unittest.TestCase):
     arch = self.arch
 
     from test.amd.test_compare_emulators import get_kernels_from_tinygrad
+    from test.amd.test_compare_emulators import get_kernels_from_tinygrad
     from tinygrad.runtime.support.elf import elf_loader
     from tinygrad.runtime.support.compiler_amd import HIPCompiler, AMDLLVMCompiler
     from tinygrad.helpers import DEV
 
+    kernels, _, _ = get_kernels_from_tinygrad(op_fn)
     # rendered source can be C or llvmir
     compiler = (AMDLLVMCompiler if DEV.renderer == "LLVM" else HIPCompiler)(get_target(arch))
 
