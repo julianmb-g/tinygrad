@@ -126,11 +126,14 @@ class CoralNPUAllocator(Allocator):
                     try:
                         view = memoryview(shm.buf)
                         view.release()
-                    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
+                    except ProcessLookupError: pass
+                    except FileNotFoundError: pass
                     try: shm.close()
-                    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
+                    except ProcessLookupError: pass
+                    except FileNotFoundError: pass
                     try: shm.unlink()
-                    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
+                    except ProcessLookupError: pass
+                    except FileNotFoundError: pass
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()
