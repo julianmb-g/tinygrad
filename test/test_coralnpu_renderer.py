@@ -416,7 +416,11 @@ class TestCoralNPURenderer(unittest.TestCase):
       tfc.write("void _start() {}\n")
       dummy_c_path = tfc.name
     dummy_elf_path = dummy_c_path.replace(".c", ".elf")
-    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', dummy_c_path, '-o', dummy_elf_path])
+    from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
+    dummy_ld_path = dummy_c_path.replace('.c', '.ld')
+    with open(dummy_ld_path, 'w') as f:
+      f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_c_path, '-o', dummy_elf_path])
     os.unlink(dummy_c_path)
 
     old_elf = os.environ.get("CORALNPU_ELF")
@@ -608,7 +612,11 @@ class TestCoralNPURenderer(unittest.TestCase):
       tfc.write("void _start() {}\n")
       dummy_c_path = tfc.name
     dummy_elf_path = dummy_c_path.replace(".c", ".elf")
-    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', dummy_c_path, '-o', dummy_elf_path])
+    from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
+    dummy_ld_path = dummy_c_path.replace('.c', '.ld')
+    with open(dummy_ld_path, 'w') as f:
+      f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_c_path, '-o', dummy_elf_path])
     os.unlink(dummy_c_path)
 
     old_elf = os.environ.get("CORALNPU_ELF")

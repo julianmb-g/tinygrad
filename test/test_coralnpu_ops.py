@@ -90,7 +90,7 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
         # Execute a program that does nothing (or writes to handle2) to see if simulator clobbers handle's memory space
         self.allocator.device.allocator = self.allocator
         prog = CoralNPUProgram(self.allocator.device, "kernel", b"void kernel(float* a) { a[0] = 0.0f; }")
-        prog(handle2, wait=True, timeout=kDefaultCompilationTimeoutS)
+        prog(handle2, wait=True)
 
         dest = bytearray(4)
         self.allocator._copyout(memoryview(dest), handle)
@@ -128,7 +128,7 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
             prog = CoralNPUProgram(self.device, "bridge_execution", src)
 
             start_time = time.time()
-            ret = prog(handle, wait=True, timeout=0.5)
+            ret = prog(handle, wait=True)
             end_time = time.time()
 
             self.assertEqual(ret, math.inf, "Timeout must organically return math.inf to discard deadlocked executions.")

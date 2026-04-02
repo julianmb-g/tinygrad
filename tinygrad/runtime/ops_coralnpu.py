@@ -191,7 +191,7 @@ class CoralNPUProgram:
     try:
       subprocess.check_output(
           ['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', ld_path, src_path, '-o', elf_path],
-          stderr=subprocess.STDOUT, timeout=kDefaultCompilationTimeoutS)
+          stderr=subprocess.STDOUT)
     except subprocess.TimeoutExpired as e:
       raise RuntimeError(f"Cross-compilation timed out: {e}")
     except subprocess.CalledProcessError as e:
@@ -202,7 +202,7 @@ class CoralNPUProgram:
       if os.path.exists(ld_path): os.unlink(ld_path)
     return elf_path
 
-  def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, timeout=kDefaultCompilationTimeoutS, **kwargs):
+  def __call__(self, *bufs, global_size=None, local_size=None, vals=(), wait=False, **kwargs):
     if getattr(self, "is_beam", False) and wait:
       return self.beam_cost
 
