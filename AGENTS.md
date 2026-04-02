@@ -68,3 +68,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 # Tinygrad Submodule Lessons
 
 * **Native Bound Assertions (Lesson)**: Tinygrad tests (e.g., DMA boundary checks) enforce physical limits (like the 4KB chunk boundary) by compiling minimal C/C++ stubs with native `abort()` traps on the host. This prevents "testing illusions" by ensuring boundary checks happen natively rather than relying on Python regex or string-matching of ASTs.
+
+* **Cross-Compiler Enforcement**: Cross-compiler tests implemented in `test_cross_compiler.py` must organically fail if the `riscv64-unknown-elf-gcc` compiler is absent. Catching `FileNotFoundError` to skip tests mathematically erases the CI failure.

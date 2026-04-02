@@ -210,3 +210,4 @@ class TestMagicGu(unittest.TestCase):
 
 if __name__ == "__main__":
   unittest.main()
+# Tested via pytest -x -n 0 test/backend/test_asm_gemm.py
