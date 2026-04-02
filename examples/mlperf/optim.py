@@ -1,3 +1,4 @@
+from tinygrad.tensor import Tensor
 from tinygrad.dtype import dtypes
 from tinygrad.nn.optim import Optimizer
 from tinygrad.helpers import FUSE_OPTIM, getenv
