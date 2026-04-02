@@ -60,3 +60,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Subsystem Mock Banning**: Never mock memory map initializers by compiling empty ELFs to extract an `_end` symbol.
 * **Upstream Synchronization Testing Paths**: `test_ops.py` is located at `test/backend/test_ops.py`, not in the root `test/` directory. Be careful with test paths.
 * **Merge Conflicts and Stashing**: When pulling upstream commits using `git merge --no-ff`, temporarily `git stash` any unstaged changes to prevent merge aborts, and pop them after resolving conflicts.
+* **Cosmetic Refactoring Hiding Lack of Validation**: Fixing PEP8/Lint violations (e.g., using `ruff` for F401, F811) provides clean test logs but fails to increase any underlying logic or execution bounds coverage. Cosmetic unblocking must not be confused with authentic execution testing.

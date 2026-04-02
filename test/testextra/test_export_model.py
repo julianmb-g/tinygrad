@@ -5,7 +5,6 @@ from tinygrad import dtypes
 import json
 
 
-
 class MockMultiInputModel:
   def forward(self, x1, x2, x3):
     return x1 + x2 + x3

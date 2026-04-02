@@ -18,14 +18,14 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
         mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
-        
+
         # Authentically compile a base ELF to extract a valid _end symbol
         src_path = os.path.join(self.tmp_dir.name, "base.c")
         with open(src_path, "w") as f: f.write("void _start() {}")
         from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
         ld_path = os.path.join(self.tmp_dir.name, "linker.ld")
         with open(ld_path, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-        
+
         import subprocess
         subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
 

@@ -9,7 +9,6 @@ import numpy as np
 import torch
 
 
-
 settings.register_profile("my_profile", max_examples=50, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")
 

@@ -493,7 +493,6 @@ class TestTinygradKernels(unittest.TestCase):
     x_np = ((np.arange(30) % 10) * 0.1).astype(np.float32).reshape(5, 3, 2)
     self._test_kernel(lambda T: T(x_np.tolist()).expand((4, 5, 3, 2)).flatten().sum())
 
-
   @unittest.skip("slow and broken with AMD:LLVM")
   def test_nonzero(self):
     """Test nonzero operation - counts and gathers indices of non-zero elements."""

@@ -701,7 +701,7 @@ class TinygradAutoTunerIPC:
         self.worker.join()
     except (AttributeError, KeyError, TypeError, ValueError):
       pass
-    except (ProcessLookupError, FileNotFoundError) as e:
+    except (ProcessLookupError, FileNotFoundError):
       pass
     except OSError as e:
       if "already closed" not in str(e) and "cannot send" not in str(e) and getattr(e, 'errno', None) != 9:

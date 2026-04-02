@@ -10,7 +10,6 @@ from enum import Enum, auto
 from typing import Callable, ClassVar, Final, Literal
 
 
-
 class ConstFloat(float):
   """Float subclass that distinguishes -0.0 from 0.0 and where nan == nan."""
   __slots__ = ('bits',)
