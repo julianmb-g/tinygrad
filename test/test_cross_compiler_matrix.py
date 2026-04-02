@@ -34,11 +34,11 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
     self.src = self.renderer.render(self.uops)
 
   def test_cross_compiler_testing_matrix(self):
-    compilers = ["gcc", "g++", "clang", "clang++"]
+    compilers = ["gcc", "g++", "clang", "clang++", "riscv64-unknown-elf-gcc", "riscv64-unknown-elf-g++"]
     flags = ["-O0", "-O1", "-O2", "-O3"]
 
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "#include <cstring>\n#include <stdint.h>\nextern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\ntypedef float float8 __attribute__((vector_size(32)));\n"  # noqa: E501
+      dummy_includes = "#include <stdint.h>\nextern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\ntypedef float float8 __attribute__((vector_size(32)));\n"  # noqa: E501
       f.write((dummy_includes + self.src).encode())
       f.flush()
 
@@ -62,7 +62,7 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
 
         for flag in flags:
           try:
-            subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", os.devnull], stderr=subprocess.STDOUT, timeout=15.0)
+            subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", os.devnull] + (["-nostdlib"] if "riscv" in compiler else []), stderr=subprocess.STDOUT, timeout=15.0)
           except subprocess.CalledProcessError as e:
             self.fail(f"Generated C++ code failed to compile natively via {compiler} {flag}: {e.output.decode('utf-8')}")
           except subprocess.TimeoutExpired:
