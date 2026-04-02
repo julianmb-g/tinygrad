@@ -65,3 +65,6 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Hardware Simulator Evasion via Decorators**: Masking critical IPC boundaries behind `@unittest.skipIf` decorators evades authentic cross-compiled tests. If the simulator is missing, tests report 100% success while the execution boundary remains unexercised. This is testing fraud.
 * **Type Hint Refactoring & NameErrors**: When refactoring Python files to resolve linting errors (like unused imports), do not over-strip types from the `typing` module (e.g., `Any`, `List`, `Dict`, `Tuple`) that are actively used in variable annotations. Removing these introduces explicit `NameError` crashes at runtime and breaks static analysis.
 * **Framework Boundaries**: `tinygrad` is purely a Python ML framework. Do not instruct agents to implement native C++ functionalities (like `SimTimeoutError`) within the `tinygrad` submodule; these belong in C++ simulation repositories like `coralnpu-mpact`.
+# Tinygrad Submodule Lessons
+
+* **Native Bound Assertions (Lesson)**: Tinygrad tests (e.g., DMA boundary checks) enforce physical limits (like the 4KB chunk boundary) by compiling minimal C/C++ stubs with native `abort()` traps on the host. This prevents "testing illusions" by ensuring boundary checks happen natively rather than relying on Python regex or string-matching of ASTs.
