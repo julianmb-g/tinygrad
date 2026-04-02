@@ -1,6 +1,5 @@
 from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import os
-import struct
 import subprocess
 import tempfile
 import unittest
@@ -20,7 +19,6 @@ import random
 import numpy as np
 
 import tinygrad.renderer.coralnpu as coralnpu
-from tinygrad.device import Device
 from tinygrad.dtype import dtypes
 from tinygrad.engine.realize import get_runner
 from tinygrad.nn.state import safe_save
@@ -585,7 +583,6 @@ class TestCoralNPURenderer(unittest.TestCase):
   def test_unsplittable_reduction_oom(self):
     from tinygrad.codegen.opt.heuristic import OutOfMemoryError
     from tinygrad.tensor import Tensor
-    from tinygrad.device import Device
     from tinygrad.codegen.opt.postrange import Scheduler
     from tinygrad.codegen.opt.heuristic import hand_coded_optimizations
     from tinygrad.helpers import DEV
@@ -603,10 +600,8 @@ class TestCoralNPURenderer(unittest.TestCase):
 
   def test_bss_noinit_attribute_generation(self):
     from tinygrad.tensor import Tensor
-    from tinygrad.device import Device
     from tinygrad.engine.realize import get_runner
     import tempfile
-    import struct
     import os
 
     with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as tfc:

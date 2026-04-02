@@ -3,7 +3,6 @@ import unittest
 from contextlib import redirect_stdout
 from tinygrad import Tensor, dtypes, Device
 from tinygrad.helpers import OSX, DEV
-from tinygrad.device import is_dtype_supported
 from tinygrad.engine.realize import get_program
 
 

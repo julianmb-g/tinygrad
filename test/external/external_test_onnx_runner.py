@@ -11,7 +11,6 @@ from tinygrad import Tensor, dtypes
 from tinygrad.device import is_dtype_supported
 from typing import Any
 from tinygrad.nn.onnx import OnnxRunner, OnnxPBParser, OnnxDataType
-from hypothesis import given, strategies as st
 
 # copied from test_const_folding.py
 def _check_ast_count(desired_count:int, t:Tensor):

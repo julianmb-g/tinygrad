@@ -7,7 +7,6 @@ import unittest
 from tinygrad import dtypes
 from tinygrad.codegen.opt.search import Opt, OptOps
 from tinygrad.engine.realize import get_program
-from tinygrad.renderer.cstyle import MetalRenderer
 from tinygrad.uop.ops import AxisType, KernelInfo, Ops, UOp
 
 

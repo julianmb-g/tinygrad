@@ -1,5 +1,4 @@
 import os
-import struct
 import tempfile
 import unittest
 import math
@@ -8,7 +7,6 @@ if multiprocessing.get_start_method(allow_none=True) != 'spawn':
     multiprocessing.set_start_method('spawn', force=True)
 from unittest.mock import patch
 import time
-import shutil
 import unittest.mock
 from tinygrad.helpers import IpcWorkerPool
 
@@ -103,7 +101,6 @@ if __name__ == '__main__':
     unittest.main()
 
 def _shared_worker(handle, shm_name, shape_size):
-    from tinygrad.device import BufferSpec
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
     from multiprocessing import shared_memory
     device = CoralNPUDevice("CORALNPU")

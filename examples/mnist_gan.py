@@ -2,7 +2,6 @@ from pathlib import Path
 import torch
 from torchvision.utils import make_grid, save_image
 
-from extra.datasets import fetch_mnist
 from tinygrad.helpers import trange
 from tinygrad.nn import optim
 from tinygrad.nn.datasets import mnist

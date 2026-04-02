@@ -65,10 +65,6 @@ class TestTinygradKernelRoundtrip(unittest.TestCase):
     """
     arch = self.arch
 
-    from test.amd.test_compare_emulators import get_kernels_from_tinygrad
-    from test.amd.test_compare_emulators import get_kernels_from_tinygrad
-    from tinygrad.runtime.support.elf import elf_loader
-    from tinygrad.runtime.support.compiler_amd import HIPCompiler, AMDLLVMCompiler
     from tinygrad.helpers import DEV
 
     kernels, _, _ = get_kernels_from_tinygrad(op_fn)

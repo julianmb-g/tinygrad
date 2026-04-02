@@ -9,7 +9,6 @@ from tinygrad.helpers import ceildiv, getenv, prod, round_up, OSX
 from enum import Enum, auto
 from typing import Callable, ClassVar, Final, Literal
 
-from tinygrad.helpers import OSX, ceildiv, getenv, next_power2, prod, round_up
 
 
 class ConstFloat(float):

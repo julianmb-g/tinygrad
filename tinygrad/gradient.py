@@ -1,7 +1,7 @@
 import dataclasses
 import math
 from typing import cast
-import math, dataclasses, itertools
+import itertools
 from tinygrad.uop.ops import UOp, PatternMatcher, UPat, Ops, all_metadata, graph_rewrite
 from tinygrad.helpers import argsort
 from tinygrad.dtype import sum_acc_dtype

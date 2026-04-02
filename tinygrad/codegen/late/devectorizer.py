@@ -8,8 +8,6 @@ from tinygrad.uop.ops import UOp, Ops, UPat, PatternMatcher, GroupOp, identity_e
 from tinygrad.uop.symbolic import uop_given_valid, parse_valid, invalid_gate
 from tinygrad.helpers import getenv, flatten, AMX, prod
 from tinygrad.renderer import Renderer
-from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, identity_element
-from tinygrad.uop.symbolic import invalid_gate, parse_valid, uop_given_valid
 
 # ***** image load valid simplification *****
 

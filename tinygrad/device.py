@@ -15,7 +15,6 @@ import re
 import sys
 from collections import defaultdict
 from typing import Any, Generic, TypeVar, Iterator, Generator, TYPE_CHECKING
-import importlib, inspect, functools, pathlib, os, platform, contextlib, sys, re, atexit, pickle, decimal
 from tinygrad.helpers import BENCHMARKS, CI, OSX, LRU, getenv, diskcache_get, diskcache_put, DEBUG, GlobalCounters, flat_mv, PROFILE, temp, colored
 from tinygrad.helpers import Context, CCACHE, ALLOW_DEVICE_USAGE, MAX_BUFFER_SIZE, cpu_events, ProfileEvent, ProfilePointEvent, unwrap_class_type
 from tinygrad.helpers import suppress_finalizing, select_first_inited, DEV, VIZ, EMULATE, EMULATED_DTYPES, IMAGE, FLOAT16, TracingKey, size_to_str

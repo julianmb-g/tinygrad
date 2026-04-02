@@ -18,8 +18,6 @@ from tinygrad.dtype import DType
 from tinygrad.uop.ops import UOp, Ops, UPat
 from tinygrad.helpers import CI, DEBUG, OSX, GlobalCounters, Context, getenv, all_same, temp
 from tinygrad.engine.realize import CompiledRunner, run_schedule
-from tinygrad.helpers import CI, DEBUG, OSX, Context, GlobalCounters, all_same, getenv, temp
-from tinygrad.uop.ops import Ops, UOp, UPat
 
 
 class KernelCountException(Exception): pass

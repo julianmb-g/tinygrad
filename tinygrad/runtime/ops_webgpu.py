@@ -2,7 +2,6 @@ import functools, struct
 from tinygrad.device import Compiled, Allocator, BufferSpec
 from tinygrad.renderer.wgsl import WGSLRenderer
 from tinygrad.helpers import round_up, suppress_finalizing
-from tinygrad.renderer.wgsl import WGSLRenderer
 from tinygrad.runtime.autogen import webgpu
 from tinygrad.runtime.support import c
 

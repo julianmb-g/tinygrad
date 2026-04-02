@@ -7,18 +7,10 @@ from test.backend.test_dtype_alu import ht, dtypes_float
 from tinygrad.device import is_dtype_supported
 import numpy as np
 import math
-import unittest
 
-import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as strat
 
-from test.backend.test_dtype_alu import dtypes_float, ht
-from test.backend.test_schedule import check_schedule
-from tinygrad import Device, Tensor, dtypes
-from tinygrad.device import is_dtype_supported
-from tinygrad.helpers import CI, OSX, Context, getenv
-from tinygrad.tensor import _to_np_dtype
 
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")

@@ -7,14 +7,8 @@ from test.helpers import slow
 from hypothesis import given, settings, strategies as strat
 import numpy as np
 import torch
-from hypothesis import given, settings
-from hypothesis import strategies as strat
 
-from test.helpers import slow
-from tinygrad.device import is_dtype_supported
-from tinygrad.dtype import DTYPES_DICT, DType
-from tinygrad.helpers import DEBUG, getenv
-from tinygrad.tensor import Device, Tensor, dtypes
+
 
 settings.register_profile("my_profile", max_examples=50, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")

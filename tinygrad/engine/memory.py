@@ -4,7 +4,6 @@ from tinygrad.helpers import NO_MEMORY_PLANNER, DEBUG, round_up
 from tinygrad.uop.ops import UOp, Ops
 from tinygrad.dtype import dtypes
 from tinygrad.runtime.support.memory import TLSFAllocator
-from tinygrad.uop.ops import Ops
 
 def _collect_bufs(u:UOp) -> list[UOp]:
   if u.op is Ops.BUFFER: return [u]

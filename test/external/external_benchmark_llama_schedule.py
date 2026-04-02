@@ -3,9 +3,6 @@ from tinygrad.helpers import DEV, Timing
 
 from extra.models.llama import Transformer
 from examples.llama3 import MODEL_PARAMS
-from extra.models.llama import Transformer
-from tinygrad import Device, Tensor, dtypes, nn
-from tinygrad.helpers import Timing
 
 if __name__ == "__main__":
   DEV.value = "NULL"

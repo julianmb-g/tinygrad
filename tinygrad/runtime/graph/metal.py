@@ -9,7 +9,6 @@ from tinygrad.engine.realize import CompiledRunner
 from tinygrad.engine.jit import GraphRunner, GraphException
 from tinygrad.runtime.ops_metal import wait_check, to_ns_str
 from tinygrad.runtime.autogen import metal
-from tinygrad.runtime.ops_metal import MetalBuffer, to_ns_str, wait_check
 from tinygrad.runtime.support import objc
 
 

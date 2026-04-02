@@ -13,7 +13,7 @@ class TestPytestXdistTeardown(unittest.TestCase):
         """
         # We need pytest-xdist installed. If not, skip organically.
         try:
-            import xdist
+            _ = __import__("xdist")
         except ImportError:
             self.skipTest("pytest-xdist not installed, skipping IPC teardown test.")
 
