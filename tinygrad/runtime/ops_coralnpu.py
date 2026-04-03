@@ -248,6 +248,7 @@ class CoralNPUProgram:
 
     try:
       timeout = kwargs.get('timeout', kDefaultCompilationTimeoutS)
+      if timeout is None: timeout = kDefaultCompilationTimeoutS
       cmd.extend(["--py_watchdog_ms", str(int(timeout * 1000))])
       p = subprocess.Popen(cmd, preexec_fn=os.setpgrp)
     except FileNotFoundError as e:

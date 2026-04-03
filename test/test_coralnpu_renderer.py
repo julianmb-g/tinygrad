@@ -212,7 +212,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     # We expect a runtime chunking loop for segmented AXI fetches
     self.assertIn("CORAL_DMA_ASYNC", src)
     self.assertIn("1024", src)
-    self.assertIn("& 0x3FF", src, "Must calculate offset to next physical 1KB boundary")
+    self.assertIn("& CORALNPU_DMA_ALIGN_MASK", src, "Must calculate offset to next physical 1KB boundary")
     self.assertIn("for (int _dma_off = 0", src)
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
@@ -414,16 +414,18 @@ class TestCoralNPURenderer(unittest.TestCase):
 
   def test_vdot_mapping(self):
 
-    with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as tfc:
-      tfc.write("void _start() {}\n")
-      dummy_c_path = tfc.name
-    dummy_elf_path = dummy_c_path.replace(".c", ".elf")
+    os.makedirs(".os_build", exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=".os_build", suffix=".s", mode="w", delete=False) as tfc:
+      tfc.write(".global _start\n.section .text\n_start:\n  la sp, _stack_top\n  ebreak\n")
+      dummy_s_path = tfc.name
+    dummy_elf_path = dummy_s_path.replace(".s", ".elf")
     from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
-    dummy_ld_path = dummy_c_path.replace('.c', '.ld')
+    dummy_ld_path = dummy_s_path.replace('.s', '.ld')
     with open(dummy_ld_path, 'w') as f:
       f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_c_path, '-o', dummy_elf_path])
-    os.unlink(dummy_c_path)
+    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_s_path, '-o', dummy_elf_path])
+    os.unlink(dummy_s_path)
+    os.unlink(dummy_ld_path)
 
     old_elf = os.environ.get("CORALNPU_ELF")
     os.environ["CORALNPU_ELF"] = dummy_elf_path
@@ -613,16 +615,18 @@ class TestCoralNPURenderer(unittest.TestCase):
     import struct
     import os
 
-    with tempfile.NamedTemporaryFile(suffix=".c", mode="w", delete=False) as tfc:
-      tfc.write("void _start() {}\n")
-      dummy_c_path = tfc.name
-    dummy_elf_path = dummy_c_path.replace(".c", ".elf")
+    os.makedirs(".os_build", exist_ok=True)
+    with tempfile.NamedTemporaryFile(dir=".os_build", suffix=".s", mode="w", delete=False) as tfc:
+      tfc.write(".global _start\n.section .text\n_start:\n  la sp, _stack_top\n  ebreak\n")
+      dummy_s_path = tfc.name
+    dummy_elf_path = dummy_s_path.replace(".s", ".elf")
     from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
-    dummy_ld_path = dummy_c_path.replace('.c', '.ld')
+    dummy_ld_path = dummy_s_path.replace('.s', '.ld')
     with open(dummy_ld_path, 'w') as f:
       f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_c_path, '-o', dummy_elf_path])
-    os.unlink(dummy_c_path)
+    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_s_path, '-o', dummy_elf_path])
+    os.unlink(dummy_s_path)
+    os.unlink(dummy_ld_path)
 
     old_elf = os.environ.get("CORALNPU_ELF")
     os.environ["CORALNPU_ELF"] = dummy_elf_path
