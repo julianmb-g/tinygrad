@@ -76,3 +76,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Harness Execution Consistency**: Ensure the `test_cmd` within `harness.yaml` reflects the `-x -n 0` requirement when debugging overarching watchdog timeouts to prevent CI pipeline deadlocks and stack trace erasure.
 
 * **Ping-Pong Chunk Capacity Limits:** When allocating double-buffering ping-pong DMA chunks in the DTCM, the compiler MUST enforce a strict `CHUNK_LIMIT = 4096` bytes per chunk as mapped in DESIGN.md. Exceeding 4KB per chunk will instantly overflow the physical boundaries and guarantee OOM traps.
+
+* **DTCM DMA Chunk Limit Validation:** Ping-Pong DMA memory transfers are strictly limited to 4KB chunks. If chunks exceed 4KB, the compiler must organically throw an `OutOfMemoryError` instead of falling back to host `.bss`.
