@@ -5,7 +5,6 @@ import multiprocessing
 import multiprocessing.shared_memory
 import os
 import re
-import signal
 import struct
 import subprocess
 import tempfile
@@ -96,9 +95,8 @@ class CoralNPUAllocator(Allocator):
         else:
             self.alloc_refcounts[handle] = 1
 
-    import atexit
     shm = multiprocessing.shared_memory.SharedMemory(create=True, size=size)
-    
+
     def cleanup_shm(s):
         try: s.close()
         except (FileNotFoundError, ProcessLookupError): pass
@@ -106,7 +104,7 @@ class CoralNPUAllocator(Allocator):
         except (FileNotFoundError, ProcessLookupError): pass
 
     atexit.register(lambda: cleanup_shm(shm))
-    
+
     self.shms[handle] = shm
     self.mem[handle] = memoryview(shm.buf) # type: ignore
     return handle
@@ -257,7 +255,7 @@ class CoralNPUProgram:
     try:
       p.wait(timeout=timeout + 5.0)
     except subprocess.TimeoutExpired:
-      pass
+      raise TimeoutError(f"Hardware execution timed out natively after {timeout}s")
     finally:
       if p.poll() is None:
         try:

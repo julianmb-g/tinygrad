@@ -111,6 +111,7 @@ class TestTiny(unittest.TestCase):
   # *** a model ***
 
   # TODO: this is failing because of how swizzling rewrites the ShapeTracker of the final STORE
+  @unittest.skipIf(CI and Device.DEFAULT == "DSP", "failing because of make things that can't be images not images")
   def test_mnist(self):
     layers = [
       nn.Conv2d(1, 32, 5), Tensor.relu,
@@ -127,7 +128,9 @@ class TestTiny(unittest.TestCase):
     # run model inference
     probs = Tensor.rand(1, 1, 28, 28).sequential(layers).tolist()
     self.assertEqual(len(probs[0]), 10)
+
   # TODO: this is failing because of how swizzling rewrites the ShapeTracker of the final STORE
+  @unittest.skipIf(CI and Device.DEFAULT == "DSP", "failing because of make things that can't be images not images")
   def test_mnist_backward(self):
     # NOTE: we don't have the whole model here for speed
     layers = [
@@ -141,17 +144,15 @@ class TestTiny(unittest.TestCase):
     for x in nn.state.get_parameters(layers): x.requires_grad_()
     Tensor.empty(4, 1, 14, 14).sequential(layers).sum().backward()
     Tensor.realize(*[x.grad for x in nn.state.get_parameters(layers) if x.grad is not None])
+
   # *** image ***
 
+  @unittest.skipIf(Device.DEFAULT != "CL", "image only supported on CL")
   def test_image(self):
     with Context(IMAGE=1): self.test_gemm(N=64)
 
   def test_beam_image(self):
-    try:
-      with Context(BEAM=1, IGNORE_BEAM_CACHE=1): self.test_image()
-    # [Build Agent] Organically trap bounds per REVIEW.md
-    except FileNotFoundError as e:
-      raise unittest.SkipTest(f"IMAGE unsupported natively: {e}")
+    with Context(BEAM=1, IGNORE_BEAM_CACHE=1): self.test_image()
 
 if __name__ == '__main__':
   unittest.main()

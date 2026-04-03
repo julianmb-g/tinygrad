@@ -1,14 +1,10 @@
 import os
-import struct
 import tempfile
 import unittest
-import math
 import multiprocessing
 if multiprocessing.get_start_method(allow_none=True) != 'spawn':
     multiprocessing.set_start_method('spawn', force=True)
 from unittest.mock import patch
-import time
-import shutil
 import unittest.mock
 from tinygrad.helpers import IpcWorkerPool
 
@@ -25,7 +21,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         src_path = os.path.join(self.tmp_dir.name, "kernel.s")
         with open(src_path, "w") as f:
             f.write(".global _start\n.section .text\n_start:\n    nop\n    j _start\n")
-            
+
         tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
         with open(tpl_path, "r") as f: ld_content = f.read()
         ld_content = ld_content.replace("@@ITCM_LENGTH@@", "8192").replace("@@DTCM_ORIGIN@@", "0x00800000").replace("@@DTCM_LENGTH@@", "1024").replace("@@STACK_SIZE@@", "32768").replace("@@HEAP_SIZE_SPEC@@", "__heap_size = 32768;").replace("@@HEAP_LOCATION@@", "DTCM").replace("@@STACK_START_SPEC@@", ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;")
@@ -51,9 +47,9 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def tearDown(self):
         for shm in list(self.allocator.shms.values()):
             try: shm.close()
-            except Exception: pass
+            except (FileNotFoundError, ProcessLookupError): pass
             try: shm.unlink()
-            except Exception: pass
+            except (FileNotFoundError, ProcessLookupError): pass
         self.allocator.shms.clear()
         self.patcher.stop()
         self.tmp_dir.cleanup()
@@ -139,7 +135,6 @@ if __name__ == '__main__':
     unittest.main()
 
 def _shared_worker(handle, shm_name, shape_size):
-    from tinygrad.device import BufferSpec
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
     from multiprocessing import shared_memory
     import atexit
@@ -211,10 +206,9 @@ void _start() {
 void infinite_loop() { while(1) {} }
 """
         program = CoralNPUProgram(device, "infinite_loop", src)
-        # Natively scheduled to hardware without Python-side watchdog timeout
-        while True:
-            try: program(timeout=None)
-            except Exception: pass
+        # Natively scheduled to hardware
+        try: program(timeout=60.0)
+        except (FileNotFoundError, ProcessLookupError, TimeoutError): pass
     finally:
         try: shm.close()
         except (FileNotFoundError, ProcessLookupError): pass
@@ -228,7 +222,7 @@ class TestIpcWorkerPool(unittest.TestCase):
         src_path = os.path.join(self.tmp_dir.name, "kernel.s")
         with open(src_path, "w") as f:
             f.write(".global _start\n.section .text\n_start:\n    nop\n    j _start\n")
-            
+
         tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
         with open(tpl_path, "r") as f: ld_content = f.read()
         ld_content = ld_content.replace("@@ITCM_LENGTH@@", "8192").replace("@@DTCM_ORIGIN@@", "0x00800000").replace("@@DTCM_LENGTH@@", "1024").replace("@@STACK_SIZE@@", "32768").replace("@@HEAP_SIZE_SPEC@@", "__heap_size = 32768;").replace("@@HEAP_LOCATION@@", "DTCM").replace("@@STACK_START_SPEC@@", ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;")
@@ -252,9 +246,9 @@ class TestIpcWorkerPool(unittest.TestCase):
     def tearDown(self):
         for shm in list(self.device.allocator.shms.values()):
             try: shm.close()
-            except Exception: pass
+            except (FileNotFoundError, ProcessLookupError): pass
             try: shm.unlink()
-            except Exception: pass
+            except (FileNotFoundError, ProcessLookupError): pass
         self.device.allocator.shms.clear()
         self.patcher.stop()
         self.tmp_dir.cleanup()
@@ -312,7 +306,7 @@ class TestIpcWorkerPool(unittest.TestCase):
             try:
                 # First submit the authentic block to tie up the worker natively
                 pool.submit(0, handle, shm_name, 100)
-                
+
                 with self.assertRaises(TimeoutError):
                     # Send smaller chunks repeatedly to natively saturate the UDS OS socket buffer.
                     # Once the physical memory limit is breached, the pipe fills up.
