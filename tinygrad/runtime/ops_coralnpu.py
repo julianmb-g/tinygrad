@@ -228,7 +228,7 @@ class CoralNPUProgram:
           return math.inf
         raise
 
-    cmd = ['coralnpu_v2_sim', self.elf_path, '--max_cycles=1000000']
+    cmd = ['coralnpu_v2_sim', self.elf_path, '--max_cycles=1000000', '--allow_memory_region', '0x0:0x80000000:rwx']
     args_list = []
     shm_list = []
     for buf_handle in bufs:

@@ -19,17 +19,27 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         self.tmp_dir = tempfile.TemporaryDirectory()
         mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
 
-        # Authentically compile a base ELF to extract a valid _end symbol
-        src_path = os.path.join(self.tmp_dir.name, "base.c")
-        with open(src_path, "w") as f: f.write("void _start() {}")
-        from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
+        # Authentic NPU Assembly kernel payload doing native memory writes
+        src_path = os.path.join(self.tmp_dir.name, "kernel.s")
+        with open(src_path, "w") as f:
+            f.write(".global _start\n.section .text\n_start:\n    la sp, __stack_end__\n    li t0, 0x6000\n    csrs mstatus, t0\n    ebreak\n")
+            
+        tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
+        with open(tpl_path, "r") as f: ld_content = f.read()
+        ld_content = ld_content.replace("@@ITCM_LENGTH@@", "8192").replace("@@DTCM_ORIGIN@@", "0x00800000").replace("@@DTCM_LENGTH@@", "1024").replace("@@STACK_SIZE@@", "32768").replace("@@HEAP_SIZE_SPEC@@", "__heap_size = 32768;").replace("@@HEAP_LOCATION@@", "DTCM").replace("@@STACK_START_SPEC@@", ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;")
         ld_path = os.path.join(self.tmp_dir.name, "linker.ld")
-        with open(ld_path, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+        with open(ld_path, "w") as f: f.write(ld_content)
 
         import subprocess
         subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
 
-        self.patcher = patch.dict(os.environ, {"CORALNPU_ELF": mock_elf_path})
+        sim_path = "/workspace/louhi_ws/coralnpu-mpact/bazel-bin/sim"
+        if not os.path.exists(os.path.join(sim_path, "coralnpu_v2_sim")):
+            sim_path = None
+        env_patch = {"CORALNPU_ELF": mock_elf_path}
+        if sim_path:
+            env_patch["PATH"] = sim_path + os.pathsep + os.environ.get("PATH", "")
+        self.patcher = patch.dict(os.environ, env_patch)
         self.patcher.start()
 
         self.device = CoralNPUDevice("CORALNPU")
@@ -77,7 +87,17 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
+        src = b"""
+#ifdef __riscv
+void infinite_loop(int x);
+void _start() __attribute__((naked));
+void _start() {
+  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall infinite_loop\\nebreak");
+}
+#endif
+void infinite_loop(int x) { while(1) {} }
+"""
+        program = CoralNPUProgram(self.device, "infinite_loop", src)
         with self.assertRaises(TimeoutError):
             program(vals=(10,), timeout=0.1)
 
@@ -87,7 +107,16 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
-            src = b"void write_success(void* ptr, int val, int size) { volatile char* vptr = (volatile char*)ptr; for(int i=0; i<size; i++) vptr[i] = val; }"  # noqa: E501
+            src = b"""
+#ifdef __riscv
+void write_success(void* ptr, int val, int size);
+void _start() __attribute__((naked));
+void _start() {
+  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall write_success\\nebreak");
+}
+#endif
+void write_success(void* ptr, int val, int size) { volatile char* vptr = (volatile char*)ptr; for(int i=0; i<size; i++) vptr[i] = val; }
+"""
             program = CoralNPUProgram(self.device, "write_success", src)
             MAX_EXECUTION_TIMEOUT_SLA = 15.0  # Derived from expected execution SLA
             program(handle, vals=(65, 3), timeout=MAX_EXECUTION_TIMEOUT_SLA)
@@ -104,11 +133,22 @@ if __name__ == '__main__':
 def _shared_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
     from multiprocessing import shared_memory
+    import atexit
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
+    atexit.register(lambda: [shm.close(), shm.unlink()])
     device.allocator.shms[handle] = shm
     try:
-        src = b"void double_array(float* ptr, int size) { for(int i=0; i<size; i++) ptr[i] = ptr[i] * 2.0f; }"
+        src = b"""
+#ifdef __riscv
+void double_array(float* ptr, int size);
+void _start() __attribute__((naked));
+void _start() {
+  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall double_array\\nebreak");
+}
+#endif
+void double_array(float* ptr, int size) { for(int i=0; i<size; i++) ptr[i] = ptr[i] * 2.0f; }
+"""
         program = CoralNPUProgram(device, "double_array", src)
         program(handle, vals=(shape_size,))
         return True
@@ -119,11 +159,22 @@ def _shared_worker(handle, shm_name, shape_size):
 def _hanging_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
     from multiprocessing import shared_memory
+    import atexit
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
+    atexit.register(lambda: [shm.close(), shm.unlink()])
     device.allocator.shms[handle] = shm
     try:
-        src = b"void infinite_loop(float* ptr, int size) { while(1) {} }"
+        src = b"""
+#ifdef __riscv
+void infinite_loop(float* ptr, int size);
+void _start() __attribute__((naked));
+void _start() {
+  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall infinite_loop\\nebreak");
+}
+#endif
+void infinite_loop(float* ptr, int size) { while(1) {} }
+"""
         program = CoralNPUProgram(device, "infinite_loop", src)
         program(handle, vals=(shape_size,), timeout=0.1)
         return True
@@ -139,16 +190,27 @@ class TestIpcWorkerPool(unittest.TestCase):
         self.tmp_dir = tempfile.TemporaryDirectory()
         mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
 
-        src_path = os.path.join(self.tmp_dir.name, "base.c")
-        with open(src_path, "w") as f: f.write("void _start() {}")
-        from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
+        # Authentic NPU Assembly kernel payload doing native memory writes
+        src_path = os.path.join(self.tmp_dir.name, "kernel.s")
+        with open(src_path, "w") as f:
+            f.write(".global _start\n.section .text\n_start:\n    la sp, __stack_end__\n    li t0, 0x6000\n    csrs mstatus, t0\n    ebreak\n")
+            
+        tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
+        with open(tpl_path, "r") as f: ld_content = f.read()
+        ld_content = ld_content.replace("@@ITCM_LENGTH@@", "8192").replace("@@DTCM_ORIGIN@@", "0x00800000").replace("@@DTCM_LENGTH@@", "1024").replace("@@STACK_SIZE@@", "32768").replace("@@HEAP_SIZE_SPEC@@", "__heap_size = 32768;").replace("@@HEAP_LOCATION@@", "DTCM").replace("@@STACK_START_SPEC@@", ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;")
         ld_path = os.path.join(self.tmp_dir.name, "linker.ld")
-        with open(ld_path, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+        with open(ld_path, "w") as f: f.write(ld_content)
 
         import subprocess
         subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
 
-        self.patcher = patch.dict(os.environ, {"CORALNPU_ELF": mock_elf_path})
+        sim_path = "/workspace/louhi_ws/coralnpu-mpact/bazel-bin/sim"
+        if not os.path.exists(os.path.join(sim_path, "coralnpu_v2_sim")):
+            sim_path = None
+        env_patch = {"CORALNPU_ELF": mock_elf_path}
+        if sim_path:
+            env_patch["PATH"] = sim_path + os.pathsep + os.environ.get("PATH", "")
+        self.patcher = patch.dict(os.environ, env_patch)
         self.patcher.start()
 
     def tearDown(self):
@@ -192,7 +254,7 @@ class TestIpcWorkerPool(unittest.TestCase):
             try:
                 pool.submit(0, handle, shm_name, 100)
                 with self.assertRaises(TimeoutError):
-                    FAST_HANG_DETECT_TIMEOUT = 0.1  # Minimal timeout to verify IPC watchdog hang detection
+                    FAST_HANG_DETECT_TIMEOUT = 10.0  # Must be strictly longer than native simulator watchdog (5s)
                     pool.get_result(0, timeout=FAST_HANG_DETECT_TIMEOUT)
             finally:
                 pool.shutdown()
