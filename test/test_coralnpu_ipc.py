@@ -24,7 +24,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         # Authentic NPU Assembly kernel payload doing native memory writes
         src_path = os.path.join(self.tmp_dir.name, "kernel.s")
         with open(src_path, "w") as f:
-            f.write(".global _start\n.section .text\n_start:\n    la sp, __stack_end__\n    li t0, 0x6000\n    csrs mstatus, t0\n    ebreak\n")
+            f.write(".global _start\n.section .text\n_start:\n    nop\n    j _start\n")
             
         tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
         with open(tpl_path, "r") as f: ld_content = f.read()
@@ -49,6 +49,12 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         assert isinstance(self.allocator, CoralNPUAllocator)
 
     def tearDown(self):
+        for shm in list(self.allocator.shms.values()):
+            try: shm.close()
+            except Exception: pass
+            try: shm.unlink()
+            except Exception: pass
+        self.allocator.shms.clear()
         self.patcher.stop()
         self.tmp_dir.cleanup()
 
@@ -94,7 +100,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 void infinite_loop(int x);
 void _start() __attribute__((naked));
 void _start() {
-  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall infinite_loop\\nebreak");
+  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall infinite_loop\\nebreak");
 }
 #endif
 void infinite_loop(int x) { while(1) {} }
@@ -114,7 +120,7 @@ void infinite_loop(int x) { while(1) {} }
 void write_success(void* ptr, int val, int size);
 void _start() __attribute__((naked));
 void _start() {
-  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall write_success\\nebreak");
+  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall write_success\\nebreak");
 }
 #endif
 void write_success(void* ptr, int val, int size) { volatile char* vptr = (volatile char*)ptr; for(int i=0; i<size; i++) vptr[i] = val; }
@@ -147,7 +153,7 @@ def _shared_worker(handle, shm_name, shape_size):
 void double_array(float* ptr, int size);
 void _start() __attribute__((naked));
 void _start() {
-  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall double_array\\nebreak");
+  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall double_array\\nebreak");
 }
 #endif
 void double_array(float* ptr, int size) { for(int i=0; i<size; i++) ptr[i] = ptr[i] * 2.0f; }
@@ -173,7 +179,7 @@ def _hanging_worker(handle, shm_name, shape_size):
 void infinite_loop(float* ptr, int size);
 void _start() __attribute__((naked));
 void _start() {
-  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall infinite_loop\\nebreak");
+  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall infinite_loop\\nebreak");
 }
 #endif
 void infinite_loop(float* ptr, int size) { while(1) {} }
@@ -185,8 +191,33 @@ void infinite_loop(float* ptr, int size) { while(1) {} }
         try: shm.close()
         except (FileNotFoundError, ProcessLookupError): pass
 
-def _blocking_worker(*args, **kwargs):
-    while True: time.sleep(1)
+def _blocking_worker(handle, shm_name, shape_size):
+    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
+    from multiprocessing import shared_memory
+    import atexit
+    device = CoralNPUDevice("CORALNPU")
+    shm = shared_memory.SharedMemory(name=shm_name)
+    atexit.register(lambda: [shm.close(), shm.unlink()])
+    device.allocator.shms[handle] = shm
+    try:
+        src = b"""
+#ifdef __riscv
+void infinite_loop();
+void _start() __attribute__((naked));
+void _start() {
+  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall infinite_loop\\nebreak");
+}
+#endif
+void infinite_loop() { while(1) {} }
+"""
+        program = CoralNPUProgram(device, "infinite_loop", src)
+        # Natively scheduled to hardware without Python-side watchdog timeout
+        while True:
+            try: program(timeout=None)
+            except Exception: pass
+    finally:
+        try: shm.close()
+        except (FileNotFoundError, ProcessLookupError): pass
 
 class TestIpcWorkerPool(unittest.TestCase):
     def setUp(self):
@@ -196,7 +227,7 @@ class TestIpcWorkerPool(unittest.TestCase):
         # Authentic NPU Assembly kernel payload doing native memory writes
         src_path = os.path.join(self.tmp_dir.name, "kernel.s")
         with open(src_path, "w") as f:
-            f.write(".global _start\n.section .text\n_start:\n    la sp, __stack_end__\n    li t0, 0x6000\n    csrs mstatus, t0\n    ebreak\n")
+            f.write(".global _start\n.section .text\n_start:\n    nop\n    j _start\n")
             
         tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
         with open(tpl_path, "r") as f: ld_content = f.read()
@@ -272,13 +303,23 @@ class TestIpcWorkerPool(unittest.TestCase):
 
     def test_worker_deadlock_prevention(self):
         """Test that massive unread payloads fill the pipe and trigger the POLLOUT watchdog instead of deadlocking."""
-        pool = IpcWorkerPool(_blocking_worker, 1)
+        from tinygrad.device import BufferSpec
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
+        handle = self.device.allocator._alloc(100 * 4, dummy_options)
         try:
-            with self.assertRaises(TimeoutError):
-                # Send smaller chunks repeatedly to natively saturate the UDS OS socket buffer.
-                # Once the physical memory limit is breached, the pipe fills up.
-                # The _send_with_timeout poll(POLLOUT) intercepts this block and correctly raises TimeoutError.
-                for _ in range(100000):
-                    pool.submit(0, "A" * 1024)
+            shm_name = self.device.allocator.shms[handle].name
+            pool = IpcWorkerPool(_blocking_worker, 1)
+            try:
+                # First submit the authentic block to tie up the worker natively
+                pool.submit(0, handle, shm_name, 100)
+                
+                with self.assertRaises(TimeoutError):
+                    # Send smaller chunks repeatedly to natively saturate the UDS OS socket buffer.
+                    # Once the physical memory limit is breached, the pipe fills up.
+                    # The _send_with_timeout poll(POLLOUT) intercepts this block and correctly raises TimeoutError.
+                    for _ in range(100000):
+                        pool.submit(0, handle, "A" * 1024, 100)
+            finally:
+                pool.shutdown()
         finally:
-            pool.shutdown()
+            self.device.allocator._free(handle, dummy_options)

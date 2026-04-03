@@ -174,7 +174,7 @@ SECTIONS {
   .noinit (NOLOAD) : { . = ALIGN(16); *(.noinit*) } > EXTMEM
   .data : { *(.data*) } > EXTMEM
   .bss : { *(.bss*) } > EXTMEM
-  .stack (NOLOAD) : { . = ALIGN(16); . += 0x1000; _stack_top = .; } > EXTMEM
+  .stack (NOLOAD) : { . = ALIGN(16); . += 0x1000; __stack_end__ = .; } > EXTMEM
   _end = .;
 }"""
 
