@@ -215,8 +215,16 @@ class TestIpcWorkerPool(unittest.TestCase):
             env_patch["PATH"] = sim_path + os.pathsep + os.environ.get("PATH", "")
         self.patcher = patch.dict(os.environ, env_patch)
         self.patcher.start()
+        from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
+        self.device = CoralNPUDevice("CORALNPU")
 
     def tearDown(self):
+        for shm in list(self.device.allocator.shms.values()):
+            try: shm.close()
+            except Exception: pass
+            try: shm.unlink()
+            except Exception: pass
+        self.device.allocator.shms.clear()
         self.patcher.stop()
         self.tmp_dir.cleanup()
 
@@ -225,13 +233,12 @@ class TestIpcWorkerPool(unittest.TestCase):
         from tinygrad.device import BufferSpec
         import numpy as np
 
-        device = CoralNPUDevice("CORALNPU")
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
-        handle = device.allocator._alloc(100 * 4, dummy_options)
+        handle = self.device.allocator._alloc(100 * 4, dummy_options)
         try:
-            arr = np.ndarray((100,), dtype=np.float32, buffer=device.allocator.shms[handle].buf)
+            arr = np.ndarray((100,), dtype=np.float32, buffer=self.device.allocator.shms[handle].buf)
             arr[:] = 5.0
-            shm_name = device.allocator.shms[handle].name
+            shm_name = self.device.allocator.shms[handle].name
 
             pool = IpcWorkerPool(_shared_worker, 1)
             try:
@@ -243,16 +250,15 @@ class TestIpcWorkerPool(unittest.TestCase):
             finally:
                 pool.shutdown()
         finally:
-            device.allocator._free(handle, dummy_options)
+            self.device.allocator._free(handle, dummy_options)
 
     def test_worker_timeout(self):
         """Test that a hanging worker correctly triggers a TimeoutError on the parent without deadlocking."""
         from tinygrad.device import BufferSpec
-        device = CoralNPUDevice("CORALNPU")
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
-        handle = device.allocator._alloc(100 * 4, dummy_options)
+        handle = self.device.allocator._alloc(100 * 4, dummy_options)
         try:
-            shm_name = device.allocator.shms[handle].name
+            shm_name = self.device.allocator.shms[handle].name
             pool = IpcWorkerPool(_hanging_worker, 1)
             try:
                 pool.submit(0, handle, shm_name, 100)
@@ -262,7 +268,7 @@ class TestIpcWorkerPool(unittest.TestCase):
             finally:
                 pool.shutdown()
         finally:
-            device.allocator._free(handle, dummy_options)
+            self.device.allocator._free(handle, dummy_options)
 
     def test_worker_deadlock_prevention(self):
         """Test that massive unread payloads fill the pipe and trigger the POLLOUT watchdog instead of deadlocking."""
