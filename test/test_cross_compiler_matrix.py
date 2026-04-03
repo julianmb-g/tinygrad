@@ -51,7 +51,7 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
           pass
 
       if not found_compiler:
-        raise unittest.SkipTest("No cross-compilers available")
+        raise FileNotFoundError("No cross-compilers available")
 
       for compiler in compilers:
         # Verify host compiler existence

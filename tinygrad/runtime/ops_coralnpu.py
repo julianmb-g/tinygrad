@@ -253,9 +253,7 @@ class CoralNPUProgram:
       raise FileNotFoundError(f"Hardware simulator missing: {e}")
     active_pids.add(p.pid)
     try:
-      p.wait(timeout=timeout + 5.0)
-    except subprocess.TimeoutExpired:
-      raise TimeoutError(f"Hardware execution timed out natively after {timeout}s")
+      p.wait()
     finally:
       if p.poll() is None:
         try:

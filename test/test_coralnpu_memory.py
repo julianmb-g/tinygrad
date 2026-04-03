@@ -75,7 +75,7 @@ class TestCoralNPUMemory(unittest.TestCase):
             try:
                 subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=kDefaultCompilationTimeoutS)
             except FileNotFoundError:
-                raise unittest.SkipTest("g++ toolchain missing")
+                raise FileNotFoundError("g++ toolchain missing")
 
             lib = ctypes.CDLL(so_path)
 
@@ -165,7 +165,7 @@ extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
             try:
                 subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=kDefaultCompilationTimeoutS)
             except FileNotFoundError:
-                raise unittest.SkipTest("g++ toolchain missing")
+                raise FileNotFoundError("g++ toolchain missing")
 
             lib = ctypes.CDLL(so_path)
 

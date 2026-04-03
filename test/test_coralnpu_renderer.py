@@ -140,7 +140,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     try:
       index = clang.cindex.Index.create()
     except (FileNotFoundError, OSError, clang.cindex.LibclangError) as e:
-      raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
+      raise FileNotFoundError(f"libclang not found or failed to initialize: {e}")
 
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
       dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n"  # noqa: E501
@@ -188,7 +188,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       try:
         subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
       except FileNotFoundError:
-        raise unittest.SkipTest("Toolchain missing")
+        raise FileNotFoundError("Toolchain missing")
       except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         self.fail("Generated C++ code failed to compile natively via GCC.")
 
@@ -240,7 +240,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       try:
         subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
       except FileNotFoundError:
-        raise unittest.SkipTest("Toolchain missing")
+        raise FileNotFoundError("Toolchain missing")
       except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         self.fail("Generated C++ code failed to compile natively via GCC.")
 
@@ -288,7 +288,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       try:
         subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
       except FileNotFoundError:
-        raise unittest.SkipTest("Toolchain missing")
+        raise FileNotFoundError("Toolchain missing")
       except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
         self.fail("Generated C++ code failed to compile natively via GCC.")
 
@@ -387,7 +387,7 @@ class TestCoralNPURenderer(unittest.TestCase):
         try:
           compiler.compile(src)
         except FileNotFoundError:
-          raise unittest.SkipTest("Toolchain missing, skipping.")
+          raise FileNotFoundError("Toolchain missing, skipping.")
         self.assertTrue(os.path.exists(os.path.join(tmpdir, "kernel_0.cc")))
 
   def test_noinit_section_generation(self):
@@ -407,7 +407,7 @@ class TestCoralNPURenderer(unittest.TestCase):
         try:
           compiler.compile(src)
         except FileNotFoundError:
-          raise unittest.SkipTest("Toolchain missing, skipping.")
+          raise FileNotFoundError("Toolchain missing, skipping.")
         self.assertTrue(os.path.exists(os.path.join(tmpdir, "kernel_0.ld")))
         with open(os.path.join(tmpdir, "kernel_0.ld"), "r") as f:
             ld_content = f.read()
@@ -441,7 +441,7 @@ class TestCoralNPURenderer(unittest.TestCase):
         out = x.cast("int32").matmul(w.cast("int32").T)
         schedule = out.schedule()
       except FileNotFoundError:
-        raise unittest.SkipTest("Missing cross-compiler required for organic E2E tests.")
+        raise FileNotFoundError("Missing cross-compiler required for organic E2E tests.")
       vdot_found = False
 
       for si in schedule:
@@ -508,7 +508,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       try:
         index = clang.cindex.Index.create()
       except (FileNotFoundError, OSError, clang.cindex.LibclangError) as e:
-        raise unittest.SkipTest(f"libclang not found or failed to initialize: {e}")
+        raise FileNotFoundError(f"libclang not found or failed to initialize: {e}")
 
       with tempfile.NamedTemporaryFile(suffix=".cc") as f:
         dummy_includes = "#include <stdint.h>\ntypedef int32_t int32_t4 __attribute__((vector_size(16)));\n"
@@ -582,7 +582,7 @@ class TestCoralNPURenderer(unittest.TestCase):
         try:
           subprocess.check_call(["g++", "-c", "-x", "c++", f.name, "-o", "/dev/null"], timeout=kDefaultCompilationTimeoutS)
         except FileNotFoundError:
-          raise unittest.SkipTest("Toolchain missing")
+          raise FileNotFoundError("Toolchain missing")
         except (subprocess.CalledProcessError, subprocess.TimeoutExpired):
           self.fail("Generated C++ code failed to compile natively via GCC.")
 
