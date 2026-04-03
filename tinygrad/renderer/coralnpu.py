@@ -1074,7 +1074,7 @@ class CoralNPURenderer(CStyleLanguage):
         src = src.replace("extern \"C\" void", "void")
 
     # Inject baremetal hardware initialization stub
-    src += f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\n.insn 4, 0x08000073");\n}}\n#endif\n'
+    src += f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\nebreak");\n}}\n#endif\n'
 
     return src
 

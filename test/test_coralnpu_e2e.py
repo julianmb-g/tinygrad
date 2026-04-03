@@ -18,7 +18,7 @@ class TestCoralNPUE2E(unittest.TestCase):
         with open(cls.ld_path, 'w') as f:
             f.write(CORALNPU_DTCM_LINKER_SCRIPT)
         with open(cls.src_path, 'w') as f:
-            f.write('void _start() { asm volatile(".insn 4, 0x08000073"); }')
+            f.write('void _start() { asm volatile("ebreak"); }')
 
         subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path])
 
@@ -57,7 +57,7 @@ class TestCoralNPUE2E(unittest.TestCase):
                 noinit_buf[0] = 30.0f;
                 accum_buf[0] = 42.0f;
                 out[0] = ping_buf[0] + pong_buf[0] + noinit_buf[0] + accum_buf[0];
-                asm volatile(".insn 4, 0x08000073");
+                asm volatile("ebreak");
             }}
             """.encode()
 
