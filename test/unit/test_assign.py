@@ -4,6 +4,7 @@ import unittest
 import numpy as np
 
 from tinygrad import GlobalCounters, Tensor, TinyJit, Variable, dtypes
+from tinygrad.device import is_dtype_supported
 from tinygrad.helpers import temp, CI, DEV, Context
 
 N = 200  # has to be bigger than the cache to fail

@@ -1,9 +1,11 @@
+import atexit
 import functools
 import math
 import multiprocessing
 import multiprocessing.shared_memory
 import os
 import re
+import signal
 import struct
 import subprocess
 import tempfile

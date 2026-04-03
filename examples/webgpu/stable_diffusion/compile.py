@@ -10,6 +10,10 @@ from tinygrad.nn.state import get_state_dict, safe_save, safe_load_metadata, tor
 from tinygrad.tensor import Tensor
 from tinygrad import dtypes
 from tinygrad.helpers import DEV, fetch
+from typing import NamedTuple, Any, List
+import requests
+import argparse
+import numpy as np
 
 def convert_f32_to_f16(input_file, output_file):
   with open(input_file, 'rb') as f:

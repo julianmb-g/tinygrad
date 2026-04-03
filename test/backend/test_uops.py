@@ -5,12 +5,16 @@ from typing import Any, Optional
 
 import numpy as np
 from tinygrad.tensor import Tensor, _to_np_dtype
-from tinygrad.helpers import Context
+from tinygrad.helpers import CI, Context
 from tinygrad.dtype import dtypes, DType, AddrSpace, ConstFloat  # noqa: F401
 from tinygrad.device import Buffer, Device
 from tinygrad.uop.ops import Ops, UOp, KernelInfo, AxisType
+from tinygrad.renderer.cstyle import CStyleLanguage
 from tinygrad.engine.realize import CompiledRunner, get_program, get_runner
 from tinygrad.engine.schedule import ExecItem
+from tinygrad.helpers import Context, getenv
+from tinygrad.tensor import Tensor, _to_np_dtype
+from tinygrad.uop.ops import AxisType, KernelInfo, Ops, UOp
 
 
 def _uops_to_prg(uops_list):

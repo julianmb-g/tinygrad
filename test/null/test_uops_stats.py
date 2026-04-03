@@ -9,6 +9,11 @@ from tinygrad.uop.ops import Ops, UOp
 from tinygrad.dtype import dtypes
 from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 from tinygrad.device import Device
+from tinygrad.dtype import dtypes
+from tinygrad.engine.realize import get_program
+from tinygrad.helpers import EMULATE, GlobalCounters, getenv
+from tinygrad.renderer import Estimates, ProgramSpec
+from tinygrad.uop.ops import Ops, UOp
 
 
 def flops_mem(uops, ignore_indexing=False):

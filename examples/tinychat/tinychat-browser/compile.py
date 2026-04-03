@@ -10,7 +10,9 @@ from extra.export_model import export_model
 from tinygrad import Device, Tensor, TinyJit, Variable, dtypes
 from tinygrad.helpers import Context, fetch
 from tinygrad.nn.state import get_state_dict, load_state_dict
-from tinygrad.helpers import DEV
+from tinygrad import Device, Variable, Tensor, dtypes, TinyJit
+from tinygrad.helpers import DEV, fetch, Context
+from tiktoken.load import load_tiktoken_bpe, dump_tiktoken_bpe
 
 def prepare_browser_chunks(model):
   # split weights into browser-friendly chunks

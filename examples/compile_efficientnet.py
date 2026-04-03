@@ -6,7 +6,13 @@ from tinygrad.nn.state import get_state_dict, safe_save, safe_load, load_state_d
 from extra.export_model import export_model
 from tinygrad.helpers import fetch
 import ast
+from pathlib import Path
 
+from extra.export_model import export_model
+from extra.models.efficientnet import EfficientNet
+from tinygrad.helpers import fetch, getenv
+from tinygrad.nn.state import get_state_dict, load_state_dict, safe_load, safe_save
+from tinygrad.tensor import Tensor
 
 if __name__ == "__main__":
   model = EfficientNet(0)

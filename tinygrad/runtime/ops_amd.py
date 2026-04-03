@@ -34,6 +34,8 @@ from tinygrad.runtime.support.am.amdev import AMDev, AMMemoryManager
 from tinygrad.runtime.support.amd import AMDReg, AMDIP, import_module, import_soc, import_ip_offsets, import_pmc
 from tinygrad.runtime.support.system import System, PCIIfaceBase, PCIAllocationMeta, USBPCIDevice, MAP_FIXED, MAP_NORESERVE
 from tinygrad.runtime.support.memory import AddrSpace
+from tinygrad.runtime.support.system import MAP_FIXED, MAP_NORESERVE, PCIAllocationMeta, PCIDevice, PCIIfaceBase, System, USBPCIDevice
+from tinygrad.uop.ops import sint
 
 if getenv("IOCTL"): import extra.hip_gpu_driver.hip_ioctl  # noqa: F401 # pylint: disable=unused-import
 

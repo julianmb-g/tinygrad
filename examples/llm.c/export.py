@@ -7,6 +7,8 @@ from train_gpt2 import GPT, GPTConfig
 from tinygrad.helpers import DEV, dedup, flatten, getenv, GlobalCounters, to_function_name
 from tinygrad.engine.realize import get_kernel
 from tinygrad.engine.memory import memory_planner
+from tinygrad.engine.realize import get_kernel
+from tinygrad.helpers import GlobalCounters, dedup, flatten, getenv, to_function_name
 from tinygrad.uop.ops import Ops
 
 DEV.value = "CPU"

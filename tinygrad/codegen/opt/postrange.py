@@ -12,7 +12,40 @@ from tinygrad.helpers import colored, BEAM, getenv, DEBUG, to_function_name, NOO
 from tinygrad.helpers import ALLOW_TF32, count, Context
 from tinygrad.codegen.opt import Opt, OptOps, KernelOptError, check
 from tinygrad.codegen.simplify import pm_flatten_range
+from tinygrad.device import Buffer
+from tinygrad.dtype import ImageDType, dtypes
+from tinygrad.helpers import (
+  ALLOW_TF32,
+  BEAM,
+  DEBUG,
+  NOOPT,
+  Context,
+  argsort,
+  colored,
+  count,
+  flatten,
+  get_single_element,
+  getenv,
+  merge_dicts,
+  prod,
+  round_up,
+  to_function_name,
+)
 from tinygrad.renderer import Renderer
+from tinygrad.uop.ops import (
+  AxisType,
+  GroupOp,
+  KernelInfo,
+  Ops,
+  PatternMatcher,
+  UOp,
+  UPat,
+  axis_colors,
+  axis_letters,
+  axis_to_pos,
+  graph_rewrite,
+  ssimplify,
+)
 
 remove_tags = PatternMatcher([(UPat(GroupOp.All, name="x"), lambda x: x.replace(tag=None) if x.tag is not None else None)])
 

@@ -15,6 +15,48 @@ from tinygrad.schedule.allreduce import create_allreduce_function
 import sys
 from dataclasses import dataclass, field, replace
 
+from tinygrad.codegen.opt import Opt
+from tinygrad.codegen.simplify import pm_flatten_range, pm_reduce_simplify
+from tinygrad.dtype import AddrSpace, ImageDType, Invalid, PtrDType, dtypes
+from tinygrad.helpers import (
+  DEBUG,
+  DEBUG_RANGEIFY,
+  FLOAT16,
+  MAX_KERNEL_BUFFERS,
+  OPENPILOT_HACKS,
+  PCONTIG,
+  SPLIT_REDUCEOP,
+  VIZ,
+  all_int,
+  all_same,
+  argsort,
+  dedup,
+  get_single_element,
+  getenv,
+  partition,
+  prod,
+)
+from tinygrad.schedule.allreduce import create_allreduce_function
+from tinygrad.schedule.indexing import ALWAYS_CONTIGUOUS, BufferizeOpts, IndexingContext, apply_movement_op, run_rangeify
+from tinygrad.schedule.multi import multi_pm
+from tinygrad.uop.ops import (
+  AxisType,
+  BottomUpGate,
+  GroupOp,
+  KernelInfo,
+  Ops,
+  PatternMatcher,
+  UOp,
+  UPat,
+  _substitute,
+  graph_rewrite,
+  identity_element,
+  profile_matches,
+  resolve,
+  should_resolve_call,
+  sint,
+)
+from tinygrad.uop.symbolic import symbolic
 
 sys.setrecursionlimit(10000)
 

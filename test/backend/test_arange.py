@@ -8,6 +8,7 @@ from tinygrad.engine.realize import CompiledRunner, get_program, run_schedule
 from tinygrad.engine.schedule import ExecItem
 from tinygrad.helpers import EMULATE, Context, getenv
 from tinygrad.renderer import Estimates
+from tinygrad.renderer.ptx import PTXRenderer
 from test.helpers import needs_second_gpu
 
 class TestArange(unittest.TestCase):

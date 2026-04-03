@@ -9,6 +9,17 @@ from tinygrad.renderer.cstyle import ClangJITRenderer
 from tinygrad.renderer.llvmir import CPULLVMRenderer
 from tinygrad.renderer.nir import LVPRenderer
 from tinygrad.runtime.support.elf import jit_loader
+from tinygrad.runtime.support.hcq import (
+  CLikeArgsState,
+  HCQAllocator,
+  HCQArgsState,
+  HCQBuffer,
+  HCQCompiled,
+  HCQProgram,
+  HCQSignal,
+  HWQueue,
+  MMIOInterface,
+)
 from tinygrad.uop.ops import sint
 
 
