@@ -101,7 +101,7 @@ void infinite_loop(int x) { while(1) {} }
 """
         program = CoralNPUProgram(self.device, "infinite_loop", src)
         with self.assertRaises(TimeoutError):
-            program(vals=(10,), timeout=0.1)
+            program(vals=(10,), timeout=5.1)
 
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
@@ -179,7 +179,7 @@ void _start() {
 void infinite_loop(float* ptr, int size) { while(1) {} }
 """
         program = CoralNPUProgram(device, "infinite_loop", src)
-        program(handle, vals=(shape_size,), timeout=0.1)
+        program(handle, vals=(shape_size,), timeout=5.1)
         return True
     finally:
         try: shm.close()

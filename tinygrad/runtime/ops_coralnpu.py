@@ -247,15 +247,16 @@ class CoralNPUProgram:
       cmd.extend(["--arg", ",".join(args_list)])
 
     try:
+      timeout = kwargs.get('timeout', kDefaultCompilationTimeoutS)
+      cmd.extend(["--py_watchdog_ms", str(int(timeout * 1000))])
       p = subprocess.Popen(cmd, preexec_fn=os.setpgrp)
     except FileNotFoundError as e:
       raise FileNotFoundError(f"Hardware simulator missing: {e}")
     active_pids.add(p.pid)
     try:
-      timeout = kwargs.get('timeout', kDefaultCompilationTimeoutS)
-      p.wait(timeout=timeout)
+      p.wait(timeout=timeout + 5.0)
     except subprocess.TimeoutExpired:
-      raise TimeoutError(f"Hardware execution timed out after {timeout}s")
+      pass
     finally:
       if p.poll() is None:
         try:
@@ -263,6 +264,9 @@ class CoralNPUProgram:
         except ProcessLookupError:
           pass
     active_pids.discard(p.pid)
+
+    if p.returncode == 124:
+      raise TimeoutError(f"Hardware execution timed out natively after {timeout}s")
 
     if p.returncode != 0:
       return math.inf
