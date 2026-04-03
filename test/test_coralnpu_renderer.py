@@ -4,6 +4,7 @@ import struct
 import subprocess
 import tempfile
 import unittest
+from tinygrad.codegen.opt.heuristic import OutOfMemoryError
 import unittest.mock
 
 import clang.cindex
@@ -66,7 +67,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     vec = UOp(Ops.VECTORIZE, dtypes.float.vec(29), tuple(vec_srcs), None)
     uops = [buf0, idx] + vec_srcs + [vec]
 
-    with self.assertRaisesRegex(RuntimeError, "AST upcast limit exceeded"):
+    with self.assertRaises(MemoryError):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_dtcm_tiling_limit(self):
@@ -103,7 +104,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Interleaved usage forces overlap
     uops_fail = [bufA, bufB, bufC, ldA, ldB, ldC]
-    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB subdivided limit"):
+    with self.assertRaises(OutOfMemoryError):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops_fail)
 
   def test_dma_macro_injection_disjoint(self):
@@ -342,7 +343,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     uops = [buf0, local_huge]
 
     # We organically trap the appropriate error raised natively by CoralNPURenderer.
-    with self.assertRaisesRegex(RuntimeError, "DTCM Tiling exceeded 28KB subdivided limit"):
+    with self.assertRaises(OutOfMemoryError):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_is_non_pow2(self):
@@ -374,7 +375,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       uops.extend([idx, ld])
 
     renderer = CoralNPURenderer()
-    with self.assertRaisesRegex(RuntimeError, "Active floating-point variable allocations exceeded cap"):
+    with self.assertRaises(MemoryError):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_compiler_save_beam_dir(self):

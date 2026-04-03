@@ -649,7 +649,7 @@ class CoralNPURenderer(CStyleLanguage):
     # Enforce AST limit: max_upcast
     for u in uops:
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
-        raise RuntimeError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
+        raise MemoryError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
 
     # Task 3.3.3.2: Floating Point Allocation Cap
     depths = [0] * len(uops)
@@ -667,7 +667,7 @@ class CoralNPURenderer(CStyleLanguage):
 
     active_fp_count = max(fp_depth_counts.values()) if fp_depth_counts else 0
     if active_fp_count > 32:
-      raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
+      raise MemoryError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
 
     # Target-Aware Asynchronous Tracker using buffer_mask intersections
     buffer_masks = {}
@@ -879,14 +879,16 @@ class CoralNPURenderer(CStyleLanguage):
           break
 
       if not allocated:
-        raise RuntimeError(f"DTCM Tiling exceeded 28KB subdivided limit: failed to allocate {size_bytes} bytes")
+        from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+        raise OutOfMemoryError(f"DTCM Tiling exceeded 28KB subdivided limit: failed to allocate {size_bytes} bytes")
 
     # .bss oblieration check
     for u in uops:
       if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None):
         size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
         if size > 4096:
-          raise RuntimeError("BSS section bounds exceeded")
+          from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+          raise OutOfMemoryError("BSS section bounds exceeded")
 
     return self.render_kernel(*self._render(uops), uops)
 
@@ -896,7 +898,7 @@ class CoralNPURenderer(CStyleLanguage):
     # Enforce AST limit: max_upcast
     for u in uops:
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
-        raise RuntimeError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
+        raise MemoryError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
 
     # DTCM Tiling check
     local_lifetimes = {}
@@ -950,14 +952,16 @@ class CoralNPURenderer(CStyleLanguage):
           break
 
       if not allocated:
-        raise RuntimeError(f"DTCM Tiling exceeded 28KB subdivided limit: failed to allocate {size_bytes} bytes")
+        from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+        raise OutOfMemoryError(f"DTCM Tiling exceeded 28KB subdivided limit: failed to allocate {size_bytes} bytes")
 
     # .bss oblieration check
     for u in uops:
       if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None):
         size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
         if size > 4096:
-          raise RuntimeError("BSS section bounds exceeded")
+          from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+          raise OutOfMemoryError("BSS section bounds exceeded")
 
     # Task 3.3.3.2: Floating Point Allocation Cap
     depths = [0] * len(uops)
@@ -975,7 +979,7 @@ class CoralNPURenderer(CStyleLanguage):
 
     active_fp_count = max(fp_depth_counts.values()) if fp_depth_counts else 0
     if active_fp_count > 32:
-      raise RuntimeError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
+      raise MemoryError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
 
     prefix.append("#include <stdint.h>")
     prefix.append("#ifndef CORAL_DMA_ASYNC")
