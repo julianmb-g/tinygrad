@@ -94,7 +94,17 @@ class CoralNPUAllocator(Allocator):
         else:
             self.alloc_refcounts[handle] = 1
 
+    import atexit
     shm = multiprocessing.shared_memory.SharedMemory(create=True, size=size)
+    
+    def cleanup_shm(s):
+        try: s.close()
+        except (FileNotFoundError, ProcessLookupError): pass
+        try: s.unlink()
+        except (FileNotFoundError, ProcessLookupError): pass
+
+    atexit.register(lambda: cleanup_shm(shm))
+    
     self.shms[handle] = shm
     self.mem[handle] = memoryview(shm.buf) # type: ignore
     return handle
@@ -240,14 +250,17 @@ class CoralNPUProgram:
       raise FileNotFoundError(f"Hardware simulator missing: {e}")
     active_pids.add(p.pid)
     try:
-      p.wait()
+      timeout = kwargs.get('timeout', kDefaultCompilationTimeoutS)
+      p.wait(timeout=timeout)
+    except subprocess.TimeoutExpired:
+      raise TimeoutError(f"Hardware execution timed out after {timeout}s")
     finally:
       if p.poll() is None:
         try:
           p.kill()
         except ProcessLookupError:
           pass
-      active_pids.discard(p.pid)
+    active_pids.discard(p.pid)
 
     if p.returncode != 0:
       return math.inf

@@ -78,7 +78,8 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
         program = CoralNPUProgram(self.device, "infinite_loop", b"void infinite_loop(int x) { while(1) {} }")
-        self.assertEqual(program(vals=(10,)), math.inf)
+        with self.assertRaises(TimeoutError):
+            program(vals=(10,), timeout=0.1)
 
     def test_successful_execution_within_timeout(self):
         """Test that a successful execution completes and correctly writes to IPC memory using the actual simulator."""
@@ -112,15 +113,48 @@ def _shared_worker(handle, shm_name, shape_size):
         program(handle, vals=(shape_size,))
         return True
     finally:
-        shm.close()
+        try: shm.close()
+        except (FileNotFoundError, ProcessLookupError): pass
 
-def _hanging_worker(*args, **kwargs):
-    while True: time.sleep(1)
+def _hanging_worker(handle, shm_name, shape_size):
+    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
+    from multiprocessing import shared_memory
+    device = CoralNPUDevice("CORALNPU")
+    shm = shared_memory.SharedMemory(name=shm_name)
+    device.allocator.shms[handle] = shm
+    try:
+        src = b"void infinite_loop(float* ptr, int size) { while(1) {} }"
+        program = CoralNPUProgram(device, "infinite_loop", src)
+        program(handle, vals=(shape_size,), timeout=0.1)
+        return True
+    finally:
+        try: shm.close()
+        except (FileNotFoundError, ProcessLookupError): pass
 
 def _blocking_worker(*args, **kwargs):
     while True: time.sleep(1)
 
 class TestIpcWorkerPool(unittest.TestCase):
+    def setUp(self):
+        self.tmp_dir = tempfile.TemporaryDirectory()
+        mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
+
+        src_path = os.path.join(self.tmp_dir.name, "base.c")
+        with open(src_path, "w") as f: f.write("void _start() {}")
+        from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
+        ld_path = os.path.join(self.tmp_dir.name, "linker.ld")
+        with open(ld_path, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+
+        import subprocess
+        subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
+
+        self.patcher = patch.dict(os.environ, {"CORALNPU_ELF": mock_elf_path})
+        self.patcher.start()
+
+    def tearDown(self):
+        self.patcher.stop()
+        self.tmp_dir.cleanup()
+
     def test_worker_execution(self):
         """Test that the IPC worker correctly receives and executes a task across the boundary."""
         from tinygrad.device import BufferSpec
@@ -148,14 +182,22 @@ class TestIpcWorkerPool(unittest.TestCase):
 
     def test_worker_timeout(self):
         """Test that a hanging worker correctly triggers a TimeoutError on the parent without deadlocking."""
-        pool = IpcWorkerPool(_hanging_worker, 1)
+        from tinygrad.device import BufferSpec
+        device = CoralNPUDevice("CORALNPU")
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
+        handle = device.allocator._alloc(100 * 4, dummy_options)
         try:
-            pool.submit(0)
-            with self.assertRaises(TimeoutError):
-                FAST_HANG_DETECT_TIMEOUT = 0.1  # Minimal timeout to verify IPC watchdog hang detection
-                pool.get_result(0, timeout=FAST_HANG_DETECT_TIMEOUT)
+            shm_name = device.allocator.shms[handle].name
+            pool = IpcWorkerPool(_hanging_worker, 1)
+            try:
+                pool.submit(0, handle, shm_name, 100)
+                with self.assertRaises(TimeoutError):
+                    FAST_HANG_DETECT_TIMEOUT = 0.1  # Minimal timeout to verify IPC watchdog hang detection
+                    pool.get_result(0, timeout=FAST_HANG_DETECT_TIMEOUT)
+            finally:
+                pool.shutdown()
         finally:
-            pool.shutdown()
+            device.allocator._free(handle, dummy_options)
 
     def test_worker_deadlock_prevention(self):
         """Test that massive unread payloads fill the pipe and trigger the POLLOUT watchdog instead of deadlocking."""
