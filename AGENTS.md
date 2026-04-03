@@ -79,3 +79,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 
 * **DTCM DMA Chunk Limit Validation:** Ping-Pong DMA memory transfers are strictly limited to 4KB chunks. If chunks exceed 4KB, the compiler must organically throw an `OutOfMemoryError` instead of falling back to host `.bss`.
 * **ELF Patcher Teardown Ordering**: When tests patch `CORALNPU_ELF` in `os.environ` (e.g., via `unittest.mock.patch.dict`), the `patcher.stop()` MUST be called *after* any cleanup logic that instantiates `CoralNPUDevice`. Instantiating the device after stopping the patcher will cause the allocator to search for a non-existent `coralnpu.elf` and crash with `RuntimeError: VMM base address (_end) not found`.
+
+* **Firmware Bypassing via Empty ELFs**: Explicitly injecting `void _start() {}` into temporary `.c` files to generate dummy `.elf` binaries entirely bypasses authentic firmware execution constraints. Extracting an `_end` symbol from an empty dummy stub fails to prove the memory map integrates with the real hardware linker script natively. All dummy stubs must be purged.
