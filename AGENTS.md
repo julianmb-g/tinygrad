@@ -84,3 +84,6 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 
 * **Harness Execution Consistency (Env Eval):** When setting environment variables like `LIBCLANG_PATH` at the beginning of `test_cmd` in `harness.yaml`, the command string MUST be prefixed with `env ` (e.g., `env LIBCLANG_PATH=... python3 -m pytest`). Failing to prefix with `env` causes the Bash executor to incorrectly interpret the entire string as a single missing executable path, resulting in a fatal `No such file or directory` error that entirely blanks test execution.
 * **Testing Fraud via Overarching Watchdogs**: Do not implement `p.wait(timeout)` and silently catch `subprocess.TimeoutExpired`. The overarching Python watchdog actively masks native simulator hangs. Native execution must halt organically and trigger `absl::DeadlineExceededError`.
+
+* **Missing Explicit Imports**: Unresolved names (e.g., `F821 Undefined name 'Tensor'`) create 100% test voids. You MUST inject explicit imports (like `from tinygrad.tensor import Tensor`, `import numpy as np`) to restore valid execution pathways.
+* **Exception Swallowing Prohibition**: Catching exceptions to skip tests (e.g., `try...except FileNotFoundError: raise unittest.SkipTest`) constitutes testing fraud and is explicitly banned.
