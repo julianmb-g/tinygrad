@@ -46,17 +46,12 @@ def test_cross_compiled_payload_2():
     assert t.numpy().tolist() != []
 """)
 
-            # Run pytest with xdist, trapping ProcessLookupError for authentic IPC teardown fidelity
-            try:
-                result = subprocess.run(
+            # Run pytest with xdist
+            result = subprocess.run(
                     [sys.executable, "-m", "pytest", "-n", "2", authentic_test_file],
                     capture_output=True,
                     text=True
                 )
-            except ProcessLookupError:
-                # IPC Teardown Fidelity mandate requires trapping ProcessLookupError
-                self.skipTest("Caught ProcessLookupError during IPC worker teardown.")
-                return
 
             # Combine stdout and stderr
             output = result.stdout + result.stderr

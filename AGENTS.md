@@ -95,3 +95,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 *   **Data-Loss Audit Requirement**: Always perform a data-loss audit before ending the execution cycle.
 *   **Test Runner Watchdogs**: Always use `pytest -x -n 0` to prevent watchdogs from terminating the execution silently.
 *   **No Testing Illusions**: Do not mock physical TileLink/AXI boundaries with dictionaries. Instantiate genuine SystemVerilog responders.
+
+* **Exception Masking Eradication (tinygrad)**: Removed `self.skipTest()` masking for `ProcessLookupError` during xdist teardown. Masking such exceptions hides genuine IPC failures and root structural crashes (like missing `_end` symbols in ELFs). Native unmasked execution is required to expose these blockers.
