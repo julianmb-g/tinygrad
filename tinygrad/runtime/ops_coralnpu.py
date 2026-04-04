@@ -99,9 +99,9 @@ class CoralNPUAllocator(Allocator):
 
     def cleanup_shm(s):
         try: s.close()
-        except (FileNotFoundError, ProcessLookupError): pass
+        except (FileNotFoundError, ProcessLookupError, BufferError): pass
         try: s.unlink()
-        except (FileNotFoundError, ProcessLookupError): pass
+        except (FileNotFoundError, ProcessLookupError, BufferError): pass
 
     atexit.register(lambda: cleanup_shm(shm))
 
