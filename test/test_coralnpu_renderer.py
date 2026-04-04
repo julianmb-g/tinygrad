@@ -623,7 +623,6 @@ _start:
     from tinygrad.tensor import Tensor
     from tinygrad.codegen.opt.postrange import Scheduler
     from tinygrad.codegen.opt.heuristic import hand_coded_optimizations
-    from tinygrad.device import Device
     from tinygrad.helpers import DEV
     old_default = DEV.value
     DEV.value = "CORALNPU"

@@ -18,7 +18,7 @@ class TestCoralNPUE2E(unittest.TestCase):
         try:
             with open(cls.ld_path, 'w') as f:
                 f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-            
+
             # Compile an AUTHENTIC NPU firmware payload instead of a dummy ebreak stub.
             # This accurately models the physical linker constraints and BSS sections natively.
             with open(cls.src_path, 'w') as f:

@@ -267,7 +267,6 @@ if TYPE_CHECKING: import numpy as np
 
     NOTE: A Tensor can only be scheduled once.
     """
-    from tinygrad.engine.schedule import complete_create_schedule_with_vars
     big_sink, becomes_map = transform_to_call(UOp.sink(*[x.uop for x in (self,)+lst]))
     _apply_map_to_tensors(becomes_map, name="buffers")
 
