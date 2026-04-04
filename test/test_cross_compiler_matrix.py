@@ -5,7 +5,7 @@ import unittest
 import unittest.mock
 
 from tinygrad.renderer.coralnpu import CoralNPURenderer
-from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
+from tinygrad.runtime.ops_coralnpu import CoralNPUProgram, CORALNPU_DTCM_LINKER_SCRIPT
 from tinygrad.uop.ops import Ops, UOp
 from tinygrad.dtype import dtypes
 
@@ -37,8 +37,12 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
     compilers = ["gcc", "g++", "clang", "clang++", "riscv64-unknown-elf-gcc", "riscv64-unknown-elf-g++"]
     flags = ["-O0", "-O1", "-O2", "-O3"]
 
-    with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "#include <stdint.h>\nextern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\ntypedef float float8 __attribute__((vector_size(32)));\n"  # noqa: E501
+
+    with tempfile.NamedTemporaryFile(suffix=".cc") as f, tempfile.NamedTemporaryFile(suffix=".ld") as f_ld:
+      f_ld.write(CORALNPU_DTCM_LINKER_SCRIPT.encode())
+      f_ld.flush()
+      
+      dummy_includes = "extern \"C\" { void test(); void* memcpy(void *dest, const void *src, unsigned long n) { return dest; } }\n#include <stdint.h>\nextern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\ntypedef float float8 __attribute__((vector_size(32)));\n"  # noqa: E501
       f.write((dummy_includes + self.src).encode())
       f.flush()
 
@@ -54,7 +58,6 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
         raise FileNotFoundError("No cross-compilers available")
 
       for compiler in compilers:
-        # Verify host compiler existence
         try:
           subprocess.run([compiler, "--version"], check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=15.0)
         except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
@@ -62,8 +65,12 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
 
         for flag in flags:
           try:
-            subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", os.devnull] + (["-nostdlib"] if "riscv" in compiler else []), stderr=subprocess.STDOUT, timeout=15.0)
+            if "riscv" in compiler:
+              subprocess.check_output([compiler, flag, "-x", "c++", f.name, "-nostdlib", "-T", f_ld.name, "-o", os.devnull], stderr=subprocess.STDOUT, timeout=15.0)
+            else:
+              subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", os.devnull], stderr=subprocess.STDOUT, timeout=15.0)
           except subprocess.CalledProcessError as e:
+
             self.fail(f"Generated C++ code failed to compile natively via {compiler} {flag}: {e.output.decode('utf-8')}")
           except subprocess.TimeoutExpired:
             self.fail(f"Compilation natively via {compiler} {flag} timed out")
