@@ -97,3 +97,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 *   **No Testing Illusions**: Do not mock physical TileLink/AXI boundaries with dictionaries. Instantiate genuine SystemVerilog responders.
 
 * **Exception Masking Eradication (tinygrad)**: Removed `self.skipTest()` masking for `ProcessLookupError` during xdist teardown. Masking such exceptions hides genuine IPC failures and root structural crashes (like missing `_end` symbols in ELFs). Native unmasked execution is required to expose these blockers.
+* **YAML Quoting Integrity**: When modifying string values like `test_cmd` in `harness.yaml` via sed, ensure the appended test paths are placed strictly *inside* the closing quote (e.g., `s|test.py"|test.py new_test.py"|`). Appending at the end of the line breaks YAML syntax by placing arguments outside the quotes.

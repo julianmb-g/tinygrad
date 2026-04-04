@@ -31,6 +31,7 @@ class TestPytestXdistTeardown(unittest.TestCase):
 import pytest
 import multiprocessing
 from tinygrad.tensor import Tensor
+import numpy as np
 
 try:
     multiprocessing.set_start_method('spawn')
@@ -39,11 +40,11 @@ except RuntimeError:
 
 def test_cross_compiled_payload_1():
     t = Tensor([1.5, 4.2], device="CORALNPU").sqrt()
-    assert t.numpy().tolist() != []
+    np.testing.assert_allclose(t.numpy(), [1.2247449, 2.0493901], rtol=1e-5)
 
 def test_cross_compiled_payload_2():
     t = Tensor([3.1, 2.8], device="CORALNPU").max()
-    assert t.numpy().tolist() != []
+    np.testing.assert_allclose(t.numpy(), 3.1, rtol=1e-5)
 """)
 
             # Run pytest with xdist
