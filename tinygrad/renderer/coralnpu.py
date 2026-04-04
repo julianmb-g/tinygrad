@@ -571,7 +571,7 @@ class CoralNPUCompiler(Compiler):
         f.write("  .noinit (NOLOAD) : { . = ALIGN(16); *(.noinit*) } > EXTMEM\n")
         f.write("  .data : { *(.data*) } > EXTMEM\n")
         f.write("  .bss : { *(.bss*) } > EXTMEM\n")
-        f.write("  .stack (NOLOAD) : { . = ALIGN(16); . += 0x1000; _stack_top = .; } > EXTMEM\n")
+        f.write("  .stack (NOLOAD) : { . = ALIGN(16); . += 0x1000; __stack_end__ = .; } > EXTMEM\n")
         f.write("  _end = .;\n")
         f.write("}\n")
       self.kernel_counter += 1
@@ -1074,7 +1074,7 @@ class CoralNPURenderer(CStyleLanguage):
         src = src.replace("extern \"C\" void", "void")
 
     # Inject baremetal hardware initialization stub
-    src += f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\nebreak");\n}}\n#endif\n'
+    src += f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\nebreak");\n}}\n#endif\n'
 
     return src
 

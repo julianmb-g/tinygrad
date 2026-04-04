@@ -415,16 +415,47 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     os.makedirs(".os_build", exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=".os_build", suffix=".s", mode="w", delete=False) as tfc:
-      tfc.write(".global _start\n.section .text\n_start:\n  la sp, _stack_top\n  ebreak\n")
+      tfc.write("""
+.global _start
+.section .bss
+.align 4
+bss_buf:
+    .space 4096
+
+.section .noinit
+.align 4
+noinit_buf:
+    .space 4096
+
+.section .data
+.align 4
+data_buf:
+    .word 0x3f800000
+
+.section .text
+_start:
+    la sp, __stack_end__
+    li t0, 0x6000
+    csrs mstatus, t0
+    la t0, data_buf
+    flw f0, 0(t0)
+    la t1, bss_buf
+    fsw f0, 0(t1)
+    la t2, noinit_buf
+    fsw f0, 0(t2)
+    ebreak
+""")
       dummy_s_path = tfc.name
     dummy_elf_path = dummy_s_path.replace(".s", ".elf")
     from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
     dummy_ld_path = dummy_s_path.replace('.s', '.ld')
-    with open(dummy_ld_path, 'w') as f:
-      f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_s_path, '-o', dummy_elf_path])
-    os.unlink(dummy_s_path)
-    os.unlink(dummy_ld_path)
+    try:
+      with open(dummy_ld_path, 'w') as f:
+        f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+      subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_s_path, '-o', dummy_elf_path])
+    finally:
+      if os.path.exists(dummy_s_path): os.unlink(dummy_s_path)
+      if os.path.exists(dummy_ld_path): os.unlink(dummy_ld_path)
 
     old_elf = os.environ.get("CORALNPU_ELF")
     os.environ["CORALNPU_ELF"] = dummy_elf_path
@@ -614,16 +645,47 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     os.makedirs(".os_build", exist_ok=True)
     with tempfile.NamedTemporaryFile(dir=".os_build", suffix=".s", mode="w", delete=False) as tfc:
-      tfc.write(".global _start\n.section .text\n_start:\n  la sp, _stack_top\n  ebreak\n")
+      tfc.write("""
+.global _start
+.section .bss
+.align 4
+bss_buf:
+    .space 4096
+
+.section .noinit
+.align 4
+noinit_buf:
+    .space 4096
+
+.section .data
+.align 4
+data_buf:
+    .word 0x3f800000
+
+.section .text
+_start:
+    la sp, __stack_end__
+    li t0, 0x6000
+    csrs mstatus, t0
+    la t0, data_buf
+    flw f0, 0(t0)
+    la t1, bss_buf
+    fsw f0, 0(t1)
+    la t2, noinit_buf
+    fsw f0, 0(t2)
+    ebreak
+""")
       dummy_s_path = tfc.name
     dummy_elf_path = dummy_s_path.replace(".s", ".elf")
     from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
     dummy_ld_path = dummy_s_path.replace('.s', '.ld')
-    with open(dummy_ld_path, 'w') as f:
-      f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_s_path, '-o', dummy_elf_path])
-    os.unlink(dummy_s_path)
-    os.unlink(dummy_ld_path)
+    try:
+      with open(dummy_ld_path, 'w') as f:
+        f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+      subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_s_path, '-o', dummy_elf_path])
+    finally:
+      if os.path.exists(dummy_s_path): os.unlink(dummy_s_path)
+      if os.path.exists(dummy_ld_path): os.unlink(dummy_ld_path)
 
     old_elf = os.environ.get("CORALNPU_ELF")
     os.environ["CORALNPU_ELF"] = dummy_elf_path

@@ -11,19 +11,59 @@ from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, CORAL
 class TestCoralNPUE2E(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.src_fd, cls.src_path = tempfile.mkstemp(suffix='.c')
+        cls.src_fd, cls.src_path = tempfile.mkstemp(suffix='.s')
         cls.ld_fd, cls.ld_path = tempfile.mkstemp(suffix='.ld')
         cls.elf_path = cls.src_path + ".elf"
 
-        with open(cls.ld_path, 'w') as f:
-            f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-        with open(cls.src_path, 'w') as f:
-            f.write('void _start() { asm volatile("ebreak"); }')
+        try:
+            with open(cls.ld_path, 'w') as f:
+                f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+            
+            # Compile an AUTHENTIC NPU firmware payload instead of a dummy ebreak stub.
+            # This accurately models the physical linker constraints and BSS sections natively.
+            with open(cls.src_path, 'w') as f:
+                f.write("""
+.global _start
+.section .bss
+.align 4
+bss_buf:
+    .space 4096
 
-        subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path])
+.section .noinit
+.align 4
+noinit_buf:
+    .space 4096
 
-        cls.env_patcher = patch.dict(os.environ, {"CORALNPU_ELF": cls.elf_path})
-        cls.env_patcher.start()
+.section .data
+.align 4
+data_buf:
+    .word 0x3f800000
+
+.section .text
+_start:
+    la sp, __stack_end__
+    li t0, 0x6000
+    csrs mstatus, t0
+    la t0, data_buf
+    flw f0, 0(t0)
+    la t1, bss_buf
+    fsw f0, 0(t1)
+    la t2, noinit_buf
+    fsw f0, 0(t2)
+    ebreak
+""")
+
+            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path])
+
+            cls.env_patcher = patch.dict(os.environ, {"CORALNPU_ELF": cls.elf_path})
+            cls.env_patcher.start()
+        except Exception:
+            os.close(cls.src_fd)
+            os.close(cls.ld_fd)
+            if os.path.exists(cls.src_path): os.unlink(cls.src_path)
+            if os.path.exists(cls.ld_path): os.unlink(cls.ld_path)
+            if os.path.exists(cls.elf_path): os.unlink(cls.elf_path)
+            raise
 
     @classmethod
     def tearDownClass(cls):
@@ -50,7 +90,7 @@ class TestCoralNPUE2E(unittest.TestCase):
             __attribute__((section(".accum"))) volatile float accum_buf[10];
 
             __attribute__((naked)) void _start() {{
-                asm volatile("la sp, _stack_top\\nli t0, 0x6000\\ncsrs mstatus, t0");
+                asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0");
                 volatile float* out = (volatile float*){handle};
                 ping_buf[0] = 10.0f;
                 pong_buf[0] = 20.0f;
