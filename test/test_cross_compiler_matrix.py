@@ -66,9 +66,11 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
         for flag in flags:
           try:
             if "riscv" in compiler:
-              subprocess.check_output([compiler, flag, "-x", "c++", f.name, "-nostdlib", "-T", f_ld.name, "-o", os.devnull], stderr=subprocess.STDOUT, timeout=15.0)
+              with tempfile.NamedTemporaryFile(suffix=".elf") as f_elf:
+                subprocess.check_output([compiler, flag, "-x", "c++", f.name, "-nostdlib", "-T", f_ld.name, "-o", f_elf.name], stderr=subprocess.STDOUT, timeout=15.0)
             else:
-              subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", os.devnull], stderr=subprocess.STDOUT, timeout=15.0)
+              with tempfile.NamedTemporaryFile(suffix=".o") as f_o:
+                subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", f_o.name], stderr=subprocess.STDOUT, timeout=15.0)
           except subprocess.CalledProcessError as e:
 
             self.fail(f"Generated C++ code failed to compile natively via {compiler} {flag}: {e.output.decode('utf-8')}")
