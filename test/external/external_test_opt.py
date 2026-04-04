@@ -9,7 +9,7 @@ from tinygrad import GlobalCounters, Tensor
 from tinygrad.engine.realize import capturing
 from tinygrad.helpers import getenv
 from tinygrad.nn.state import get_parameters
-from tinygrad.engine.realize import capturing, run_schedule
+from tinygrad.engine.realize import run_schedule
 from tinygrad.engine.schedule import linear_to_schedule
 from tinygrad.tensor import _to_np_dtype
 

@@ -12,6 +12,8 @@ from tinygrad.device import Compiled, Compiler, CompileError, LRUAllocator, Prof
 from tinygrad.renderer.cstyle import MetalRenderer
 from tinygrad.runtime.autogen import metal
 from tinygrad.runtime.support.c import DLL
+from tinygrad.helpers import prod, round_up, unwrap
+from tinygrad.helpers import PROFILE, ProfileRangeEvent, to_mv, suppress_finalizing, cpu_profile, cache_dir
 
 # 13 is requestType that metal uses to compile source code into MTLB, there aren't any docs or symbols.
 REQUEST_TYPE_COMPILE = 13

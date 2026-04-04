@@ -2,7 +2,7 @@ import sys
 import unittest
 
 from tinygrad import Device
-from tinygrad.uop.ops import Ops
+from tinygrad.uop.ops import Ops, UOp
 from tinygrad.dtype import dtypes
 
 
@@ -14,20 +14,13 @@ class TestMetalGraph(unittest.TestCase):
     self.dev = Device[Device.DEFAULT]
 
   def metal_buf(self, offset):
-    buf = MagicMock()
+    buf = UOp.new_buffer(Device.DEFAULT, 1024, dtypes.uint8)
     if offset > 0:
-      buf.op = Ops.BUFFER_VIEW
-      buf.arg = (None, offset)
-      buf.dtype = dtypes.uint8
-    else:
-      buf.op = Ops.BUFFER
-    buf.device = Device.DEFAULT
+      return UOp(Ops.BUFFER_VIEW, dtypes.uint8, (buf,), (None, offset))
     return buf
 
   def call(self, *bufs):
-    c = MagicMock()
-    c.src = (MagicMock(op=Ops.PROGRAM),) + tuple(bufs)
-    return c
+    return UOp(Ops.CALL, dtypes.void, (UOp(Ops.PROGRAM, dtypes.void, (), None),) + tuple(bufs), None)
 
   def test_supports_exec_item_normal_offset(self):
     assert self.MetalGraph.supports_exec_item([self.dev], self.call(self.metal_buf(0), self.metal_buf(100), self.metal_buf(0xFFFFFFFF))) is True
@@ -37,9 +30,7 @@ class TestMetalGraph(unittest.TestCase):
 
   def test_supports_exec_item_nonmetal_buf(self):
     # non-BUFFER_VIEW ops should not be checked for offset
-    buf = MagicMock()
-    buf.op = Ops.BUFFER
-    buf.device = Device.DEFAULT
+    buf = UOp.new_buffer(Device.DEFAULT, 1024, dtypes.uint8)
     self.MetalGraph.supports_exec_item([self.dev], self.call(buf))
 
 if __name__ == "__main__":

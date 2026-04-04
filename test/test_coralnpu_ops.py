@@ -1,4 +1,3 @@
-from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import math
 import os
 import struct

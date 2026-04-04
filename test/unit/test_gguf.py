@@ -6,6 +6,7 @@ import numpy as np
 from gguf import GGML_QUANT_SIZES, GGMLQuantizationType, GGUFReader, GGUFValueType, dequantize, quantize
 
 from tinygrad import Device, Tensor, dtypes, fetch
+from tinygrad.device import is_dtype_supported
 from tinygrad.nn.state import ggml_data_to_tensor, gguf_load
 
 ggml_test_block_count = 4

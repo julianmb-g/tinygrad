@@ -9,9 +9,10 @@ torch.set_num_threads(1)
 import onnxruntime as ort
 from onnx2torch import convert
 
-from tinygrad import Device, Tensor, dtypes
+from tinygrad import Device, Tensor, dtypes, Context
 from tinygrad.dtype import _to_np_dtype
-from tinygrad import Tensor, Device, Context, dtypes
+from tinygrad.helpers import getenv, fetch, DEBUG, OSX
+from tinygrad.nn.onnx import OnnxRunner
 
 MODELS = {
   "resnet50": "https://github.com/onnx/models/raw/main/validated/vision/classification/resnet/model/resnet50-caffe2-v1-9.onnx",

@@ -1301,7 +1301,6 @@ def train_llama3():
   from examples.mlperf.models.flat_llama import FlatTransformer, apply_grad
   from examples.llama3 import MODEL_PARAMS
   from examples.mlperf.lr_schedulers import CosineAnnealingLRWithWarmup
-  from examples.mlperf.models.llama import Transformer
   from examples.mlperf.optim import GradAccClipAdamW
 
   INITMLPERF = getenv("INITMLPERF")

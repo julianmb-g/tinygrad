@@ -8,34 +8,6 @@ from tinygrad.uop.ops import Ops, PatternMatcher, UOp, UPat, sym_infer
 from tinygrad.device import Device, Buffer
 from tinygrad.renderer import ProgramSpec, Estimates
 from tinygrad.codegen import get_program
-from tinygrad.device import Buffer, Device
-from tinygrad.helpers import (
-  BEAM,
-  CAPTURING,
-  DEBUG,
-  DEVECTORIZE,
-  EMULATED_DTYPES,
-  NOOPT,
-  PROFILE,
-  TRACEMETA,
-  VALIDATE_WITH_CPU,
-  Context,
-  GlobalCounters,
-  Metadata,
-  ProfilePointEvent,
-  TracingKey,
-  all_int,
-  all_same,
-  ansilen,
-  colored,
-  cpu_events,
-  cpu_profile,
-  prod,
-  time_to_str,
-  unwrap,
-)
-from tinygrad.renderer import Estimates, ProgramSpec
-from tinygrad.uop.ops import Ops, PatternMatcher, UOp, UPat, sym_infer
 
 # **************** Runners ****************
 

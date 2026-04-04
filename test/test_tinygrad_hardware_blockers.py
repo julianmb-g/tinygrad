@@ -14,10 +14,10 @@ class TestTinygradHardwareBlockers(unittest.TestCase):
 
     def test_register_pressure_upcast_limit(self):
         renderer = CoralNPURenderer()
-        
+
         # Use authentic UOp instead of a Python class mock
         uop = UOp(Ops.DEFINE_LOCAL, dtypes.float.vec(29), (), ("temp_vec", 1))
-            
+
         with self.assertRaises(MemoryError):
             renderer.render([uop])
 
@@ -28,7 +28,7 @@ class TestTinygradHardwareBlockers(unittest.TestCase):
         for i in range(33):
             alu = UOp(Ops.ADD, dtypes.float, (cst, cst), None)
             uops.append(alu)
-            
+
         with self.assertRaises(MemoryError):
             renderer.render(uops)
 

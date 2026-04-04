@@ -61,7 +61,6 @@ class _MXCSRContext:
 from tinygrad.uop.ops import UOp, Ops, KernelInfo, AxisType
 from tinygrad.dtype import dtypes, AddrSpace
 from tinygrad.device import Buffer, BufferSpec
-from tinygrad.dtype import dtypes
 from tinygrad.engine.realize import get_runner
 from tinygrad.helpers import DEBUG, PROFILE, Context, colored
 from tinygrad.renderer.amd import decode_inst

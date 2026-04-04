@@ -25,32 +25,6 @@ from tinygrad.helpers import argfix, make_tuple, flatten, prod, all_int, round_u
 from tinygrad.helpers import IMAGE, FLOAT16, WINO, Metadata, TRACEMETA, ASM_GEMM, ceildiv, fetch, is_numpy_ndarray, TracingKey, cpu_profile
 from tinygrad.helpers import suppress_finalizing, disable_gc
 from tinygrad.gradient import compute_gradient
-from tinygrad.helpers import (
-  ASM_GEMM,
-  FLOAT16,
-  IMAGE,
-  TRACEMETA,
-  WINO,
-  Metadata,
-  TracingKey,
-  all_int,
-  all_same,
-  argfix,
-  argsort,
-  ceildiv,
-  cpu_profile,
-  disable_gc,
-  fetch,
-  flatten,
-  fully_flatten,
-  getenv,
-  is_numpy_ndarray,
-  make_tuple,
-  merge_dicts,
-  prod,
-  round_up,
-  suppress_finalizing,
-)
 from tinygrad.mixin import OpMixin
 from tinygrad.uop.ops import smax, smin, resolve, UOp, Ops, sint, identity_element, all_metadata, _index_to_concrete_int, sint_to_uop, Variable
 from tinygrad.uop.ops import _broadcast_shape
@@ -288,12 +262,12 @@ if TYPE_CHECKING: import numpy as np
     return self
 
   def schedule_with_vars(self, *lst:Tensor) -> tuple[list[ExecItem], dict[str, int]]:
-    from tinygrad.engine.schedule import complete_create_schedule_with_vars
     """
     Creates the schedule needed to realize these Tensor(s), with Variables.
 
     NOTE: A Tensor can only be scheduled once.
     """
+    from tinygrad.engine.schedule import complete_create_schedule_with_vars
     big_sink, becomes_map = transform_to_call(UOp.sink(*[x.uop for x in (self,)+lst]))
     _apply_map_to_tensors(becomes_map, name="buffers")
 

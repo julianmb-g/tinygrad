@@ -15,7 +15,6 @@ from tinygrad.renderer.cstyle import CUDARenderer, OpenCLRenderer
 from tinygrad.uop.ops import GroupOp, Ops, UOp, PatternMatcher, UPat, range_str
 from tinygrad.runtime.autogen import mesa
 from tinygrad.runtime.support.c import POINTER
-from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, range_str
 
 
 def g(s:str): return getattr(mesa, s)

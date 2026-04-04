@@ -35,7 +35,7 @@ _start:
         tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
         with open(tpl_path, "r") as f:
             ld_content = f.read()
-        
+
         ld_content = ld_content.replace("@@ITCM_LENGTH@@", "8192")
         ld_content = ld_content.replace("@@DTCM_ORIGIN@@", "0x00800000")
         ld_content = ld_content.replace("@@DTCM_LENGTH@@", "1024")
@@ -43,7 +43,7 @@ _start:
         ld_content = ld_content.replace("@@HEAP_SIZE_SPEC@@", "__heap_size = 32768;")
         ld_content = ld_content.replace("@@HEAP_LOCATION@@", "DTCM")
         ld_content = ld_content.replace("@@STACK_START_SPEC@@", ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;")
-        
+
         with open(self.ld_file, "w") as f:
             f.write(ld_content)
 
@@ -71,7 +71,7 @@ _start:
             if "coralnpu_v2_sim" in files:
                 sim_path = os.path.dirname(os.path.join(root, "coralnpu_v2_sim"))
                 break
-        
+
         env_patch = {"CORALNPU_ELF": self.elf_file}
         if sim_path:
             env_patch["PATH"] = sim_path + os.pathsep + os.environ.get("PATH", "")
@@ -84,7 +84,7 @@ _start:
                 prog = CoralNPUProgram(device, "_start", b"")
                 prog.elf_path = self.elf_file
                 prog.fxn = "compiled"
-                
+
                 prog(handle, wait=True)
 
                 dest = bytearray(4)

@@ -4,6 +4,9 @@ from dataclasses import dataclass
 from tinygrad import Tensor, nn, UOp, TinyJit, getenv, function
 from tinygrad.uop.ops import resolve
 from tinygrad.viz.serve import HTTPRequestHandler, TCPServerWithReuse
+from tinygrad.helpers import GlobalCounters, partition, stderr_log, Timing, Context
+from tinygrad.helpers import colored
+from tinygrad.helpers import DEBUG
 
 
 class SimpleTokenizer:

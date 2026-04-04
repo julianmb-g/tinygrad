@@ -10,10 +10,9 @@ from tinygrad.nn.state import get_state_dict, safe_save, safe_load_metadata, tor
 from tinygrad.tensor import Tensor
 from tinygrad import dtypes
 from tinygrad.helpers import DEV, fetch
-from typing import NamedTuple, Any, List
-import requests
-import argparse
-import numpy as np
+from extra.f16_decompress import u32_to_f16
+from extra.export_model import jit_model, compile_net
+from tinygrad.renderer.wgsl import dtype_to_js_type
 
 def convert_f32_to_f16(input_file, output_file):
   with open(input_file, 'rb') as f:

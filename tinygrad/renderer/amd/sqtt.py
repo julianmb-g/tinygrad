@@ -11,6 +11,7 @@ from enum import Enum
 from tinygrad.helpers import getenv, colored
 from tinygrad.renderer.amd.dsl import BitField, FixedBitField, Inst, bits
 from tinygrad.runtime.autogen.amd.rdna3.ins import s_endpgm  # same encoding as RDNA4
+from typing import Iterator
 
 # ═══════════════════════════════════════════════════════════════════════════════
 # FIELD ENUMS
