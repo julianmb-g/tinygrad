@@ -1089,10 +1089,7 @@ class CoralNPURenderer(CStyleLanguage):
     if "extern \"C\" void" in src and "test_kernel" not in src:
         src = src.replace("extern \"C\" void", "void")
 
-    if src.endswith("}\n}"):
-        src = src[:-2]
-    elif src.endswith("}\n}\n"):
-        src = src[:-3] + "\n"
+
 
     # Inject baremetal hardware initialization stub
     src += f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\nebreak");\n}}\n#endif\n'
@@ -1128,8 +1125,8 @@ class CoralNPURenderer(CStyleLanguage):
     # Enforces strict AXI burst limits. AXI4 allows max 256 beats per burst.
     # For a 32-bit bus, max burst is 1024 bytes.
     return f"""{threshold_check}
-constexpr int CORALNPU_DMA_CHUNK_LIMIT = 1024;
-constexpr int CORALNPU_DMA_ALIGN_MASK = 0x3FF;
+const int CORALNPU_DMA_CHUNK_LIMIT = 1024;
+const int CORALNPU_DMA_ALIGN_MASK = 0x3FF;
 for (int _dma_off = 0; _dma_off < ({size_str}); ) {{
   int _dma_chunk = CORALNPU_DMA_CHUNK_LIMIT - ((((uintptr_t)({src})) + _dma_off) & CORALNPU_DMA_ALIGN_MASK);
   if (_dma_chunk > ({size_str}) - _dma_off) _dma_chunk = ({size_str}) - _dma_off;

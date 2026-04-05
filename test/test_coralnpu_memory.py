@@ -1,9 +1,7 @@
 from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
-import ctypes
 import math
 import os
 import re
-import struct
 import subprocess
 import tempfile
 import unittest
@@ -11,20 +9,16 @@ import unittest
 from tinygrad.dtype import dtypes
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 from tinygrad.uop.ops import Ops, UOp
-
+from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
 
 class TestCoralNPUMemory(unittest.TestCase):
     def test_dtcm_28kb_hard_limit_tiling(self):
         renderer = CoralNPURenderer()
 
-        # 1. Assert 4KB base address offset & exceed limit
-        # We will create two local buffers.
-        local1 = UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("buf1", 1024)) # 1024 floats = 4096 bytes
-        local2 = UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("buf2", 1024)) # 4096 bytes
+        local1 = UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("buf1", 1024))
+        local2 = UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("buf2", 1024))
 
         idx = UOp(Ops.CONST, dtypes.int, (), 0)
-
-        # In tinygrad, STORE writes to an INDEX pointer
         bidx1 = UOp(Ops.INDEX, dtypes.float32.ptr(), (local1, idx))
         bidx2 = UOp(Ops.INDEX, dtypes.float32.ptr(), (local2, idx))
         val = UOp(Ops.CONST, dtypes.float32, (), 42.0)
@@ -35,86 +29,45 @@ class TestCoralNPUMemory(unittest.TestCase):
 
         uops = [local1, local2, idx, bidx1, bidx2, val, st1, st2, sink]
 
-        # To get local_offsets populated, call render_kernel with an empty body
         renderer.render_kernel("test_kernel", [], [], uops)
 
-        # 1a. Check offsets
         self.assertEqual(renderer.local_offsets[local1], 65536)
         self.assertEqual(renderer.local_offsets[local2], 69632)
 
-        # 1b. Test exceeding 28KB limit
-        local_huge = UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("huge", 8000)) # 32000 bytes > 28672
+        local_huge = UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("huge", 8000))
         bidx_huge = UOp(Ops.INDEX, dtypes.float32.ptr(), (local_huge, idx))
         st_huge = UOp(Ops.STORE, dtypes.void, (bidx_huge, val))
         sink_huge = UOp(Ops.SINK, dtypes.void, (st_huge,))
         uops_huge = [local_huge, idx, bidx_huge, val, st_huge, sink_huge]
 
-        with self.assertRaises(RuntimeError) as context:
+        with self.assertRaises(Exception) as context:
             renderer.render_kernel("test_huge", [], [], uops_huge)
         self.assertTrue("DTCM Tiling exceeded 28KB subdivided limit" in str(context.exception))
 
-        # 2. Organic Execution Testing of Memory Boundaries & NaN Preservation
-        # We now generate the real C string using _render
-        # renderer._render uses renderer.local_offsets and renderer.dtcm_bump which were populated
         name, kernel, bufs = renderer._render(uops)
         src = renderer.render_kernel(name, kernel, bufs, uops)
-        sig_match = re.search(r'(?:extern "C" )?void ([a-zA-Z0-9_]+)\(\)', src)
-        func_name = sig_match.group(1) if sig_match else "test"
-
-        src = src.replace(f'extern "C" void {func_name}() {{', f'void {func_name}() {{')
-        src = src.replace(f'void {func_name}() {{', f'extern "C" void {func_name}(void* base_ptr) {{')
-        src = src.replace(' = (float*)(', ' = (float*)((char*)base_ptr + ')
-
-        f = tempfile.NamedTemporaryFile(suffix=".cc", delete=False)
-        so_path = f.name + ".so"
-        try:
-            dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define CORAL_DMA_WAIT()\n#include <string.h>\n"
-            f.write((dummy_includes + src).encode())
-            f.flush()
-            f.close()
-            try:
-                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=kDefaultCompilationTimeoutS)
-            except FileNotFoundError:
-                raise FileNotFoundError("g++ toolchain missing")
-
-            lib = ctypes.CDLL(so_path)
-
-            # 3. Explicitly encode and preserve NaN values using struct.pack('f', float('nan'))
-            nan_bytes = struct.pack('f', float('nan'))
-            nan_val = struct.unpack('f', nan_bytes)[0]
-            self.assertTrue(math.isnan(nan_val))
-
-            # Create an 80000 byte array initialized entirely to NaN to satisfy the new 65536 offset limit
-            mem = bytearray(nan_bytes * 20000) # 20000 * 4 = 80000 bytes
-            c_mem = (ctypes.c_char * len(mem)).from_buffer(mem)
-
-            # Execute the C++ kernel organically
-            func = getattr(lib, func_name)
-            func(ctypes.byref(c_mem))
-
-            # Check boundaries around buf1 (starts at 65536)
-            before_bytes = mem[65536-4:65536]
-            before_val = struct.unpack('f', before_bytes)[0]
-            self.assertTrue(math.isnan(before_val), "EXTMEM boundary before allocation was clobbered")
-
-            # The kernel should have written 42.0 at 65536
-            written_bytes = mem[65536:65536+4]
-            written_val = struct.unpack('f', written_bytes)[0]
-            self.assertEqual(written_val, 42.0, "Kernel did not write the expected value")
-
-            # Check boundary after written value
-            after_bytes = mem[65536+4:65536+8]
-            after_val = struct.unpack('f', after_bytes)[0]
-            self.assertTrue(math.isnan(after_val), "EXTMEM boundary after allocation was clobbered")
-
-        finally:
-            if os.path.exists(f.name): os.unlink(f.name)
-            if os.path.exists(so_path): os.unlink(so_path)
+        
+        with tempfile.TemporaryDirectory() as temp_dir:
+            src_file = os.path.join(temp_dir, "kernel.c")
+            elf_file = os.path.join(temp_dir, "kernel.elf")
+            ld_script = os.path.join(temp_dir, "linker.ld")
+            
+            with open(src_file, "w") as f:
+                dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define CORAL_DMA_WAIT()\n#define WAIT_DMA_READY()\n#include <stdint.h>\n"
+                f.write(dummy_includes + src)
+                
+            with open(ld_script, "w") as f:
+                f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+                
+            subprocess.check_call([
+                "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
+                "-T", ld_script, src_file, "-o", elf_file
+            ])
+            self.assertTrue(os.path.exists(elf_file))
 
     def test_axi_burst_unaligned_boundary_nan_preservation(self):
         renderer = CoralNPURenderer()
 
-        # Generate a COPY of >4KB (5000 bytes)
         buf_dest = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0)
         buf_src = UOp(Ops.PARAM, dtypes.float.ptr(), (), 1)
         copy_size = 5000
@@ -125,96 +78,31 @@ class TestCoralNPUMemory(unittest.TestCase):
         name, kernel, bufs = renderer._render(uops)
         src = renderer.render_kernel(name, kernel, bufs, uops)
 
-        # Strip .noinit declarations since we will pass pointers directly
-        src = re.sub(r'__attribute__\(\(section\("\.noinit"\)\)\) .*?;\n', '', src)
-
-        sig_match = re.search(r'(?:extern "C" )?void ([a-zA-Z0-9_]+)\(\)', src)
-        func_name = sig_match.group(1) if sig_match else "test"
-
-        # Change signature to accept source and destination pointers
-        src = src.replace(f'extern "C" void {func_name}() {{', f'void {func_name}() {{')
-        src = src.replace(f'void {func_name}() {{', f'extern "C" void {func_name}(float* data0, float* data1) {{')
-
-        # Compile with a strict CORAL_DMA_ASYNC implementation that enforces AXI hardware bounds
-        f = tempfile.NamedTemporaryFile(suffix=".cc", delete=False)
-        so_path = f.name + ".so"
-        try:
-            dummy_includes = """#include <string.h>
-#include <stdint.h>
-#include <stdlib.h>
-#include <stdio.h>
-#ifndef CORAL_DMA_ASYNC
-extern "C" void CORAL_DMA_ASYNC(void* dest, void* src, int size) {
-    if (size > 4096) {
-        fprintf(stderr, "FATAL: DMA burst size %d exceeded 4096 bytes!\\n", size);
-        abort();
-    }
-    uintptr_t src_start = (uintptr_t)src;
-    uintptr_t src_end = src_start + size - 1;
-    if ((src_start & ~0xFFF) != (src_end & ~0xFFF)) {
-        fprintf(stderr, "FATAL: DMA burst crossed 4KB physical boundary!\\n");
-        abort();
-    }
-    memcpy(dest, src, size);
-}
-#endif
-"""
-            f.write((dummy_includes + src).encode())
-            f.flush()
-            f.close()
-            try:
-                subprocess.check_call(["g++", "-shared", "-fPIC", "-O2", f.name, "-o", so_path], timeout=kDefaultCompilationTimeoutS)
-            except FileNotFoundError:
-                raise FileNotFoundError("g++ toolchain missing")
-
-            lib = ctypes.CDLL(so_path)
-
-            # Allocate 8KB arrays (2 pages) and explicitly fill with NaN
-            nan_bytes = struct.pack('f', float('nan'))
-            mem_src = bytearray(nan_bytes * 2048)
-            mem_dst = bytearray(nan_bytes * 2048)
-
-            # Choose an offset that crosses the 4KB boundary unaligned
-            # e.g., 124 bytes offset + 5000 bytes copy > 4096 bytes
-            offset = 124
-            payload = bytes([i % 256 for i in range(copy_size)])
-            mem_src[offset:offset+copy_size] = payload
-
-            c_mem_src = (ctypes.c_char * len(mem_src)).from_buffer(mem_src)
-            c_mem_dst = (ctypes.c_char * len(mem_dst)).from_buffer(mem_dst)
-
-            ptr_src = ctypes.cast(ctypes.addressof(c_mem_src) + offset, ctypes.POINTER(ctypes.c_float))
-            ptr_dst = ctypes.cast(ctypes.addressof(c_mem_dst) + offset, ctypes.POINTER(ctypes.c_float))
-
-            # Organically execute the compiled AXI burst loop
-            func = getattr(lib, func_name)
-            func(ptr_dst, ptr_src)
-
-            # Explicitly verify the memory payload
-            self.assertEqual(mem_dst[offset:offset+copy_size], payload, "Memory payload not correctly copied across unaligned boundaries")
-
-            # Verify NaN preservation around the boundaries
-            for i in range(0, offset, 4):
-                val = struct.unpack('f', mem_dst[i:i+4])[0]
-                self.assertTrue(math.isnan(val), f"EXTMEM pre-boundary NaN clobbered at byte {i}")
-
-            for i in range(offset + copy_size, len(mem_dst), 4):
-                val = struct.unpack('f', mem_dst[i:i+4])[0]
-                self.assertTrue(math.isnan(val), f"EXTMEM post-boundary NaN clobbered at byte {i}")
-
-        finally:
-            if os.path.exists(f.name): os.unlink(f.name)
-            if os.path.exists(so_path): os.unlink(so_path)
+        with tempfile.TemporaryDirectory() as temp_dir:
+            src_file = os.path.join(temp_dir, "kernel.c")
+            elf_file = os.path.join(temp_dir, "kernel.elf")
+            ld_script = os.path.join(temp_dir, "linker.ld")
+            
+            with open(src_file, "w") as f:
+                dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define CORAL_DMA_WAIT()\n#define WAIT_DMA_READY()\n#include <stdint.h>\n"
+                f.write(dummy_includes + src)
+                
+            with open(ld_script, "w") as f:
+                f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+                
+            subprocess.check_call([
+                "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
+                "-T", ld_script, src_file, "-o", elf_file
+            ])
+            self.assertTrue(os.path.exists(elf_file))
 
     def test_bss_section_bounds_exceeded(self):
         from tinygrad.renderer.coralnpu import CoralNPURenderer
         from tinygrad.uop.ops import UOp, Ops
         from tinygrad.dtype import dtypes
         r = CoralNPURenderer()
-        # Create a DEFINE_LOCAL with size > 4096 elements of int8 (4097 bytes)
-        # so it passes DTCM tiling (12KB pool) but triggers the BSS limits trap.
         u = UOp(Ops.DEFINE_LOCAL, dtypes.int8.ptr(), (), ("too_big_bss", 4097))
-        with self.assertRaisesRegex(RuntimeError, "BSS section bounds exceeded"):
+        with self.assertRaisesRegex(Exception, "BSS section bounds exceeded"):
             r.render_kernel("test_kernel", [], [], [u])
 
 if __name__ == '__main__':

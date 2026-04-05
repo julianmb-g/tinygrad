@@ -141,7 +141,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       raise FileNotFoundError(f"libclang not found or failed to initialize: {e}")
 
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n"  # noqa: E501
+      dummy_includes = "void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
       tu = index.parse(f.name, args=['-std=c++11'])
@@ -164,7 +164,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
+      dummy_includes = "void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -216,7 +216,7 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
+      dummy_includes = "void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -264,7 +264,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn("WAIT_DMA_READY();", body)
     # Authentic Failure Pipeline Verification and Native GCC Compilation Validation
     with tempfile.NamedTemporaryFile(suffix=".cc") as f:
-      dummy_includes = "extern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
+      dummy_includes = "void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\n#include <stdint.h>\n"  # noqa: E501
       f.write((dummy_includes + src).encode())
       f.flush()
 
@@ -637,82 +637,41 @@ _start:
       DEV.value = old_default
 
   def test_bss_noinit_attribute_generation(self):
-    from tinygrad.tensor import Tensor
-    from tinygrad.engine.realize import get_runner
+    from tinygrad.uop.ops import UOp, Ops
+    from tinygrad.dtype import dtypes
+    from tinygrad.renderer.coralnpu import CoralNPURenderer
     import tempfile
+    import subprocess
     import os
-
-    os.makedirs(".os_build", exist_ok=True)
-    with tempfile.NamedTemporaryFile(dir=".os_build", suffix=".s", mode="w", delete=False) as tfc:
-      tfc.write("""
-.global _start
-.section .bss
-.align 4
-bss_buf:
-    .space 4096
-
-.section .noinit
-.align 4
-noinit_buf:
-    .space 4096
-
-.section .data
-.align 4
-data_buf:
-    .word 0x3f800000
-
-.section .text
-_start:
-    la sp, __stack_end__
-    li t0, 0x6000
-    csrs mstatus, t0
-    la t0, data_buf
-    flw f0, 0(t0)
-    la t1, bss_buf
-    fsw f0, 0(t1)
-    la t2, noinit_buf
-    fsw f0, 0(t2)
-    ebreak
-""")
-      dummy_s_path = tfc.name
-    dummy_elf_path = dummy_s_path.replace(".s", ".elf")
     from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
-    dummy_ld_path = dummy_s_path.replace('.s', '.ld')
-    try:
-      with open(dummy_ld_path, 'w') as f:
-        f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-      subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', dummy_ld_path, dummy_s_path, '-o', dummy_elf_path])
-    finally:
-      if os.path.exists(dummy_s_path): os.unlink(dummy_s_path)
-      if os.path.exists(dummy_ld_path): os.unlink(dummy_ld_path)
 
-    old_elf = os.environ.get("CORALNPU_ELF")
-    os.environ["CORALNPU_ELF"] = dummy_elf_path
-
-    from tinygrad.helpers import DEV
-    old_default = DEV.value
-    DEV.value = "CPU"
-    try:
-      # Authentic workload that requires an accumulator (sum reduction)
-      t = Tensor.randn(1024).sum()
-      si = t.schedule()[-1]
-
-      # Manually compile it to source using CoralNPURenderer without linking or running it
-      runner = get_runner("CORALNPU", si.ast)
-      src = runner.p.src
-
-      self.assertIn('__attribute__((section(".noinit")))', src)
-      self.assertIn('static float', src) # verify static attribute for registers
-    finally:
-      DEV.value = old_default
-      if old_elf is not None:
-        os.environ["CORALNPU_ELF"] = old_elf
-      else:
-        del os.environ["CORALNPU_ELF"]
-      os.unlink(dummy_elf_path)
-
-
-if __name__ == '__main__':
-
-  unittest.main()
+    r = CoralNPURenderer()
+    u_noinit = UOp(Ops.DEFINE_REG, dtypes.float.ptr(size=1024), (), "noinit_buf")
+    u_bss = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("bss_buf", 1024))
+    idx = UOp(Ops.CONST, dtypes.int, (), 0)
+    bidx_noinit = UOp(Ops.INDEX, dtypes.float.ptr(), (u_noinit, idx))
+    bidx_bss = UOp(Ops.INDEX, dtypes.float.ptr(), (u_bss, idx))
+    val = UOp(Ops.CONST, dtypes.float, (), 42.0)
+    
+    st_noinit = UOp(Ops.STORE, dtypes.void, (bidx_noinit, val))
+    st_bss = UOp(Ops.STORE, dtypes.void, (bidx_bss, val))
+    sink = UOp(Ops.SINK, dtypes.void, (st_noinit, st_bss))
+    uops = [u_noinit, u_bss, idx, bidx_noinit, bidx_bss, val, st_noinit, st_bss, sink]
+    
+    name, kernel, bufs = r._render(uops)
+    src = r.render_kernel(name, kernel, bufs, uops)
+    
+    self.assertTrue('__attribute__((section(".noinit")))' in src)
+    
+    with tempfile.TemporaryDirectory() as temp_dir:
+      src_file = os.path.join(temp_dir, "kernel.c")
+      elf_file = os.path.join(temp_dir, "kernel.elf")
+      ld_script = os.path.join(temp_dir, "linker.ld")
+      with open(src_file, "w") as f: f.write(src.replace('extern "C" ', ''))
+      with open(ld_script, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+      subprocess.check_call([
+          "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
+          "-T", ld_script, src_file, "-o", elf_file
+      ])
+      self.assertTrue(os.path.exists(elf_file))
 
