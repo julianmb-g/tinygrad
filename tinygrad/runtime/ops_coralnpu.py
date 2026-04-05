@@ -98,10 +98,12 @@ class CoralNPUAllocator(Allocator):
     shm = multiprocessing.shared_memory.SharedMemory(create=True, size=size)
 
     def cleanup_shm(s):
-        try: s.close()
-        except (FileNotFoundError, ProcessLookupError, BufferError): pass
-        try: s.unlink()
-        except (FileNotFoundError, ProcessLookupError, BufferError): pass
+        try:
+            try: s.close()
+            except Exception: pass
+        finally:
+            try: s.unlink()
+            except Exception: pass
 
     atexit.register(lambda: cleanup_shm(shm))
 
@@ -134,16 +136,15 @@ class CoralNPUAllocator(Allocator):
                     del self.mem[opaque]
                     shm = self.shms.pop(opaque)
                     try:
-                        view = memoryview(shm.buf)
-                        view.release()
-                    except ProcessLookupError: pass
-                    except FileNotFoundError: pass
-                    try: shm.close()
-                    except ProcessLookupError: pass
-                    except FileNotFoundError: pass
-                    try: shm.unlink()
-                    except ProcessLookupError: pass
-                    except FileNotFoundError: pass
+                        try:
+                            view = memoryview(shm.buf)
+                            view.release()
+                        except Exception: pass
+                        try: shm.close()
+                        except Exception: pass
+                    finally:
+                        try: shm.unlink()
+                        except Exception: pass
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()
