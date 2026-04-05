@@ -15,7 +15,7 @@ class TestPingPongAddressOverlap(unittest.TestCase):
         
         sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
         if not os.path.exists(sim_path):
-            self.skipTest("Hardware simulator missing")
+            raise FileNotFoundError(f"Hardware simulator missing: {sim_path}")
 
         for si in schedule:
             if si.ast.op.name == "SINK":
