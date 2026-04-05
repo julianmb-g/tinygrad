@@ -59,7 +59,7 @@ class CoralNPUAllocator(Allocator):
     try:
       for mem in getattr(self, 'mem', {}).values():
           try: mem.release()
-          except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
+          except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError, BufferError): pass
       for shm in getattr(self, 'shms', {}).values():
           try:
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
@@ -71,8 +71,8 @@ class CoralNPUAllocator(Allocator):
                     pass
             shm.close()
             shm.unlink()
-          except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
-    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError): pass
+          except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError, BufferError): pass
+    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError, BufferError): pass
 
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:
@@ -100,10 +100,10 @@ class CoralNPUAllocator(Allocator):
     def cleanup_shm(s):
         try:
             try: s.close()
-            except (FileNotFoundError, ProcessLookupError, BufferError): pass
+            except (FileNotFoundError, ProcessLookupError): pass
         finally:
             try: s.unlink()
-            except (FileNotFoundError, ProcessLookupError, BufferError): pass
+            except (FileNotFoundError, ProcessLookupError): pass
 
     atexit.register(lambda: cleanup_shm(shm))
 
