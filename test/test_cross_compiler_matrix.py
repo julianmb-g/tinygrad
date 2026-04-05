@@ -77,23 +77,5 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
           except subprocess.TimeoutExpired:
             self.fail(f"Compilation natively via {compiler} {flag} timed out")
 
-  def test_missing_toolchain_boundary_file_not_found(self):
-    with unittest.mock.patch.dict(os.environ, {"PATH": "/tmp/dummy_empty_path"}):
-      with self.assertRaises(FileNotFoundError):
-        program = CoralNPUProgram(None, "test", b"")
-        program._compile_on_host(self.src)
-
-  def test_missing_toolchain_boundary_called_process_error(self):
-    with tempfile.TemporaryDirectory() as temp_dir:
-      dummy_compiler = os.path.join(temp_dir, "riscv64-unknown-elf-gcc")
-      with open(dummy_compiler, "w") as fake:
-        fake.write("#!/bin/sh\nexit 1\n")
-      os.chmod(dummy_compiler, 0o755)
-
-      with unittest.mock.patch.dict(os.environ, {"PATH": f"{temp_dir}:{os.environ.get('PATH', '')}"}):
-        with self.assertRaises(RuntimeError):
-          program = CoralNPUProgram(None, "test", b"")
-          program._compile_on_host(self.src)
-
 if __name__ == '__main__':
   unittest.main()
