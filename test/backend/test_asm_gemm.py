@@ -1,5 +1,8 @@
 import math
+import pytest
 import unittest
+
+pytestmark = pytest.mark.timeout(30)
 from tinygrad import Tensor, Device, dtypes, Context
 from tinygrad.helpers import getenv, system
 from extra.gemm.cdna_asm_gemm import asm_gemm

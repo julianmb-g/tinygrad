@@ -100,10 +100,10 @@ class CoralNPUAllocator(Allocator):
     def cleanup_shm(s):
         try:
             try: s.close()
-            except Exception: pass
+            except (FileNotFoundError, ProcessLookupError, BufferError): pass
         finally:
             try: s.unlink()
-            except Exception: pass
+            except (FileNotFoundError, ProcessLookupError, BufferError): pass
 
     atexit.register(lambda: cleanup_shm(shm))
 
@@ -139,12 +139,12 @@ class CoralNPUAllocator(Allocator):
                         try:
                             view = memoryview(shm.buf)
                             view.release()
-                        except Exception: pass
+                        except (FileNotFoundError, ProcessLookupError, BufferError): pass
                         try: shm.close()
-                        except Exception: pass
+                        except (FileNotFoundError, ProcessLookupError, BufferError): pass
                     finally:
                         try: shm.unlink()
-                        except Exception: pass
+                        except (FileNotFoundError, ProcessLookupError, BufferError): pass
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()
