@@ -1,5 +1,6 @@
 package(default_visibility = ["//visibility:public"])
 
+load("@rules_python//python:defs.bzl", "py_library", "py_test")
 load("@tf2onnx_pip_deps//:requirements.bzl", "requirement")
 
 py_library(
@@ -20,6 +21,17 @@ py_test(
     srcs = ["test/test_tiny.py"],
     deps = [
         ":tinygrad",
+    ],
+)
+
+py_test(
+    name = "test_coralnpu_e2e",
+    srcs = ["test/test_coralnpu_e2e.py"],
+    deps = [
+        ":tinygrad",
+    ],
+    data = [
+        "//../coralnpu-mpact/sim:coralnpu_v2_sim",
     ],
 )
 

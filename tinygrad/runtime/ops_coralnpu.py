@@ -229,14 +229,44 @@ class CoralNPUProgram:
         raise
 
     cmd = ['coralnpu_v2_sim', self.elf_path, '--max_cycles=1000000', '--allow_memory_region', '0x0:0x80000000:rwx']
-    args_list = []
-    shm_list = []
-    for buf_handle in bufs:
-      if buf_handle in self.device.allocator.shms:
-        shm_name = self.device.allocator.shms[buf_handle].name
-        shm_size = self.device.allocator.shms[buf_handle].size
-        shm_list.append(f"{buf_handle}:{shm_name}:{shm_size}")
-      args_list.append(str(buf_handle))
+    sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
+    if os.path.exists(sim_path):
+      cmd[0] = sim_path
+      
+      # Parse the ELF to resolve data buffer physical addresses mapped in .noinit
+      buf_addrs = []
+      for i in range(len(bufs)): buf_addrs.append(bufs[i])
+      with open(self.elf_path, "rb") as f: lib = f.read()
+      if lib[:4] == b'\x7fELF' and lib[4] == 1:
+        e_shoff, _, _, _, _, e_shentsize, e_shnum, e_shstrndx = struct.unpack_from("<II6H", lib, 32)
+        for i in range(e_shnum):
+          hdr_offset = e_shoff + i * e_shentsize
+          sh_name, sh_type, _, _, sh_offset, sh_size, sh_link, sh_info, sh_addralign, sh_entsize = struct.unpack_from("<10I", lib, hdr_offset)
+          if sh_type == 2: # SHT_SYMTAB
+            strtab_hdr_offset = e_shoff + sh_link * e_shentsize
+            strtab_offset = struct.unpack_from("<I", lib, strtab_hdr_offset + 16)[0]
+            for j in range(sh_size // sh_entsize):
+              sym_offset = sh_offset + j * sh_entsize
+              st_name, st_value, st_size, st_info, st_other, st_shndx = struct.unpack_from("<IIIBBH", lib, sym_offset)
+              if st_name != 0:
+                name = lib[strtab_offset + st_name:].split(b'\x00')[0]
+                name_str = name.decode()
+                if name_str.startswith("data"):
+                  m = re.match(r"^data(\d+)", name_str)
+                  if m:
+                    idx = int(m.group(1))
+                    if idx < len(buf_addrs):
+                      buf_addrs[idx] = st_value
+
+      args_list = []
+      shm_list = []
+      for i, buf_handle in enumerate(bufs):
+        target_addr = buf_addrs[i]
+        if buf_handle in self.device.allocator.shms:
+          shm_name = self.device.allocator.shms[buf_handle].name
+          shm_size = self.device.allocator.shms[buf_handle].size
+          shm_list.append(f"{target_addr}:{shm_name}:{shm_size}")
+        args_list.append(str(target_addr))
     for v in vals:
       args_list.append(str(v))
     if shm_list:

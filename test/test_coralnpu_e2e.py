@@ -55,7 +55,12 @@ _start:
 
             subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path])
 
-            cls.env_patcher = patch.dict(os.environ, {"CORALNPU_ELF": cls.elf_path})
+            sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim"))
+            env_dict = {"CORALNPU_ELF": cls.elf_path}
+            if os.path.exists(os.path.join(sim_path, "coralnpu_v2_sim")):
+                env_dict["PATH"] = sim_path + os.pathsep + os.environ.get("PATH", "")
+
+            cls.env_patcher = patch.dict(os.environ, env_dict)
             cls.env_patcher.start()
         except Exception:
             os.close(cls.src_fd)

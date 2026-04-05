@@ -465,8 +465,8 @@ _start:
     DEV.value = "CORALNPU"
     try:
       try:
-        x = Tensor.arange(16, dtype=dtypes.int8, device="CORALNPU").reshape(1, 16).realize()
-        w = Tensor.arange(256, dtype=dtypes.int8, device="CORALNPU").reshape(16, 16).realize()
+        x = Tensor.arange(16, device="CORALNPU").cast(dtypes.int8).reshape(1, 16).realize()
+        w = Tensor.arange(256, device="CORALNPU").cast(dtypes.int8).reshape(16, 16).realize()
         out = x.cast("int32").matmul(w.cast("int32").T)
         schedule = out.schedule()
       except FileNotFoundError:
