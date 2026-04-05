@@ -88,7 +88,7 @@ def test_cross_compiled_payload_2():
     t = Tensor([3.1, 2.8], device="CORALNPU").max()
     np.testing.assert_allclose(t.numpy(), 3.1, atol=1e-5)
 """)
-            
+
             env = os.environ.copy()
             env["PYTHONPATH"] = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
             result = subprocess.run(
@@ -105,7 +105,7 @@ def test_cross_compiled_payload_2():
     def test_buffer_error_consumed_safely(self):
         from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice, CORALNPU_DTCM_LINKER_SCRIPT
         import tempfile, subprocess, os
-        
+
         src_fd, src_path = tempfile.mkstemp(suffix='.s')
         ld_fd, ld_path = tempfile.mkstemp(suffix='.ld')
         elf_path = src_path + ".elf"
@@ -144,13 +144,18 @@ _start:
             alloc = CoralNPUAllocator(dev)
             # Allocate small chunk to create shm
             handle = alloc.alloc(16)
-            
-            # Manually unlink to organically trigger FileNotFoundError during teardown
+
+            # Establish an active memoryview to authentically force a BufferError during close
             shm = alloc.shms[handle]
-            shm.unlink()
-            
-            # Verify that explicit exceptions are cleanly caught during cleanup
+            active_view = memoryview(shm.buf)
+
+            # Verify that explicit exceptions (like BufferError) are cleanly caught during cleanup
             alloc.free(handle, None)
+            
+            # Release the lock so it doesn't leak in the actual system
+            active_view.release()
+            shm.close() # Clean up properly
+            
             self.assertTrue(True, "Buffer teardown completed without unhandled exceptions.")
         finally:
             os.close(src_fd)
