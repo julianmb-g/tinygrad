@@ -465,10 +465,12 @@ def ping_pong_tile(uops):
   memory pools, enabling execution overlap and strict hardware DTCM bounds handling.
   """
   tiles = 0
+  dtcm_usage = 0
   for u in uops:
     if u.op is Ops.LOAD and getattr(u.dtype, 'count', 1) > 1:
       tiles += 1
-  return {"ping_pong_tiles": tiles}
+      dtcm_usage += getattr(u.dtype, 'itemsize', 4) * getattr(u.dtype, 'count', 1)
+  return {"ping_pong_tiles": tiles, "dtcm_usage": dtcm_usage}
 
 def analyze_dma_independence(uops):
   """
@@ -1088,8 +1090,6 @@ class CoralNPURenderer(CStyleLanguage):
     # Make sure we don't mess up test_noinit_section_generation which explicitly looks for 'extern "C" void test_kernel() {'
     if "extern \"C\" void" in src and "test_kernel" not in src:
         src = src.replace("extern \"C\" void", "void")
-
-
 
     # Inject baremetal hardware initialization stub
     src += f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\nebreak");\n}}\n#endif\n'

@@ -645,12 +645,8 @@ _start:
     alu = UOp(Ops.ADD, dtypes.float.vec(4), (ld1, ld2), None)
     uops = [buf0, idx, ld1, ld2, alu]
     res = ping_pong_tile(uops)
-    if isinstance(res, dict):
-        self.assertIn("ping_pong_tiles", res)
-    elif isinstance(res, list):
-        self.assertTrue(all(isinstance(u, UOp) for u in res))
-    else:
-        pass # Allow other valid return types like None for in-place
+    self.assertIn("dtcm_usage", res)
+    self.assertLessEqual(res["dtcm_usage"], 28 * 1024)
 
   def test_bss_noinit_attribute_generation(self):
     from tinygrad.uop.ops import UOp, Ops
@@ -668,17 +664,17 @@ _start:
     bidx_noinit = UOp(Ops.INDEX, dtypes.float.ptr(), (u_noinit, idx))
     bidx_bss = UOp(Ops.INDEX, dtypes.float.ptr(), (u_bss, idx))
     val = UOp(Ops.CONST, dtypes.float, (), 42.0)
-    
+
     st_noinit = UOp(Ops.STORE, dtypes.void, (bidx_noinit, val))
     st_bss = UOp(Ops.STORE, dtypes.void, (bidx_bss, val))
     sink = UOp(Ops.SINK, dtypes.void, (st_noinit, st_bss))
     uops = [u_noinit, u_bss, idx, bidx_noinit, bidx_bss, val, st_noinit, st_bss, sink]
-    
+
     name, kernel, bufs = r._render(uops)
     src = r.render_kernel(name, kernel, bufs, uops)
-    
+
     self.assertTrue('__attribute__((section(".noinit")))' in src)
-    
+
     with tempfile.TemporaryDirectory() as temp_dir:
       src_file = os.path.join(temp_dir, "kernel.c")
       elf_file = os.path.join(temp_dir, "kernel.elf")
