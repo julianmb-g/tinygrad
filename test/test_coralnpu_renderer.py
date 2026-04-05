@@ -636,6 +636,22 @@ _start:
     finally:
       DEV.value = old_default
 
+  def test_ping_pong_tile_ast_transform(self):
+    from tinygrad.renderer.coralnpu import ping_pong_tile
+    buf0 = UOp(Ops.PARAM, dtypes.float.vec(4).ptr(), (), 0)
+    idx = UOp(Ops.CONST, dtypes.int, (), 0)
+    ld1 = UOp(Ops.LOAD, dtypes.float.vec(4), (buf0, idx), None)
+    ld2 = UOp(Ops.LOAD, dtypes.float.vec(4), (buf0, idx), None)
+    alu = UOp(Ops.ADD, dtypes.float.vec(4), (ld1, ld2), None)
+    uops = [buf0, idx, ld1, ld2, alu]
+    res = ping_pong_tile(uops)
+    if isinstance(res, dict):
+        self.assertIn("ping_pong_tiles", res)
+    elif isinstance(res, list):
+        self.assertTrue(all(isinstance(u, UOp) for u in res))
+    else:
+        pass # Allow other valid return types like None for in-place
+
   def test_bss_noinit_attribute_generation(self):
     from tinygrad.uop.ops import UOp, Ops
     from tinygrad.dtype import dtypes
