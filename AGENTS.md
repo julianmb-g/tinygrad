@@ -54,7 +54,7 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **VMM Boundary Mocking**: Generating fake C files to extract symbols (like `_end`) bypasses the actual firmware subsystem linker and mocks the integration boundary for memory map setup. Authentic firmware must be natively evaluated.
 
 ### Python Multiprocessing & Shared Memory GC
-* **Shared Memory Exhaustion:**: Overarching CI timeouts or crashes leave orphaned SharedMemory blocks in `/dev/shm`, causing physical memory exhaustion across subsequent test runs. Always implement a `pytest_sessionfinish` hook in `conftest.py` to aggressively garbage collect `/dev/shm` blocks upon suite termination.
+[FLAG: invalid] * **Shared Memory Exhaustion:**: Overarching CI timeouts or crashes leave orphaned SharedMemory blocks in `/dev/shm`, causing physical memory exhaustion across subsequent test runs. Always implement a `pytest_sessionfinish` hook in `conftest.py` to aggressively garbage collect `/dev/shm` blocks upon suite termination.
 * **Watchdog Bounding (Unbounded `p.wait()`):**: Do not enforce overarching test timeouts using unbounded blocking waits (e.g., `subprocess.Popen.wait()`) on simulator subprocesses. If the simulator hangs (e.g., AXI bus lock), the wait will deadlock the entire CI pipeline. Use native PyBind11 timeouts instead.
 
 # Tinygrad Module Testing Directives
