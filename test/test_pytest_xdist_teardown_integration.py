@@ -103,18 +103,61 @@ def test_cross_compiled_payload_2():
             self.assertNotIn("PluggyTeardownRaisedWarning", output)
 
     def test_buffer_error_consumed_safely(self):
-        from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice
+        from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice, CORALNPU_DTCM_LINKER_SCRIPT
         import tempfile, subprocess, os
         
-        # Test that BufferError is safely swallowed in teardown and doesn't crash the orchestrator
-        dev = CoralNPUDevice("CORALNPU")
-        alloc = CoralNPUAllocator(dev)
-        # Allocate small chunk to create shm
-        handle = alloc.alloc(16)
-        
-        # Verify that explicit exceptions are cleanly caught during cleanup
-        alloc.free(handle, None)
-        self.assertTrue(True, "Buffer teardown completed without unhandled exceptions.")
+        src_fd, src_path = tempfile.mkstemp(suffix='.s')
+        ld_fd, ld_path = tempfile.mkstemp(suffix='.ld')
+        elf_path = src_path + ".elf"
+        try:
+            with open(ld_path, 'w') as f:
+                f.write(CORALNPU_DTCM_LINKER_SCRIPT)
+            with open(src_path, 'w') as f:
+                f.write("""
+.global _start
+.section .bss
+.align 4
+bss_buf:
+    .space 4096
+.section .noinit
+.align 4
+noinit_buf:
+    .space 4096
+.section .data
+.align 4
+data_buf:
+    .word 0x3f800000
+.section .text
+_start:
+    la sp, __stack_end__
+    li t0, 0x6000
+    csrs mstatus, t0
+    la t0, data_buf
+    flw f0, 0(t0)
+    ebreak
+""")
+            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', ld_path, src_path, '-o', elf_path])
+            os.environ["CORALNPU_ELF"] = elf_path
+
+            # Test that BufferError is safely swallowed in teardown and doesn't crash the orchestrator
+            dev = CoralNPUDevice("CORALNPU")
+            alloc = CoralNPUAllocator(dev)
+            # Allocate small chunk to create shm
+            handle = alloc.alloc(16)
+            
+            # Manually unlink to organically trigger FileNotFoundError during teardown
+            shm = alloc.shms[handle]
+            shm.unlink()
+            
+            # Verify that explicit exceptions are cleanly caught during cleanup
+            alloc.free(handle, None)
+            self.assertTrue(True, "Buffer teardown completed without unhandled exceptions.")
+        finally:
+            os.close(src_fd)
+            os.close(ld_fd)
+            if os.path.exists(src_path): os.unlink(src_path)
+            if os.path.exists(ld_path): os.unlink(ld_path)
+            if os.path.exists(elf_path): os.unlink(elf_path)
 
 if __name__ == '__main__':
     unittest.main()

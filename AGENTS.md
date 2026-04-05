@@ -100,3 +100,7 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Orphaned Test Void Diagnosis**: When tests for cross-compilation boundaries or IPC teardown deadlocks are added (e.g. `test_pytest_xdist_teardown_integration.py` and `test_cross_compiler_matrix.py`), explicitly ensure they are present in `test_cmd` of `harness.yaml`. Otherwise they silently evaluate to a 100% test pass while the test suite suffers from a structural coverage void.
 
 * **Shared Memory Teardown Leakage**: Abruptly killed IPC runners (e.g., via 120s watchdogs) leak shared memory segments into `/dev/shm`, causing catastrophic `FileExistsError` and `ProcessLookupError` deadlocks on all subsequent test suite runs. Always prepend `rm -f /dev/shm/*` to the overarching test execution command in `harness.yaml` to ensure a pristine IPC environment before running Pytest.
+
+### Execution Exception Boundaries
+* **Exception Masking Eradication**: Blanket `except Exception: pass` actively violates architectural IPC teardown loops by swallowing `FileNotFoundError`, `ProcessLookupError`, and `BufferError`. These must be explicitly defined to allow teardown fidelity.
+* **Per-Test Watchdog Isolation**: Using `@pytest.mark.timeout(30)` isolates tests organically and unmasks hangs (e.g. `test_asm_gemm.py`), preventing the overarching CI watchdog from brutally killing the runner and erasing stack traces.
