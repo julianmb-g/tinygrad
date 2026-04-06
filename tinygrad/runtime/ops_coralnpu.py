@@ -60,6 +60,7 @@ class CoralNPUAllocator(Allocator):
           for mem in getattr(self, 'mem', {}).values():
               try: mem.release()
               except (AttributeError, KeyError): pass
+              except FileNotFoundError: pass
               except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
               except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
           for shm in getattr(self, 'shms', {}).values():
@@ -71,9 +72,11 @@ class CoralNPUAllocator(Allocator):
                 shm.close()
                 shm.unlink()
               except (AttributeError, KeyError): pass
+              except FileNotFoundError: pass
               except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
               except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
         except (AttributeError, KeyError): pass
+        except FileNotFoundError: pass
         except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
         except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -104,10 +107,12 @@ class CoralNPUAllocator(Allocator):
         try:
             try: s.close()
             except (AttributeError, KeyError): pass
+            except FileNotFoundError: pass
             except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
         finally:
             try: s.unlink()
             except (AttributeError, KeyError): pass
+            except FileNotFoundError: pass
             except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
 
     atexit.register(lambda: cleanup_shm(shm))
@@ -145,15 +150,18 @@ class CoralNPUAllocator(Allocator):
                             view = memoryview(shm.buf)
                             view.release()
                         except (AttributeError, KeyError): pass
+                        except FileNotFoundError: pass
                         except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
                         except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
                         try: shm.close()
                         except (AttributeError, KeyError): pass
+                        except FileNotFoundError: pass
                         except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
                         except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
                     finally:
                         try: shm.unlink()
                         except (AttributeError, KeyError): pass
+                        except FileNotFoundError: pass
                         except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
                         except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
