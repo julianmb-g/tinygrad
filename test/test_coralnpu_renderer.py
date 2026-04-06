@@ -681,9 +681,13 @@ _start:
       ld_script = os.path.join(temp_dir, "linker.ld")
       with open(src_file, "w") as f: f.write(src.replace('extern "C" ', ''))
       with open(ld_script, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-      subprocess.check_call([
+subprocess.check_call([
           "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
           "-T", ld_script, src_file, "-o", elf_file
       ])
-      self.assertTrue(os.path.exists(elf_file))
+      
+      sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
+      if not os.path.exists(sim_path):
+          self.fail(f"Hardware simulator missing: {sim_path}")
+      subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000", "--allow_memory_region", "0x0:0x80000000:rwx"])
 
