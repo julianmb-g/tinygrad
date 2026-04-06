@@ -623,10 +623,10 @@ class TinygradAutoTunerIPC:
   def _respawn(self):
     if hasattr(self, 'parent_conn'):
       try: self.parent_conn.close()
-      except Exception: pass
+      except OSError: pass
     if hasattr(self, 'child_conn'):
       try: self.child_conn.close()
-      except Exception: pass
+      except OSError: pass
     self.parent_conn, self.child_conn = multiprocessing.Pipe(duplex=True)
     self.worker = multiprocessing.Process(target=self._worker_loop, args=(self.child_conn,))
     self.worker.daemon = True
@@ -767,7 +767,7 @@ class IpcWorkerPool:
         break
       except Exception as e:
         try: IpcWorkerPool._send_with_timeout(conn, e, 1.0)
-        except Exception: pass
+        except (TimeoutError, OSError): pass
 
   def submit(self, worker_idx, *args, **kwargs):
     conn = self.workers[worker_idx]["conn"]
@@ -784,11 +784,10 @@ class IpcWorkerPool:
   def shutdown(self):
     for w in self.workers:
       try: self._send_with_timeout(w["conn"], None, 1.0)
-      except Exception: pass
+      except (TimeoutError, OSError): pass
 
       try: w["process"].kill()
       except ProcessLookupError: pass
-      except Exception: pass
       _ipc_active_pids.discard(w["pid"])
       w["process"].join(timeout=1)
 

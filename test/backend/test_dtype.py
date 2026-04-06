@@ -1,6 +1,8 @@
 import contextlib
 import math
 import unittest
+import pytest
+pytestmark = pytest.mark.timeout(30)
 from typing import Any, List
 
 from tinygrad.renderer.ptx import PTXRenderer

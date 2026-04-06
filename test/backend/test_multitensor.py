@@ -1,7 +1,9 @@
 import functools
 import random
 import unittest
+import pytest
 
+pytestmark = pytest.mark.timeout(30)
 import numpy as np
 from hypothesis import given, settings
 from hypothesis import strategies as strat
@@ -594,7 +596,6 @@ class TestMultiTensor(unittest.TestCase):
       out = f(a, b)
       np.testing.assert_allclose(out.numpy(), np.full((4, 4), i) + np.full((4, 4), i*2), atol=1e-4, rtol=1e-5)
 
-  @unittest.skip("HCQGraph instance checking broken")
   def test_multi_device_jit_graph(self):
     if Device[d0].graph is None or Device[d1].graph is None: raise unittest.SkipTest("only test graphs")
 
@@ -650,7 +651,6 @@ class TestMultiTensor(unittest.TestCase):
     out = t0.flip(0) + 1
     self.assertTrue((rng.flip(0)+1).allclose(out.to(rng.device)))
 
-  @unittest.skip("flaky")
   def test_reshape_on_axis(self):
     t0 = Tensor.rand((26, 15, 7)).shard(devices_3, axis=1)
 
@@ -1147,7 +1147,6 @@ class TestMultiBufferView(unittest.TestCase):
     run_schedule(sched)
     np.testing.assert_equal(b_multi.numpy(), b_ref.numpy())
 
-  @unittest.skip("flaky on LLVM")
   def test_shrink_non_shard_axis(self):
     ref = Tensor.arange(8*4*10).reshape(8, 4, 10).contiguous().realize()
     a = Tensor.arange(8*4*10).reshape(8, 4, 10).contiguous().shard(devices_2, axis=1).realize()
