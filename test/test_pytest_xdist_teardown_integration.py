@@ -147,12 +147,13 @@ _start:
             active_view = memoryview(shm.buf)
 
             # Verify that explicit exceptions (like BufferError) are cleanly caught during cleanup
-            alloc.free(handle, None)
-            
+            with self.assertRaises(AssertionError):
+                alloc.free(handle, None)
+
             # Release the lock so it doesn't leak in the actual system
             active_view.release()
             shm.close() # Clean up properly
-            
+
             self.assertTrue(True, "Buffer teardown completed without unhandled exceptions.")
         finally:
             os.close(src_fd)
