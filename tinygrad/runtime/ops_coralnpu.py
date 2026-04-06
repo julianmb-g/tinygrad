@@ -59,7 +59,9 @@ class CoralNPUAllocator(Allocator):
     try:
       for mem in getattr(self, 'mem', {}).values():
           try: mem.release()
-          except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError, BufferError): pass
+          except (AttributeError, KeyError, FileNotFoundError): pass
+          except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
+          except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
       for shm in getattr(self, 'shms', {}).values():
           try:
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
@@ -71,8 +73,12 @@ class CoralNPUAllocator(Allocator):
                     pass
             shm.close()
             shm.unlink()
-          except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError, BufferError): pass
-    except (AttributeError, KeyError, ProcessLookupError, FileNotFoundError, BufferError): pass
+          except (AttributeError, KeyError, FileNotFoundError): pass
+          except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
+          except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+    except (AttributeError, KeyError, FileNotFoundError): pass
+    except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
+    except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:
@@ -100,10 +106,12 @@ class CoralNPUAllocator(Allocator):
     def cleanup_shm(s):
         try:
             try: s.close()
-            except (FileNotFoundError, ProcessLookupError): pass
+            except (FileNotFoundError, AttributeError, KeyError): pass
+            except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
         finally:
             try: s.unlink()
-            except (FileNotFoundError, ProcessLookupError): pass
+            except (FileNotFoundError, AttributeError, KeyError): pass
+            except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
 
     atexit.register(lambda: cleanup_shm(shm))
 
@@ -139,12 +147,18 @@ class CoralNPUAllocator(Allocator):
                         try:
                             view = memoryview(shm.buf)
                             view.release()
-                        except (FileNotFoundError, ProcessLookupError, BufferError): pass
+                        except (FileNotFoundError, AttributeError, KeyError): pass
+                        except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
+                        except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
                         try: shm.close()
-                        except (FileNotFoundError, ProcessLookupError, BufferError): pass
+                        except (FileNotFoundError, AttributeError, KeyError): pass
+                        except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
+                        except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
                     finally:
                         try: shm.unlink()
-                        except (FileNotFoundError, ProcessLookupError, BufferError): pass
+                        except (FileNotFoundError, AttributeError, KeyError): pass
+                        except ProcessLookupError as e: raise AssertionError(f"IPC Process Lookup Error: {e}")
+                        except BufferError as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()
@@ -233,7 +247,7 @@ class CoralNPUProgram:
     sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
     if os.path.exists(sim_path):
       cmd[0] = sim_path
-      
+
       # Parse the ELF to resolve data buffer physical addresses mapped in .noinit
       buf_addrs = []
       for i in range(len(bufs)): buf_addrs.append(bufs[i])

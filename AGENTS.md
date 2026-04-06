@@ -127,3 +127,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 # Tinygrad Submodule Guidelines
 * **Exception Masking Illusion**: Adding `BufferError` or `ProcessLookupError` to a blanket exception masking block (e.g., `except (..., BufferError): pass`) hides IPC teardown failures. You must use native test assertions to validate teardown boundaries.
 * **DTCM Chunk Verification**: Tiling equations must allocate 12KB Ping + 12KB Pong + 4KB Output Accumulator + 4KB C-Stack/BSS = 32KB total physical layout. Ensure unit tests explicitly assert these mathematical boundaries (e.g., `dtcm_usage <= 28 * 1024`).
+
+* **IPC Teardown Assertions**: When fixing exception masking around IPC teardown, explicitly assert `ProcessLookupError` and `BufferError` instead of using blanket `except` statements, and organically acquire locks (`memoryview`) to natively validate lock exhaustion.
