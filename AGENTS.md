@@ -152,3 +152,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Black Box Assembly Injection**: Validating integration boundaries by manually injecting multi-line raw assembly strings into Python variables instead of authentically compiling the `.elf` is a severe testing illusion.
 * **Native Threading Queue Deadlocks**: Tensor testing suites must properly manage threading to prevent 120s SIGKILL hangs.
 * **Testing Fraud & Evasion**: Reliance on os.path.exists() for ELFs or massive @unittest.skip chains are testing fraud and forbidden.
+* **Overarching Bash Watchdog Collapse**: A test runner hitting a hard deadlock and spinning indefinitely until the overarching 120s bash timeout kills it will result in a 0% coverage extraction void. Use fail-fast isolation (`pytest -x -n 0`) to natively unmask hangs.
+* **Massive Skips Masking Deadlocks**: Massive test skips artificially hide underlying native architecture failures. Tests must natively route through bounds.
