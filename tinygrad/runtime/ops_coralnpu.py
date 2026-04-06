@@ -268,6 +268,11 @@ class CoralNPUProgram:
           shm_size = self.device.allocator.shms[buf_handle].size
           shm_list.append(f"{target_addr}:{shm_name}:{shm_size}")
         args_list.append(str(target_addr))
+    else:
+      args_list = []
+      shm_list = []
+      for i, buf_handle in enumerate(bufs):
+        args_list.append(str(0))
     for v in vals:
       args_list.append(str(v))
     if shm_list:

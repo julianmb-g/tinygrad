@@ -103,9 +103,9 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def tearDown(self):
         for shm in list(self.allocator.shms.values()):
             try: shm.close()
-            except (FileNotFoundError, ProcessLookupError): pass
+            except (ProcessLookupError, BufferError): pass
             try: shm.unlink()
-            except (FileNotFoundError, ProcessLookupError): pass
+            except (ProcessLookupError, BufferError): pass
         self.allocator.shms.clear()
         self.patcher.stop()
         self.tmp_dir.cleanup()
@@ -214,7 +214,7 @@ void double_array(float* ptr, int size) { for(int i=0; i<size; i++) ptr[i] = ptr
         return True
     finally:
         try: shm.close()
-        except (FileNotFoundError, ProcessLookupError): pass
+        except (ProcessLookupError, BufferError): pass
 
 def _hanging_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
@@ -240,7 +240,7 @@ void infinite_loop(float* ptr, int size) { while(1) {} }
         return True
     finally:
         try: shm.close()
-        except (FileNotFoundError, ProcessLookupError): pass
+        except (ProcessLookupError, BufferError): pass
 
 def _blocking_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
@@ -269,7 +269,7 @@ void infinite_loop() { while(1) {} }
             except (FileNotFoundError, ProcessLookupError, TimeoutError): pass
     finally:
         try: shm.close()
-        except (FileNotFoundError, ProcessLookupError): pass
+        except (ProcessLookupError, BufferError): pass
 
 class TestIpcWorkerPool(unittest.TestCase):
     def setUp(self):
