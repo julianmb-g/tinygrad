@@ -158,3 +158,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Overarching Threading Deadlock Masking**: Threading queue deadlocks inside native test runners trigger the overarching orchestrator watchdog (120s) resulting in SIGKILL, erasing tracebacks and causing a 0% coverage flatline.
 
 * **Drive-by Refactoring Exemption Reiteration**: All modifications must be strictly scoped to the active execution plan. Out-of-scope repository pollution (e.g. arbitrary formatting, ignoring bazel-out, deleting conftest) is strictly forbidden and will be reverted.
+* **Native Threading Queue Deadlocks**: Hanging indefinitely inside threading queues (like `queue.py` wait loops) will cause the orchestrator to trigger a 120s SIGKILL timeout, completely erasing stack traces and destroying `pytest-cov` metrics. Overarching deadlocks must be isolated via fail-fast execution (`pytest -x -n 0`) natively.
