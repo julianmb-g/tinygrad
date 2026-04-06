@@ -163,3 +163,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Tinygrad DTCM Size vs Ping-Pong Equation**: The complete memory mapping equation is 12KB (Ping) + 12KB (Pong) + 4KB (Output Accumulator) = 28KB Tensor DTCM, plus 4KB reserved C-Stack/BSS, yielding a 32KB hardware DTCM total.
 * **E2E Hardware Firmware Fraud**: Injecting multi-line raw assembly strings manually into C files instead of compiling them organically via UOp code generation is forbidden.
 * **Floating-Point Precision Mismatch**: Native tests evaluating exponentiation (e.g., `test_const_folding.py` evaluating `t ** one`) may exhibit floating-point precision divergence (e.g., `4.999999523162842` vs `5`). These are organic failures that must be structurally resolved, not masked or skipped.
+
+* **Tinygrad DTCM Size vs Ping-Pong Equation Clarification**: The physical DTCM memory mapping equation is explicitly refined to: 12KB (Ping Chunk) + 12KB (Pong Chunk) + 4KB (Output Accumulator/KV Cache) = 28KB Tensor DTCM limit, plus the 4KB reserved C-Stack/BSS, satisfying the 32KB hardware capacity.
