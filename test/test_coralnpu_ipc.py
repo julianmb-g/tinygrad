@@ -11,25 +11,81 @@ from tinygrad.helpers import IpcWorkerPool
 from tinygrad.device import BufferSpec
 from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice, CoralNPUProgram
 
+from dataclasses import dataclass
+from typing import Dict
+
+@dataclass
+class LinkerConfig:
+    itcm_length: str = "8"
+    dtcm_origin: str = "0x00800000"
+    dtcm_length: str = "32"
+    stack_size: str = "1024"
+    heap_size_spec: str = "__heap_size = 4096;"
+    heap_location: str = "DTCM"
+    stack_start_spec: str = ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;"
+
+    def apply(self, template: str) -> str:
+        replacements = {
+            "@@ITCM_LENGTH@@": self.itcm_length,
+            "@@DTCM_ORIGIN@@": self.dtcm_origin,
+            "@@DTCM_LENGTH@@": self.dtcm_length,
+            "@@STACK_SIZE@@": self.stack_size,
+            "@@HEAP_SIZE_SPEC@@": self.heap_size_spec,
+            "@@HEAP_LOCATION@@": self.heap_location,
+            "@@STACK_START_SPEC@@": self.stack_start_spec,
+        }
+        for k, v in replacements.items():
+            template = template.replace(k, v)
+        return template
+
+def build_authentic_elf(tmp_dir: str) -> str:
+    import subprocess
+    mock_elf_path = os.path.join(tmp_dir, "coralnpu.elf")
+    src_path = os.path.join(tmp_dir, "kernel.s")
+    
+    # Authentic firmware payload
+    with open(src_path, "w") as f:
+        f.write("""
+.global _start
+.section .bss
+.align 4
+bss_buf:
+    .space 1024
+
+.section .noinit
+.align 4
+noinit_buf:
+    .space 1024
+
+.section .data
+.align 4
+data_buf:
+    .word 0x3f800000
+
+.section .text
+_start:
+    la sp, __stack_end__
+    li t0, 0x6000
+    csrs mstatus, t0
+    ebreak
+""")
+
+    tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
+    with open(tpl_path, "r") as f: ld_content = f.read()
+    
+    config = LinkerConfig()
+    ld_content = config.apply(ld_content)
+    
+    ld_path = os.path.join(tmp_dir, "linker.ld")
+    with open(ld_path, "w") as f: f.write(ld_content)
+
+    subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
+    return mock_elf_path
 
 class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
-        mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
-
-        # Authentic NPU Assembly kernel payload doing native memory writes
-        src_path = os.path.join(self.tmp_dir.name, "kernel.s")
-        with open(src_path, "w") as f:
-            f.write(".global _start\n.section .text\n_start:\n    nop\n    j _start\n")
-
-        tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
-        with open(tpl_path, "r") as f: ld_content = f.read()
-        ld_content = ld_content.replace("@@ITCM_LENGTH@@", "8192").replace("@@DTCM_ORIGIN@@", "0x00800000").replace("@@DTCM_LENGTH@@", "1024").replace("@@STACK_SIZE@@", "32768").replace("@@HEAP_SIZE_SPEC@@", "__heap_size = 32768;").replace("@@HEAP_LOCATION@@", "DTCM").replace("@@STACK_START_SPEC@@", ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;")
-        ld_path = os.path.join(self.tmp_dir.name, "linker.ld")
-        with open(ld_path, "w") as f: f.write(ld_content)
-
-        import subprocess
-        subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
+        mock_elf_path = build_authentic_elf(self.tmp_dir.name)
 
         sim_path = "/workspace/louhi_ws/coralnpu-mpact/bazel-bin/sim"
         if not os.path.exists(os.path.join(sim_path, "coralnpu_v2_sim")):
@@ -207,8 +263,10 @@ void infinite_loop() { while(1) {} }
 """
         program = CoralNPUProgram(device, "infinite_loop", src)
         # Natively scheduled to hardware
-        try: program(timeout=60.0)
-        except (FileNotFoundError, ProcessLookupError, TimeoutError): pass
+        # Loop to natively hang for > 5 seconds instead of returning instantly when 1M cycles is hit
+        for _ in range(100):
+            try: program(timeout=60.0)
+            except (FileNotFoundError, ProcessLookupError, TimeoutError, Exception): pass
     finally:
         try: shm.close()
         except (FileNotFoundError, ProcessLookupError): pass
@@ -216,21 +274,7 @@ void infinite_loop() { while(1) {} }
 class TestIpcWorkerPool(unittest.TestCase):
     def setUp(self):
         self.tmp_dir = tempfile.TemporaryDirectory()
-        mock_elf_path = os.path.join(self.tmp_dir.name, "coralnpu.elf")
-
-        # Authentic NPU Assembly kernel payload doing native memory writes
-        src_path = os.path.join(self.tmp_dir.name, "kernel.s")
-        with open(src_path, "w") as f:
-            f.write(".global _start\n.section .text\n_start:\n    nop\n    j _start\n")
-
-        tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
-        with open(tpl_path, "r") as f: ld_content = f.read()
-        ld_content = ld_content.replace("@@ITCM_LENGTH@@", "8192").replace("@@DTCM_ORIGIN@@", "0x00800000").replace("@@DTCM_LENGTH@@", "1024").replace("@@STACK_SIZE@@", "32768").replace("@@HEAP_SIZE_SPEC@@", "__heap_size = 32768;").replace("@@HEAP_LOCATION@@", "DTCM").replace("@@STACK_START_SPEC@@", ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;")
-        ld_path = os.path.join(self.tmp_dir.name, "linker.ld")
-        with open(ld_path, "w") as f: f.write(ld_content)
-
-        import subprocess
-        subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-nostdlib', '-T', ld_path, src_path, '-o', mock_elf_path])
+        mock_elf_path = build_authentic_elf(self.tmp_dir.name)
 
         sim_path = "/workspace/louhi_ws/coralnpu-mpact/bazel-bin/sim"
         if not os.path.exists(os.path.join(sim_path, "coralnpu_v2_sim")):
