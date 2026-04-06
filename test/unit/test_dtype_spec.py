@@ -8,7 +8,7 @@ from hypothesis import given, settings, strategies as strat
 import numpy as np
 import torch
 
-from tinygrad.tensor import Device, dtypes
+
 
 settings.register_profile("my_profile", max_examples=50, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")
