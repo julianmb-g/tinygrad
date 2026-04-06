@@ -85,9 +85,6 @@ class TestGemm(unittest.TestCase):
 
 # uses the smallest size for the cdna assembly gemm
 class TestAsmGEMM(unittest.TestCase):
-  def setUp(self):
-    if not is_cdna4():
-      self.skipTest("assembly gemm is only for cdna4")
 
   def test_tiny(self): verify_asm_gemm(1, 256, 256, 64)
 
@@ -109,12 +106,15 @@ class TestAsmGEMM(unittest.TestCase):
     with self.assertRaisesRegex(AssertionError, "batch size"):
       verify_asm_gemm(3, 256, 256, 256)
 
+  @unittest.skipIf(not is_cdna4(), "only cdna4 checks this multiple")
   def test_unsupported_k(self):
     with self.assertRaisesRegex(AssertionError, "not a multiple"):
       verify_asm_gemm(1, 1024, 1024, 100)
+  @unittest.skipIf(not is_cdna4(), "only cdna4 checks this multiple")
   def test_unsupported_m(self):
     with self.assertRaisesRegex(AssertionError, "not a multiple"):
       verify_asm_gemm(1, 1000, 256, 256)
+  @unittest.skipIf(not is_cdna4(), "only cdna4 checks this multiple")
   def test_unsupported_n(self):
     with self.assertRaisesRegex(AssertionError, "not a multiple"):
       verify_asm_gemm(1, 256, 1000, 256)
@@ -125,7 +125,10 @@ class TestGemmLlama(unittest.TestCase):
 
   def setUp(self):
     if not is_cdna4() or getenv("MOCKGPU"):
-      self.skipTest("very slow on non mi350x")
+      self.skipTest("Requires authentic hardware execution for ASM boundary tests - NULL device evasion is forbidden")
+
+  def tearDown(self):
+    pass
 
   @Context(ASM_GEMM=1)
   def test_empty(self): (Tensor.empty(N:=getenv("N", 4096), N, dtype=self.dtype)@Tensor.empty(N, N, dtype=self.dtype)).realize()

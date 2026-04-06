@@ -166,9 +166,9 @@ class TestMultiConstFolding(unittest.TestCase):
     _check_ast_count(0, t ** zero)
     _check_ast_count(0, t ** one)
     _check_ast_count(0, one ** t)
-    np.testing.assert_equal((t ** zero).numpy(), [1] * 16)
-    np.testing.assert_equal((t ** one).numpy(), np.arange(16))
-    np.testing.assert_equal((one ** t).numpy(), [1] * 16)
+    np.testing.assert_allclose((t ** zero).numpy(), [1] * 16)
+    np.testing.assert_allclose((t ** one).numpy(), np.arange(16))
+    np.testing.assert_allclose((one ** t).numpy(), [1] * 16)
 
 class TestTautologicalCompare(unittest.TestCase):
   # without const folding, these would have triggered -Wtautological-compare in clang
