@@ -150,3 +150,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Structural Formatting**: When refactoring one-liner `if` statements containing semicolons (e.g., `if cond: a,b=c,d; break`) into vertical structural blocks, ensure the multi-line block preserves exact semantic execution order and utilizes standard indentation to improve readability and debuggability.
 * **Refactoring String Interpolation Limits:** When extracting logic out of unittest `setUp` functions that dynamically build cross-compiled payloads, abstract it into a declarative Configuration struct/dataclass rather than scattering string `.replace()` methods to preserve DRY principles.
 * **Black Box Assembly Injection**: Validating integration boundaries by manually injecting multi-line raw assembly strings into Python variables instead of authentically compiling the `.elf` is a severe testing illusion.
+* **Native Threading Queue Deadlocks**: Tensor testing suites must properly manage threading to prevent 120s SIGKILL hangs.
+* **Testing Fraud & Evasion**: Reliance on os.path.exists() for ELFs or massive @unittest.skip chains are testing fraud and forbidden.
