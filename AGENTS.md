@@ -129,3 +129,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **DTCM Chunk Verification**: Tiling equations must allocate 12KB Ping + 12KB Pong + 4KB Output Accumulator + 4KB C-Stack/BSS = 32KB total physical layout. Ensure unit tests explicitly assert these mathematical boundaries (e.g., `dtcm_usage <= 28 * 1024`).
 
 * **IPC Teardown Assertions**: When fixing exception masking around IPC teardown, explicitly assert `ProcessLookupError` and `BufferError` instead of using blanket `except` statements, and organically acquire locks (`memoryview`) to natively validate lock exhaustion.
+* **IPC Lock Exhaustion Validation**: To prevent teardown exception masking in integration suites, test runners must explicitly acquire a locked `memoryview(shm.buf)` to empirically validate `BufferError` limits during teardown sequences, rather than relying on blanket `except (BufferError, ProcessLookupError):` clauses which hide silent pipeline leaks.
