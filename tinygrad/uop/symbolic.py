@@ -44,15 +44,11 @@ def fold_add_divmod_recombine(x:UOp) -> UOp|None:
       match_div, exact = None, False
       base_div1 = (base // div).simplify()
       for qi in q_terms:
-        if qi is base_div1:
-          match_div, exact = qi, True
-          break
+        if qi is base_div1: match_div, exact = qi, True; break
       if not exact and base.op is Ops.IDIV and base.src[1].op is Ops.CONST:
         base_div2 = (base.src[0] // (base.src[1].arg * div)).simplify()
         for qi in q_terms:
-          if qi is base_div2:
-            match_div, exact = qi, True
-            break
+          if qi is base_div2: match_div, exact = qi, True; break
       if exact:
         new_term = base * mul
         q_rest = [t for t in q_terms if t is not match_div]

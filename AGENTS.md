@@ -54,7 +54,7 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **VMM Boundary Mocking**: Generating fake C files to extract symbols (like `_end`) bypasses the actual firmware subsystem linker and mocks the integration boundary for memory map setup. Authentic firmware must be natively evaluated.
 
 ### Python Multiprocessing & Shared Memory GC
-[FLAG: invalid] * **Shared Memory Exhaustion:**: Overarching CI timeouts or crashes leave orphaned SharedMemory blocks in `/dev/shm`, causing physical memory exhaustion across subsequent test runs. Always implement a `pytest_sessionfinish` hook in `conftest.py` to aggressively garbage collect `/dev/shm` blocks upon suite termination.
+* **Shared Memory Exhaustion:**: Overarching CI timeouts or crashes leave orphaned SharedMemory blocks in `/dev/shm`, causing physical memory exhaustion across subsequent test runs. Always implement a `pytest_sessionfinish` hook in `conftest.py` to aggressively garbage collect `/dev/shm` blocks upon suite termination.
 * **Watchdog Bounding (Unbounded `p.wait()`):**: Do not enforce overarching test timeouts using unbounded blocking waits (e.g., `subprocess.Popen.wait()`) on simulator subprocesses. If the simulator hangs (e.g., AXI bus lock), the wait will deadlock the entire CI pipeline. Use native PyBind11 timeouts instead.
 
 # Tinygrad Module Testing Directives
@@ -156,3 +156,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Massive Skips Masking Deadlocks**: Massive test skips artificially hide underlying native architecture failures. Tests must natively route through bounds.
 * **Fake Unit Test Validation Fraud**: Validating cross-compiled NPU artifacts exclusively via `os.path.exists()` completely decouples testing from structural integration boundaries. Tests must execute the payload natively.
 * **Overarching Threading Deadlock Masking**: Threading queue deadlocks inside native test runners trigger the overarching orchestrator watchdog (120s) resulting in SIGKILL, erasing tracebacks and causing a 0% coverage flatline.
+
+* **Drive-by Refactoring Exemption Reiteration**: All modifications must be strictly scoped to the active execution plan. Out-of-scope repository pollution (e.g. arbitrary formatting, ignoring bazel-out, deleting conftest) is strictly forbidden and will be reverted.
