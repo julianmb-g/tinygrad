@@ -16,10 +16,10 @@ from typing import Dict
 
 @dataclass
 class LinkerConfig:
-    itcm_length: str = "8"
+    itcm_length: str = "8192"
     dtcm_origin: str = "0x00800000"
-    dtcm_length: str = "32"
-    stack_size: str = "1024"
+    dtcm_length: str = "32768"
+    stack_size: str = "32768"
     heap_size_spec: str = "__heap_size = 4096;"
     heap_location: str = "DTCM"
     stack_start_spec: str = ". = ORIGIN(DTCM) + LENGTH(DTCM) - STACK_SIZE;"
@@ -266,7 +266,7 @@ void infinite_loop() { while(1) {} }
         # Loop to natively hang for > 5 seconds instead of returning instantly when 1M cycles is hit
         for _ in range(100):
             try: program(timeout=60.0)
-            except (FileNotFoundError, ProcessLookupError, TimeoutError, Exception): pass
+            except (FileNotFoundError, ProcessLookupError, TimeoutError): pass
     finally:
         try: shm.close()
         except (FileNotFoundError, ProcessLookupError): pass
