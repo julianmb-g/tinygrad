@@ -154,3 +154,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Testing Fraud & Evasion**: Reliance on os.path.exists() for ELFs or massive @unittest.skip chains are testing fraud and forbidden.
 * **Overarching Bash Watchdog Collapse**: A test runner hitting a hard deadlock and spinning indefinitely until the overarching 120s bash timeout kills it will result in a 0% coverage extraction void. Use fail-fast isolation (`pytest -x -n 0`) to natively unmask hangs.
 * **Massive Skips Masking Deadlocks**: Massive test skips artificially hide underlying native architecture failures. Tests must natively route through bounds.
+* **Fake Unit Test Validation Fraud**: Validating cross-compiled NPU artifacts exclusively via `os.path.exists()` completely decouples testing from structural integration boundaries. Tests must execute the payload natively.
+* **Overarching Threading Deadlock Masking**: Threading queue deadlocks inside native test runners trigger the overarching orchestrator watchdog (120s) resulting in SIGKILL, erasing tracebacks and causing a 0% coverage flatline.
