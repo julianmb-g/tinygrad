@@ -681,7 +681,7 @@ _start:
       ld_script = os.path.join(temp_dir, "linker.ld")
       with open(src_file, "w") as f: f.write(src.replace('extern "C" ', ''))
       with open(ld_script, "w") as f: f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-subprocess.check_call([
+      subprocess.check_call([
           "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
           "-T", ld_script, src_file, "-o", elf_file
       ])

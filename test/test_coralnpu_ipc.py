@@ -6,6 +6,7 @@ if multiprocessing.get_start_method(allow_none=True) != 'spawn':
     multiprocessing.set_start_method('spawn', force=True)
 from unittest.mock import patch
 import unittest.mock
+import subprocess
 from tinygrad.helpers import IpcWorkerPool
 
 from tinygrad.device import BufferSpec
@@ -95,9 +96,8 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
                 from tinygrad.engine.realize import get_runner
                 runner = get_runner("CORALNPU", si.ast)
                 with self.assertRaises((TimeoutError, subprocess.TimeoutExpired, RuntimeError)):
-                    # Fake a timeout error if we can't inject timeout via realize easily
-                    # Wait, CoralNPUProgram accepts timeout as kwarg. We can just invoke it.
-                    runner.p.timeout = 0.001
+                    # Allow the simulator to organically evaluate the massive compute
+                    # It will naturally hit its internal watchdog or max_cycles
                     runner.p(*[b for b in si.bufs])
 
 if __name__ == '__main__':
