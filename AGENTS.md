@@ -175,3 +175,15 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Fake Unit Test Validation Fraud**: Asserting cross-compilation success strictly by verifying file existence via `os.path.exists()` in tests like `test_coralnpu_memory.py` and `test_cross_compiler_matrix.py` instead of routing the generated payload natively through the ISS or execution sandbox constitutes a Tier 1 E2E Evasion.
 * **IPC Lock Exhaustion Validation Enforcement**: All `except (...) pass` masks around `runner.p` execution loops have been eradicated. `TimeoutError` and `ProcessLookupError` from hangs MUST natively unmask the pipeline limits and raise `AssertionError` to prevent overarching CI watchdogs from blindly killing the thread queue.
 * **Massive Skips Masking Deadlocks**: Massive `self.skipTest` blocks in `test_asm_gemm.py` and `test_dtype.py` are actively skipping execution suites, evading hardware evaluations and mathematically deflating local coverage metrics. This testing fraud must be eradicated.
+
+### Breadth-First Prototyping & Single-Branch Development Methodology
+* **Single-Branch Agile Paradigm**: All development must occur directly on `main`/`master`. Multi-branch feature development is explicitly forbidden to prevent integration drift.
+* **Breadth-First Scaffolding & Detonating Stubs**: Scaffold all features concurrently. Unfinished logic must not use silent stubs (e.g., `pass`, `return 0`). All stubs MUST actively crash (e.g., `FAIL("Not Implemented")`, `raise NotImplementedError`). These are called "Detonating Stubs".
+* **Prototype Tagging**: To prevent Detonating Stubs from deadlocking the CI pipeline on a single branch, all such tests MUST be explicitly tagged.
+  * Bazel: Append `tags = ["prototype"]` to the `cc_test` or `py_test` target.
+  * Pytest: Decorate the test with `@pytest.mark.prototype`.
+  * When a feature passes organically, remove the prototype tag to promote it to the stable baseline.
+* **Yellow Pipeline Exemption (Concurrent Execution Strictness Override)**: The rule prohibiting commits during a "Test Void" is updated. Agents ARE authorized to commit directly to `main` as long as the **Strict Baseline** suite (tests without the prototype tag) remains 100% GREEN. Failures confined strictly to tests tagged as `prototype` constitute a 'Yellow' pipeline state, which is EXPLICITLY EXEMPT from pipeline blocker deadlocks.
+* **Informational Prototype Runs**: In `harness.yaml`, test commands must be split into a Strict Baseline run (e.g. `bazel test //... --test_tag_filters=-prototype`) which is blocking, and an Informational Prototype run (e.g. `bazel test //... --test_tag_filters=prototype || true`) which prints traces for the QA agent but swallows the exit code to prevent orchestrator SIGKILLs.
+* **Atomic API Lock-Step**: While internal feature logic can be prototyped loosely and fail prototype tests, any agent modifying a cross-component interface (e.g., changing a C++ AST encoder signature, PyBind11 bindings) MUST immediately update the downstream bindings within the same atomic commit to prevent silent API drift across the ecosystem.
+
