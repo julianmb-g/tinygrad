@@ -68,6 +68,11 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
             if "riscv" in compiler:
               with tempfile.NamedTemporaryFile(suffix=".elf") as f_elf:
                 subprocess.check_output([compiler, flag, "-x", "c++", f.name, "-nostdlib", "-T", f_ld.name, "-o", f_elf.name], stderr=subprocess.STDOUT, timeout=15.0)
+                sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
+                if os.path.exists(sim_path):
+                  subprocess.check_call([sim_path, f_elf.name, "--max_cycles=10000", "--allow_memory_region", "0x0:0x80000000:rwx"])
+                else:
+                  self.fail(f"Hardware simulator missing: {sim_path}")
             else:
               with tempfile.NamedTemporaryFile(suffix=".o") as f_o:
                 subprocess.check_output([compiler, flag, "-c", "-x", "c++", f.name, "-o", f_o.name], stderr=subprocess.STDOUT, timeout=15.0)

@@ -63,7 +63,10 @@ class TestCoralNPUMemory(unittest.TestCase):
                 "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
                 "-T", ld_script, src_file, "-o", elf_file
             ])
-            self.assertTrue(os.path.exists(elf_file))
+            sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
+            if not os.path.exists(sim_path):
+                self.fail(f"Hardware simulator missing: {sim_path}")
+            subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000", "--allow_memory_region", "0x0:0x80000000:rwx"])
 
     def test_axi_burst_unaligned_boundary_nan_preservation(self):
         renderer = CoralNPURenderer()
@@ -94,7 +97,10 @@ class TestCoralNPUMemory(unittest.TestCase):
                 "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
                 "-T", ld_script, src_file, "-o", elf_file
             ])
-            self.assertTrue(os.path.exists(elf_file))
+            sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
+            if not os.path.exists(sim_path):
+                self.fail(f"Hardware simulator missing: {sim_path}")
+            subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000", "--allow_memory_region", "0x0:0x80000000:rwx"])
 
     def test_bss_section_bounds_exceeded(self):
         from tinygrad.renderer.coralnpu import CoralNPURenderer

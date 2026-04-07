@@ -59,8 +59,9 @@ class TestPingPongAddressOverlap(unittest.TestCase):
         schedule = out.schedule()
         for si in schedule:
             if si.ast.op.name == "SINK":
-                src = renderer.render(si.ast.src)
-                src = src.replace("}\n}\n#ifdef __riscv", "}\n#ifdef __riscv")
+                from tinygrad.engine.realize import get_runner
+                runner = get_runner("CORALNPU", si.ast)
+                src = runner.p.prg
                 
                 with tempfile.TemporaryDirectory() as temp_dir:
                     src_file = os.path.join(temp_dir, "kernel.c")

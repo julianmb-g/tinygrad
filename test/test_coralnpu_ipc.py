@@ -127,7 +127,7 @@ def _shared_worker(handle, shm_name, shape_size):
         return True
     finally:
         try: shm.close()
-        except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+        except (ProcessLookupError, BufferError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _hanging_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
@@ -153,7 +153,7 @@ def _hanging_worker(handle, shm_name, shape_size):
         return True
     finally:
         try: shm.close()
-        except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+        except (ProcessLookupError, BufferError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _blocking_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
@@ -176,11 +176,23 @@ def _blocking_worker(handle, shm_name, shape_size):
                 runner = get_runner("CORALNPU", si.ast)
                 for _ in range(100):
                     try: runner.p(*[b for b in si.bufs], timeout=60.0)
-                    except (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError): pass
+                    except (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError) as e:
+                        raise AssertionError(f"IPC Teardown Limit Reached: {e}")
         return True
     finally:
         try: shm.close()
-        except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+        except (ProcessLookupError, BufferError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+
+
+def _safe_release_resource(shms):
+    errors = []
+    for shm in list(shms):
+        try: shm.close()
+        except (ProcessLookupError, BufferError, OSError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
+        try: shm.unlink()
+        except (ProcessLookupError, BufferError, OSError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
+    if errors:
+        raise AssertionError("\n".join(errors))
 
 class TestIpcWorkerPool(unittest.TestCase):
     def setUp(self):
@@ -197,11 +209,7 @@ class TestIpcWorkerPool(unittest.TestCase):
         self.device = CoralNPUDevice("CORALNPU")
 
     def tearDown(self):
-        for shm in list(self.device.allocator.shms.values()):
-            try: shm.close()
-            except (FileNotFoundError, ProcessLookupError, OSError): pass
-            try: shm.unlink()
-            except (FileNotFoundError, ProcessLookupError, OSError): pass
+        _safe_release_resource(self.device.allocator.shms.values())
         self.device.allocator.shms.clear()
         self.patcher.stop()
         self.tmp_dir.cleanup()
