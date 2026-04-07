@@ -31,9 +31,9 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def tearDown(self):
         for shm in list(self.allocator.shms.values()):
             try: shm.close()
-            except (ProcessLookupError, BufferError, FileNotFoundError, OSError): pass
+            except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
             try: shm.unlink()
-            except (ProcessLookupError, BufferError, FileNotFoundError, OSError): pass
+            except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
         self.allocator.shms.clear()
         self.patcher.stop()
         self.tmp_dir.cleanup()
@@ -127,7 +127,7 @@ def _shared_worker(handle, shm_name, shape_size):
         return True
     finally:
         try: shm.close()
-        except (ProcessLookupError, BufferError, FileNotFoundError, OSError): pass
+        except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _hanging_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
@@ -153,7 +153,7 @@ def _hanging_worker(handle, shm_name, shape_size):
         return True
     finally:
         try: shm.close()
-        except (ProcessLookupError, BufferError, FileNotFoundError, OSError): pass
+        except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _blocking_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
@@ -180,7 +180,7 @@ def _blocking_worker(handle, shm_name, shape_size):
         return True
     finally:
         try: shm.close()
-        except (ProcessLookupError, BufferError, FileNotFoundError, OSError): pass
+        except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 class TestIpcWorkerPool(unittest.TestCase):
     def setUp(self):
