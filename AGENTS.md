@@ -187,3 +187,8 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Informational Prototype Runs**: In `harness.yaml`, test commands must be split into a Strict Baseline run (e.g. `bazel test //... --test_tag_filters=-prototype`) which is blocking, and an Informational Prototype run (e.g. `bazel test //... --test_tag_filters=prototype || true`) which prints traces for the QA agent but swallows the exit code to prevent orchestrator SIGKILLs.
 * **Atomic API Lock-Step**: While internal feature logic can be prototyped loosely and fail prototype tests, any agent modifying a cross-component interface (e.g., changing a C++ AST encoder signature, PyBind11 bindings) MUST immediately update the downstream bindings within the same atomic commit to prevent silent API drift across the ecosystem.
 
+
+* **Tinygrad max_upcast Hard-Cap**: Patch `tinygrad/codegen/opt/heuristic.py` to hard-cap the unroll size at `max_upcast = 28` specifically for `CORALNPU`.
+* **Sequential Dependencies**: Implement a scheduling pass forcing sequential data dependencies ("chaining dependents") to stagger AST depths for wide operations like RoPE.
+* **OutOfMemoryError Boundary for Unsplittable Tensors**: The compiler MUST evaluate the total physical footprint of ANY unsplittable tensor chunk. If ANY chunk > 12KB, abort with `OutOfMemoryError`.
+* **Cross-Compiler Testing Matrix & Hermetic Build Exemption**: `tinygrad` is explicitly exempt from the hermetic Bazel build requirement and must be robustly tested against both host `gcc` and `clang` with varying optimization levels.
