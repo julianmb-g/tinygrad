@@ -53,7 +53,7 @@ class TestCoralNPUMemory(unittest.TestCase):
             ld_script = os.path.join(temp_dir, "linker.ld")
             
             with open(src_file, "w") as f:
-                dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define CORAL_DMA_WAIT()\n#define WAIT_DMA_READY()\n#include <stdint.h>\n"
+                dummy_includes = "#include <stdint.h>\n"
                 f.write(dummy_includes + src)
                 
             with open(ld_script, "w") as f:
@@ -66,7 +66,7 @@ class TestCoralNPUMemory(unittest.TestCase):
             sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
             if not os.path.exists(sim_path):
                 self.fail(f"Hardware simulator missing: {sim_path}")
-            subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000", "--allow_memory_region", "0x0:0x80000000:rwx"])
+            subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000"])
 
     def test_axi_burst_unaligned_boundary_nan_preservation(self):
         renderer = CoralNPURenderer()
@@ -87,7 +87,7 @@ class TestCoralNPUMemory(unittest.TestCase):
             ld_script = os.path.join(temp_dir, "linker.ld")
             
             with open(src_file, "w") as f:
-                dummy_includes = "#define CORAL_DMA_ASYNC(dest, src, size)\n#define CORAL_DMA_WAIT()\n#define WAIT_DMA_READY()\n#include <stdint.h>\n"
+                dummy_includes = "#include <stdint.h>\n"
                 f.write(dummy_includes + src)
                 
             with open(ld_script, "w") as f:
@@ -100,7 +100,7 @@ class TestCoralNPUMemory(unittest.TestCase):
             sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
             if not os.path.exists(sim_path):
                 self.fail(f"Hardware simulator missing: {sim_path}")
-            subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000", "--allow_memory_region", "0x0:0x80000000:rwx"])
+            subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000"])
 
     def test_bss_section_bounds_exceeded(self):
         from tinygrad.renderer.coralnpu import CoralNPURenderer
