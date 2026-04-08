@@ -10,7 +10,6 @@ from test.helpers import needs_second_gpu
 from examples.mlperf.models.flat_llama import FP8_DTYPE
 
 # On non CDNA4 it will only validate the Tensor.custom_kernel integration
-# Use DEV=NULL EMULATE=AMD_CDNA4 to also test the assembly
 def is_cdna4(): return getattr(Device[Device.DEFAULT].renderer, "arch", "").startswith("gfx950")
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
@@ -36,8 +35,7 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
     ref.sum().backward()
   Tensor.realize(ref, a_ref.grad, b_ref.grad)
 
-  # no validation on the NULL device
-  if a_rand.device.startswith("NULL"): return None
+  
   atol, rtol = (2e-1, 1e-2) if dtype == dtypes.bfloat16 else (1e-2, 1e-3)
   with Context(DEBUG=0):
     assert tst.allclose(ref, atol=atol, rtol=rtol), "forward mismatch"
@@ -98,8 +96,7 @@ class TestAsmGEMM(unittest.TestCase):
     a, b = Tensor(a_np), Tensor(b_np)
     c = asm_gemm(a, b)
     c.realize()
-    # no validation on the NULL device
-    if a.device.startswith("NULL"): return None
+    
     np.testing.assert_allclose(c.numpy(), c_np, atol=2e-3, rtol=5e-2)
 
   def test_unsupported_batch(self):
