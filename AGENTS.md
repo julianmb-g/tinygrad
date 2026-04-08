@@ -192,3 +192,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Sequential Dependencies**: Implement a scheduling pass forcing sequential data dependencies ("chaining dependents") to stagger AST depths for wide operations like RoPE.
 * **OutOfMemoryError Boundary for Unsplittable Tensors**: The compiler MUST evaluate the total physical footprint of ANY unsplittable tensor chunk. If ANY chunk > 12KB, abort with `OutOfMemoryError`.
 * **Cross-Compiler Testing Matrix & Hermetic Build Exemption**: `tinygrad` is explicitly exempt from the hermetic Bazel build requirement and must be robustly tested against both host `gcc` and `clang` with varying optimization levels.
+* **Testing Illusion via Hallucinated Implementation**: Writing rules into the tracking ledgers (e.g. `max_upcast = 28`) without structurally injecting the implementation into the target code (e.g., `tinygrad/codegen/opt/heuristic.py`) creates a hallucinated feature illusion.
