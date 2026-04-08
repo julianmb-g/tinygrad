@@ -47,9 +47,9 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def tearDown(self):
         for shm in list(self.allocator.shms.values()):
             try: shm.close()
-            except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+            except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
             try: shm.unlink()
-            except (ProcessLookupError, BufferError, FileNotFoundError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+            except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
         self.allocator.shms.clear()
         self.patcher.stop()
         if os.path.exists(self.elf_path):
@@ -113,6 +113,30 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             # Allow the simulator to organically evaluate the infinite loop
             prog(timeout=0.01) # Hit timeout
 
+
+    def test_ipc_teardown_fidelity(self):
+        """Test that active locks correctly trigger BufferError during teardown."""
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
+        handle = self.allocator._alloc(1024, dummy_options)
+        
+        shm = self.allocator.shms[handle]
+        lock = memoryview(shm.buf)
+        try:
+            with self.assertRaises((ProcessLookupError, BufferError, AssertionError)):
+                self.allocator._free(handle, dummy_options)
+        finally:
+            del lock
+            try:
+                self.allocator._free(handle, dummy_options)
+            except (ProcessLookupError, BufferError, FileNotFoundError, OSError, AssertionError, TypeError):
+                pass
+            try:
+                shm.close()
+            except (ProcessLookupError, BufferError, FileNotFoundError, OSError, AssertionError, TypeError): pass
+            try:
+                shm.unlink()
+            except (ProcessLookupError, BufferError, FileNotFoundError, OSError, AssertionError, TypeError): pass
+
 if __name__ == '__main__':
     unittest.main()
 
@@ -137,7 +161,7 @@ def _shared_worker(handle, shm_name, shape_size):
         return True
     finally:
         try: shm.close()
-        except (ProcessLookupError, BufferError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+        except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _hanging_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
@@ -153,7 +177,7 @@ def _hanging_worker(handle, shm_name, shape_size):
         return True
     finally:
         try: shm.close()
-        except (ProcessLookupError, BufferError, OSError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+        except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 STRESS_TEST_ITERATIONS = 100
 STRESS_TEST_TIMEOUT_SEC = 60.0
@@ -174,9 +198,9 @@ def _safe_release_resource(shms):
     errors = []
     for shm in list(shms):
         try: shm.close()
-        except (ProcessLookupError, BufferError, OSError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
+        except (ProcessLookupError, BufferError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
         try: shm.unlink()
-        except (ProcessLookupError, BufferError, OSError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
+        except (ProcessLookupError, BufferError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
     if errors:
         raise AssertionError("\n".join(errors))
 
