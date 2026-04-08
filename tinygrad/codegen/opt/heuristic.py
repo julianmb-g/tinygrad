@@ -136,7 +136,8 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
 
   # potentially do more upcasts of non reduce axes based on a heuristic
   is_dsp = k.ren is not None and k.ren.device == "DSP"
-  max_upcast = getattr(k.ren, "max_upcast", 31) if k.ren is not None else 31
+  is_coralnpu = k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU"
+  max_upcast = 28 if is_coralnpu else (getattr(k.ren, "max_upcast", 31) if k.ren is not None else 31)
   upcasted_axis: set[int] = set()
   while resolve(prod(k.output_shape[i] for i in k.upcastable_dims) >= 1024) and (k.upcast_size() <= max_upcast):
     xb_choices = []
@@ -166,8 +167,9 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   # if last reduce dim is small(ish), loop unroll the reduce
   # NOTE: this can fail on multireduce with mismatching dimensions, this is okay
   try:
-    max_unroll = getattr(k.ren, "max_upcast", 63) if k.ren is not None else 63
-    max_small_unroll = getattr(k.ren, "max_upcast", 32) if k.ren is not None else 32
+    is_coralnpu = k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU"
+    max_unroll = 28 if is_coralnpu else (getattr(k.ren, "max_upcast", 63) if k.ren is not None else 63)
+    max_small_unroll = 28 if is_coralnpu else (getattr(k.ren, "max_upcast", 32) if k.ren is not None else 32)
     if k.unrollable_dims and (k.upcast_size() <= 4 or not k.axes_of(AxisType.UNROLL)) and (k.upcast_size() <= max_unroll):
       if (s:=k.full_shape[k.unrollable_dims[-1]]) <= max_small_unroll:
         k.apply_opt(Opt(OptOps.UNROLL, len(k.unrollable_dims)-1, 0))
