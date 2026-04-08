@@ -264,7 +264,7 @@ function timeAtCycle(clk) {
   let cur = data.instSt, ns = 0, freq = null;
   // walk through all frequency changes and accumulate time in nanoseconds
   for (const [s, v] of data.tracks.get("Shader Clock").valueMap) {
-    if (freq != null && freq > 0 && cur < s) {
+    if (freq != null && cur < s) {
       const et = Math.min(clk, s);
       ns += (et - cur) * 1e9 / freq;
       cur = et;
@@ -408,8 +408,8 @@ async function renderProfiler(path, opts) {
   canvas.addEventListener("wheel", e => (e.stopPropagation(), e.preventDefault()), { passive:false });
   const ctx = canvas.getContext("2d");
   const canvasTop = rect(canvas).top;
-  // map event name to shape and label colors
-  const colorMap = new Map(), coloredNames = new Map();
+  // color by key (name/device)
+  const colorMap = new Map();
   // map shapes by event key
   const shapeMap = new Map();
   const heightScale = d3.scaleLinear().domain([0, tracePeak]).range([4,maxheight=100]);
@@ -448,14 +448,11 @@ async function renderProfiler(path, opts) {
           colorMap.set(colorKey, d3.rgb(color));
         }
         const fillColor = colorMap.get(colorKey).brighter(0.3*depth).toString();
-        let label = coloredNames.get(e.name);
-        if (label == null) {
-          label = parseColors(e.name).flatMap(({ color, st }) => {
-            const parts = [];
-            for (let i=0; i<st.length; i+=4) { const part = st.slice(i, i+4); parts.push({ color, st:part, width:ctx.measureText(part).width }); }
-            return parts;
-          }); coloredNames.set(e.name, label);
-        }
+        const label = parseColors(e.name).flatMap(({ color, st }) => {
+          const parts = [];
+          for (let i=0; i<st.length; i+=4) { const part = st.slice(i, i+4); parts.push({ color, st:part, width:ctx.measureText(part).width }); }
+          return parts;
+        });
         let shapeRef = e.ref;
         if (shapeRef != null) { ref = {ctx:e.ref, step:0}; shapeRef = ref; }
         else if (ref != null) {

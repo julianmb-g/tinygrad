@@ -1,8 +1,11 @@
-from tinygrad import Tensor, dtypes, Context, getenv, UOp, fetch
+import sys
+import types
+
+from tinygrad import Context, Tensor, UOp, dtypes, fetch, getenv
+from tinygrad.codegen import Renderer, get_program
+from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.uop.ops import Ops, PatternMatcher, UPat
 from tinygrad.uop.symbolic import symbolic
-from tinygrad.codegen import Renderer
-from tinygrad.codegen.opt import Opt, OptOps
 
 # ************************* implementation of the problem ************************
 
@@ -141,7 +144,6 @@ class VLIWRenderer(Renderer):
 
 # ************************* test and render *************************
 
-import sys, types
 PROBLEM_URL = "https://raw.githubusercontent.com/anthropics/original_performance_takehome/refs/heads/main/tests/frozen_problem.py"
 sys.modules["problem"] = problem = types.ModuleType("problem")
 exec(fetch(PROBLEM_URL).read_text(), problem.__dict__)
@@ -173,7 +175,6 @@ if __name__ == "__main__":
 
   # *** render to device ***
 
-  from tinygrad.codegen import get_program
   with Context(PCONTIG=2, DEVECTORIZE=2, SPEC=0):
     out = tree_traversal(forest_t, val_t, height, rounds)
     sink = out.schedule()[-1].ast

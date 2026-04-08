@@ -1,11 +1,13 @@
-import unittest, itertools
+import itertools
+import unittest
 
+from test.null.test_uop_symbolic import check_uop_against_string
 from tinygrad.codegen import full_rewrite_to_sink
 from tinygrad.dtype import dtypes
-from tinygrad.uop.ops import UOp, Ops
-from tinygrad.uop.symbolic import simplify_valid
 from tinygrad.helpers import Context
-from test.null.test_uop_symbolic import check_uop_against_string
+from tinygrad.uop.ops import Ops, UOp
+from tinygrad.uop.symbolic import simplify_valid
+
 
 def get_gated_load_uop(valid:UOp, idx:UOp):
   return UOp(Ops.LOAD, dtypes.float, (
@@ -164,7 +166,7 @@ class TestValidIdxSimplification(unittest.TestCase):
       extra=(red,))
 
   def test_valid_becomes_const1_z3(self):
-    from z3 import Ints, Solver, And, If, Not, unsat
+    from z3 import And, If, Ints, Not, Solver, unsat
     ridx0, ridx1, ridx2, alu11, alu15 = Ints('ridx0 ridx1 ridx2 alu11 alu15')
     alu11 = (ridx1+ridx2)
     alu15 = ((alu11+1)/7)

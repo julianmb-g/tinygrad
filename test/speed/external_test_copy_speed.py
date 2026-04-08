@@ -1,7 +1,10 @@
-import unittest, numpy as np
-from tinygrad import Tensor, Device, TinyJit
-from tinygrad.helpers import Timing, CI, OSX, getenv
 import multiprocessing.shared_memory as shared_memory
+import unittest
+
+import numpy as np
+
+from tinygrad import Device, Tensor, TinyJit
+from tinygrad.helpers import CI, OSX, Timing, getenv
 
 N = getenv("NSZ", 256)
 class TestCopySpeed(unittest.TestCase):
@@ -10,6 +13,8 @@ class TestCopySpeed(unittest.TestCase):
 
   def testCopySHMtoDefault(self):
     s = shared_memory.SharedMemory(name="test_X", create=True, size=N*N*4)
+    view = memoryview(s.buf)
+    view.release()
     s.close()
     if CI and not OSX:
       t = Tensor.empty(N, N, device="disk:/dev/shm/test_X").realize()
@@ -54,7 +59,7 @@ class TestCopySpeed(unittest.TestCase):
     @TinyJit
     def _do_copy(t): return t.to('CPU').realize()
 
-    t = Tensor.randn(N, N).contiguous().realize()
+    t = ((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N).contiguous().realize()
     Device[Device.DEFAULT].synchronize()
     for _ in range(5):
       with Timing(f"copy {Device.DEFAULT} -> CPU {t.nbytes()/(1024**2)}M:  ", on_exit=lambda ns: f" @ {t.nbytes()/ns:.2f} GB/s"):
@@ -69,7 +74,7 @@ class TestCopySpeed(unittest.TestCase):
     def _do_copy(x): return x.to(Device.DEFAULT).realize()
 
     for _ in range(5):
-      t = Tensor.randn(N, N, device="CPU").contiguous().realize()
+      t = ((Tensor.arange(N*N, device="CPU") % 10) * 0.1).reshape(N, N).contiguous().realize()
       Device["CPU"].synchronize()
       with Timing(f"copy CPU -> {Device.DEFAULT} {t.nbytes()/(1024**2)}M:  ", on_exit=lambda ns: f" @ {t.nbytes()/ns:.2f} GB/s"):
         x = _do_copy(t)
@@ -77,7 +82,6 @@ class TestCopySpeed(unittest.TestCase):
       np.testing.assert_equal(t.numpy(), x.numpy())
 
   @unittest.skipIf(CI, "CI doesn't have 6 GPUs")
-  @unittest.skipIf(Device.DEFAULT != "CL", "only test this on CL")
   def testCopyCPUto6GPUs(self):
     from tinygrad.runtime.ops_cl import CLDevice
     if len(CLDevice.device_ids) != 6: raise unittest.SkipTest("computer doesn't have 6 GPUs")
@@ -89,6 +93,5 @@ class TestCopySpeed(unittest.TestCase):
           for g in range(6):
             t.to(f"CL:{g}").realize()
         Device["CL"].synchronize()
-
 if __name__ == '__main__':
   unittest.main()

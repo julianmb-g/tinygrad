@@ -111,6 +111,12 @@ pm_reduce_collapse = pm_reduce_unparented + PatternMatcher([
   # REDUCE on ADD
   ((UPat.var("x")+UPat.var("y")).reduce(arg=Ops.ADD, allow_any_len=True, name="r"),
    lambda x,y,r: x.reduce(*r.src[1:], arg=Ops.ADD) + y.reduce(*r.src[1:],arg=Ops.ADD)),
+  # REDUCE on RANGE
+  (UPat(Ops.RANGE, name="r").reduce(UPat.var("r"), arg=Ops.ADD),
+   lambda r: (((r.src[0] * (r.src[0] - 1)) // 2) - ((r.arg[0] * (r.arg[0] - 1)) // 2)).cast(r.dtype)),
+  # REDUCE on MUL
+  ((UPat.var("x")*UPat.var("y")).reduce(arg=Ops.ADD, allow_any_len=True, name="r"),
+   lambda x,y,r: x.reduce(*r.src[1:], arg=Ops.ADD)*y if no_range(y) else (y.reduce(*r.src[1:], arg=Ops.ADD)*x if no_range(x) else None)),
   # AND on WHERE
   ((UPat(Ops.DEFINE_VAR, name="x") & UPat.var("y")).where(UPat.var("c"), 0).reduce(arg=Ops.ADD, allow_any_len=True, name="r"),
     lambda x,y,c,r: y.where(c, 0).reduce(*r.src[1:], arg=Ops.ADD)*x.cast(c.dtype)),

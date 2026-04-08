@@ -3,11 +3,15 @@
 Uses run_asm() with memory output, so tests can run on both emulator and real hardware.
 Set USE_HW=1 to run on both emulator and hardware, comparing results.
 """
-import ctypes, math, os, struct
-from tinygrad.runtime.autogen.amd.rdna3.ins import *
+import ctypes
+import math
+import os
+import struct
 
 from test.mockgpu.amd.emu import run_asm
-from tinygrad.renderer.amd.dsl import NULL, SCC, VCC_LO, VCC_HI, EXEC_LO, EXEC_HI, M0
+from tinygrad.renderer.amd.dsl import EXEC_HI, EXEC_LO, M0, NULL, SCC, VCC_HI, VCC_LO
+from tinygrad.runtime.autogen.amd.rdna3.ins import *
+
 
 def _i32(f: float) -> int: return struct.unpack('<I', struct.pack('<f', f))[0]
 def _f32(i: int) -> float: return struct.unpack('<f', struct.pack('<I', i & 0xFFFFFFFF))[0]
@@ -171,9 +175,9 @@ def run_program_emu(instructions: list, n_lanes: int = 1) -> WaveState:
 def run_program_hw(instructions: list, n_lanes: int = 1) -> WaveState:
   """Run instructions on real AMD hardware via HIPCompiler and AMDProgram."""
   from tinygrad.device import Device
+  from tinygrad.helpers import flat_mv
   from tinygrad.runtime.ops_amd import AMDProgram
   from tinygrad.runtime.support.compiler_amd import HIPCompiler
-  from tinygrad.helpers import flat_mv
 
   dev = Device["AMD"]
   compiler = HIPCompiler(dev.arch)  # type: ignore[attr-defined]

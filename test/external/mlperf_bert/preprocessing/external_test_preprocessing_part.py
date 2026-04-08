@@ -19,7 +19,10 @@
 
 # 4.  Run this script to verify the correctness of the preprocessing script for specific part
 #     Command: python3 external_test_preprocessing_part.py --preprocessed_part=/path/to/basedir/train/X.pkl --tf_records=/path/to/output.tfrecord
-import os, argparse, pickle
+import argparse
+import os
+import pickle
+
 from tqdm import tqdm
 
 # This is a workaround for protobuf issue

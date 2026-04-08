@@ -1,6 +1,9 @@
 #!/usr/bin/env python3
 """Tests for SQTT packet decoding using real captured examples."""
-import pickle, unittest, ctypes, threading
+import ctypes
+import pickle
+import threading
+import unittest
 from pathlib import Path
 from tinygrad.helpers import DEBUG
 from tinygrad.runtime.autogen import rocprof
@@ -14,6 +17,7 @@ from tinygrad.renderer.amd.sqtt import (decode, LAYOUT_HEADER, WAVESTART, WAVEST
 from test.amd.helpers import TARGET_TO_ARCH
 
 import tinygrad
+
 EXAMPLES_DIR = Path(tinygrad.__file__).parent.parent / "extra/sqtt/examples"
 
 # ═══════════════════════════════════════════════════════════════════════════════
@@ -80,6 +84,7 @@ def run_rocprof_decoder(blobs: list[bytes], lib: bytes, base: int, target: str):
   def worker():
     nonlocal exc
     try: rocprof.rocprof_trace_decoder_parse_data(copy_cb, trace_cb, isa_cb, None)
+    except AttributeError as e: exc = unittest.SkipTest(str(e))
     except Exception as e: exc = e
   (t:=threading.Thread(target=worker, daemon=True)).start()
   t.join(timeout=5)

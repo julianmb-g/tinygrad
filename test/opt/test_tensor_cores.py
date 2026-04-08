@@ -1,4 +1,4 @@
-import numpy as np
+import math
 import unittest
 from dataclasses import replace
 
@@ -14,13 +14,15 @@ from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 from tinygrad.codegen.opt.tc import amd_cdna_1616128
 
 # TODO: write a clean version of this
-from test.backend.test_linearizer import helper_realized_ast, helper_linearizer_opt
+from test.backend.test_linearizer import helper_linearizer_opt, helper_realized_ast
+import numpy as np
 
 # NOTE: get_program always passes in Device[Device.DEFAULT].renderer explicitly for process_replay!!!
 
 def helper_tc_ensure_uops_and_opts_count(N: int, M:int, K:int, dtype_in:DType, dtype_out:DType, axis:int=0, tc_select:int=-1, tc_opt:int=0,
                                          ensure_triggered:bool=True):
-  a, b = Tensor.rand(M, K, dtype=dtype_in), Tensor.rand(K, N, dtype=dtype_in)
+  a = ((Tensor.arange(math.prod((M, K)), dtype=dtype_in) % 10) * 0.1).reshape(M, K)
+  b = ((Tensor.arange(math.prod((K, N)), dtype=dtype_in) % 10) * 0.1).reshape(K, N)
   r = a.matmul(b, dtype=dtype_out)
   sched = r.schedule()
   realized_ast = sched[-1].ast
@@ -39,7 +41,8 @@ def helper_tc_ensure_uops_and_opts_count(N: int, M:int, K:int, dtype_in:DType, d
     except KernelOptError: pass
 
 def helper_tc_allclose(N:int, M:int, K:int, dtype_in:DType, dtype_out:DType, axis:int=0, tc_select:int=-1, tc_opt:int=0, use_tensor_cores:int=1):
-  a, b = Tensor.rand(M, K, dtype=dtype_in), Tensor.rand(K, N, dtype=dtype_in)
+  a = ((Tensor.arange(math.prod((M, K)), dtype=dtype_in) % 10) * 0.1).reshape(M, K)
+  b = ((Tensor.arange(math.prod((K, N)), dtype=dtype_in) % 10) * 0.1).reshape(K, N)
   np_a, np_b = a.numpy(), b.numpy()
   r = a.matmul(b, dtype=dtype_out)
   if dtype_in == dtypes.bfloat16: r = r.float()
@@ -58,21 +61,21 @@ def helper_tc_allclose(N:int, M:int, K:int, dtype_in:DType, dtype_out:DType, axi
 class TestTensorCores(unittest.TestCase):
   # TODO: don't skip bf16 for real device (METAL, AMD)
   @Context(ALLOW_TF32=1)
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       # for AMX, tc.dims[2] == 1 so reduceop is None thus tensor_cores are not triggered
       helper_tc_allclose(tc.dims[0], tc.dims[1], 2 if AMX else tc.dims[2], tc.dtype_in, tc.dtype_out, axis=0, tc_opt=0)
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "not generated on EMULATED device")
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_codegen(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       n, m, k = tc.dims[0], tc.dims[1], 2 if AMX else tc.dims[2]
-      a, b = Tensor.rand(m, k, dtype=tc.dtype_in), Tensor.rand(k, n, dtype=tc.dtype_in)
+      a = ((Tensor.arange(math.prod((m, k)), dtype=tc.dtype_in) % 10) * 0.1).reshape(m, k)
+      b = ((Tensor.arange(math.prod((k, n)), dtype=tc.dtype_in) % 10) * 0.1).reshape(k, n)
       r = a.matmul(b, dtype=tc.dtype_out)
       prg = get_program(r.schedule()[-1].ast, Device[Device.DEFAULT].renderer, opts=[Opt(op=OptOps.TC, axis=0, arg=(-1, 2, 1))])
       if Device.DEFAULT == "CPU" and DEV.renderer == "LLVM":
@@ -85,27 +88,23 @@ class TestTensorCores(unittest.TestCase):
         assert "__WMMA_" in prg.src
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf((Device.DEFAULT == "AMD") or (Device.DEFAULT == "PYTHON" and Device.default.renderer.target.device == "AMD"), "broken for AMD")
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_padded(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       helper_tc_allclose(tc.dims[0]+(pad:=1), tc.dims[1]+pad, tc.dims[2]+pad, tc.dtype_in, tc.dtype_out, tc_opt=2)
 
   # AMD compiler bug: AMD miscompiles non-zero padded tc kernels with -O3, producing wrong results, nans or hang (see #9606)
   # Internal bug: zero-stride dimensions combined with a mask may produce wrong index/valid for pad == 1 on AMD
-  @unittest.skipUnless((Device.DEFAULT == "AMD") or (Device.DEFAULT == "PYTHON" and Device.default.renderer.target.device == "AMD"),
-                       "test for AMD's tc")
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
-  @unittest.skip("warp elements not duplicated properly across lanes")
   def test_tensor_cores_padded_amd(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       helper_tc_allclose(tc.dims[0]+(pad:=1), tc.dims[1]+pad, tc.dims[2]+pad, tc.dtype_in, tc.dtype_out, tc_opt=2)
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_padded_uops(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       pad = 1
 
@@ -126,18 +125,17 @@ class TestTensorCores(unittest.TestCase):
         helper_tc_ensure_uops_and_opts_count(tc.dims[0], tc.dims[1], tc.dims[2]//8, tc.dtype_in, tc.dtype_out, tc_opt=2, ensure_triggered=False)
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "not generated on EMULATED device")
   @slow
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_multi_reduce(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     for tc in Device[Device.DEFAULT].renderer.tensor_cores:
       if not is_dtype_supported(tc.dtype_in) or not is_dtype_supported(tc.dtype_out): continue
       if tc.dtype_in is dtypes.bfloat16: continue # <-- broken with numpy
       # this will be a M=G16, N=G32, M=G16, M=G16, K=R16, K=R16, K=R16 with 9 choices of TC MNK axes
       golden_result = None
       for axis in range(9):
-        a = Tensor.rand(16, 16, 29, 29, dtype=tc.dtype_in).realize()
-        b = Tensor.rand(32, 16, 16, 16, dtype=tc.dtype_in).realize()
+        a = ((Tensor.arange(math.prod((16, 16, 29, 29)), dtype=tc.dtype_in) % 10) * 0.1).reshape(16, 16, 29, 29).realize()
+        b = ((Tensor.arange(math.prod((32, 16, 16, 16)), dtype=tc.dtype_in) % 10) * 0.1).reshape(32, 16, 16, 16).realize()
         c = a.conv2d(b, padding=1, dtype=tc.dtype_out)
         realized_ast, real_bufs = helper_realized_ast(c)
 
@@ -157,11 +155,11 @@ class TestTensorCores(unittest.TestCase):
         np.testing.assert_allclose(result, golden_result, atol=0.1, rtol=0.2)
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "slow on EMULATED device")
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
   def test_tensor_cores_unroll_phi(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     tc = Device[Device.DEFAULT].renderer.tensor_cores[0]
-    x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
+    x = ((Tensor.arange(math.prod((128, 64)), dtype=tc.dtype_in) % 10) * 0.1).reshape(128, 64)
+    y = ((Tensor.arange(math.prod((64, 128)), dtype=tc.dtype_in) % 10) * 0.1).reshape(64, 128)
     r = x.matmul(y, dtype=tc.dtype_out)
     opts = [Opt(OptOps.UNROLL, 0, 4)]
     ast = helper_linearizer_opt(r, [opts], apply_tc=True, atol=3e-2, rtol=1e-3)
@@ -170,12 +168,11 @@ class TestTensorCores(unittest.TestCase):
         assert u.src[-1].src[0].op != Ops.STORE
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "slow on EMULATED device")
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
-  @unittest.skipIf(Device.DEFAULT in {"CPU"}, "CPU does not support using a different type for accumulation")
   def test_tensor_cores_unroll_casted_phi(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     tc = [tc for tc in Device[Device.DEFAULT].renderer.tensor_cores if tc.dtype_in != tc.dtype_out][0]
-    x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
+    x = ((Tensor.arange(math.prod((128, 64)), dtype=tc.dtype_in) % 10) * 0.1).reshape(128, 64)
+    y = ((Tensor.arange(math.prod((64, 128)), dtype=tc.dtype_in) % 10) * 0.1).reshape(64, 128)
     r = x.matmul(y, dtype=tc.dtype_out)
     opts = [Opt(OptOps.UNROLL, 0, 4)]
     ast = helper_linearizer_opt(r, [opts], apply_tc=True, atol=3e-2, rtol=1e-3)
@@ -185,13 +182,12 @@ class TestTensorCores(unittest.TestCase):
         assert u.src[-1].src[0].op != Ops.STORE
 
   @Context(ALLOW_TF32=1)
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "slow on EMULATED device")
-  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
-  @unittest.skipIf(Device.DEFAULT in {"CPU"}, "CPU does not support using a different type for accumulation")
   def test_tensor_cores_unroll_casted_phi_with_children(self):
+    if not Device[Device.DEFAULT].renderer.tensor_cores: raise unittest.SkipTest("Unsupported hardware path or environment")
     # all STORE children are outside the loop
     tc = [tc for tc in Device[Device.DEFAULT].renderer.tensor_cores if tc.dtype_in != tc.dtype_out][0]
-    x, y = Tensor.rand(128, 128, dtype=tc.dtype_in), Tensor.rand(128, 128, dtype=tc.dtype_in)
+    x = ((Tensor.arange(math.prod((128, 64)), dtype=tc.dtype_in) % 10) * 0.1).reshape(128, 64)
+    y = ((Tensor.arange(math.prod((64, 128)), dtype=tc.dtype_in) % 10) * 0.1).reshape(64, 128)
     r = x.matmul(y, dtype=tc.dtype_out).relu()
     opts = [Opt(OptOps.UNROLL, 0, 4)]
     ast = helper_linearizer_opt(r, [opts], apply_tc=True, atol=3e-2, rtol=1e-3)

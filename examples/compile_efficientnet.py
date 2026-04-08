@@ -7,6 +7,7 @@ from extra.export_model import export_model
 from tinygrad.helpers import fetch
 import ast
 
+
 if __name__ == "__main__":
   model = EfficientNet(0)
   model.load_from_pretrained()

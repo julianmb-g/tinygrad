@@ -1,8 +1,12 @@
-import functools, multiprocessing
-from transformers import AutoTokenizer
+import functools
+import multiprocessing
+
 from datasets import load_dataset
+from transformers import AutoTokenizer
+
 from tinygrad.apps.llm import SimpleTokenizer
-from tinygrad.helpers import tqdm, getenv, partition
+from tinygrad.helpers import getenv, partition, tqdm
+
 
 @functools.cache
 def get_tokenizers():

@@ -1,13 +1,16 @@
-from typing import Literal, Callable, cast
-import math, sys, struct
-from collections import defaultdict, Counter
-from tinygrad.codegen.opt import tc
-from tinygrad.uop.ops import GroupOp, Ops, UOp, PatternMatcher, UPat, range_str, axis_letters
-from tinygrad.helpers import strip_parens, getenv, prod, dedup, Target, AMX, CPU_COUNT
-from tinygrad.dtype import ImageDType, dtypes, DType, PtrDType, AddrSpace, truncate, float_to_bf16
-from tinygrad.renderer import Renderer
-from tinygrad.codegen.late.devectorizer import no_vectorized_alu
+import math
+import os
+import struct
+import sys
+from collections import Counter, defaultdict
+from typing import Callable, Literal, cast
 
+from tinygrad.codegen.late.devectorizer import no_vectorized_alu
+from tinygrad.codegen.opt import tc
+from tinygrad.dtype import AddrSpace, DType, ImageDType, PtrDType, dtypes, float_to_bf16, truncate
+from tinygrad.helpers import AMX, CPU_COUNT, dedup, getenv, prod, strip_parens
+from tinygrad.renderer import Renderer
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, axis_letters, range_str
 
 base_rewrite = PatternMatcher([
   (UPat(Ops.DEFINE_REG, name="x"), lambda ctx,x: f"{ctx.render_dtype(x.dtype.base)} {ctx[x]}[{x.dtype.size}];"),
@@ -122,7 +125,9 @@ class CStyleLanguage(Renderer):
   infinity: str = "INFINITY"
   nan: str = "NAN"
   code_for_op: dict = {
-    Ops.SQRT: lambda x,dtype: f"sqrt({x})", Ops.RECIPROCAL: lambda x,dtype: f"(1/{x})", Ops.NEG: lambda x,dtype: f"-{x}",
+    Ops.SQRT: lambda x,dtype: f"sqrt({x})",
+    Ops.RECIPROCAL: lambda x,dtype: f"(1.0f/{x})",
+    Ops.NEG: lambda x,dtype: f"-{x}",
     Ops.EXP2: lambda x,dtype: f"exp2({x})", Ops.LOG2: lambda x,dtype: f"log2({x})", Ops.SIN: lambda x,dtype: f"sin({x})",
     Ops.TRUNC: lambda x,dtype: f"trunc({x})",
     Ops.AND: lambda a,b,dtype: f"({a}&{b})", Ops.XOR: lambda a,b,dtype: f"({a}^{b})", Ops.OR: lambda a,b,dtype: f"({a}|{b})",
@@ -136,8 +141,6 @@ class CStyleLanguage(Renderer):
 
   def render_kernel(self, function_name:str, kernel:list[str], bufs:list[tuple[str,tuple[DType,bool]]], uops:list[UOp], prefix=None) -> str:
     tmp = ""
-    if any(isinstance(dtype, ImageDType) for _,(dtype,_) in bufs):
-      tmp = "const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;\n"
     buftypes = [(name, self.render_dtype(dtype, mutable)+self.buffer_suffix if isinstance(dtype, (ImageDType, PtrDType)) else
                 self.arg_int_prefix if dtype == dtypes.int else None) for name,(dtype,mutable) in bufs]
     local_dims = [u.src[0] for u in uops if u.op is Ops.SPECIAL and u.arg[0] == "l"]
@@ -149,7 +152,7 @@ class CStyleLanguage(Renderer):
 
   def render_cast(self, dt:DType, val: str) -> str: return f"({self.render_dtype(dt)})({val})"
   def render_dtype(self, dt:DType, mutable=True) -> str:
-    if isinstance(dt, ImageDType): return f"{'write_only' if mutable else 'read_only'} image2d_t"
+    if isinstance(dt, ImageDType): return f"{self.render_dtype(dt.base)}*"
     if isinstance(dt, PtrDType):
       prefix = ""
       if dt.addrspace == AddrSpace.LOCAL and self.smem_prefix_for_cast: prefix = self.smem_prefix
@@ -218,6 +221,8 @@ class CStyleLanguage(Renderer):
   def render(self, uops:list[UOp]) -> str: return self.render_kernel(*self._render(uops), uops)
 
 class ClangRenderer(CStyleLanguage):
+  device = "CPU"
+  arch = "CORALNPU"
   float4 = "(float4)"
   float4_style = ('{', '}')
   gep_arr_threshold = 0
@@ -230,18 +235,24 @@ class ClangRenderer(CStyleLanguage):
 
   # language options
   buffer_suffix = " restrict"
-  type_map = {dtypes.bool:"_Bool", dtypes.half:"__fp16"}
-  code_for_op = {**({k:v for k,v in CStyleLanguage.code_for_op.items() if k not in [Ops.EXP2, Ops.SIN, Ops.LOG2, Ops.TRUNC, Ops.RECIPROCAL]}),
+  type_map = {dtypes.bool:"_Bool", dtypes.half:"__fp16", dtypes.bfloat16:"unsigned short",
+              dtypes.fp8e5m2:"unsigned char", dtypes.fp8e4m3fnuz:"unsigned char",
+              dtypes.fp8e4m3:"unsigned char"}
+  code_for_op = {
+    **({k:v for k,v in CStyleLanguage.code_for_op.items()
+        if k not in [Ops.EXP2, Ops.SIN, Ops.LOG2, Ops.TRUNC, Ops.RECIPROCAL]}),
                  Ops.SQRT: lambda x,dtype: f"__builtin_sqrt({x})" if dtype == dtypes.float64 else f"__builtin_sqrtf({x})",
                  Ops.TRUNC: lambda x,dtype: f"__builtin_trunc({x})" if dtype == dtypes.float64 else f"__builtin_truncf({x})",
                  Ops.FDIV: lambda a,b,dtype: f"({a}/{b})"}
 
-  # LLVM legalizes double => half/bf16 cast on systems that don't support it natively (like x86 cpus without AVX512-FP16) into a compiler-rt libcall.
+  # LLVM legalizes double => half/bf16 cast on systems that don't support it natively
+  # (like x86 cpus without AVX512-FP16) into a compiler-rt libcall.
   # there is also no native bfl16 <-> fp16 conversion on those CPUs
   extra_matcher = PatternMatcher([(UPat.var("x", dtypes.float64).cast(dtypes.float16), lambda x: x.cast(dtypes.float32).cast(dtypes.float16)),
                                  (UPat.var("x", dtypes.float64).cast(dtypes.bfloat16), lambda x: x.cast(dtypes.float32).cast(dtypes.bfloat16)),
                                  (UPat.var("x", dtypes.bfloat16).cast(dtypes.float16), lambda x: x.cast(dtypes.float32).cast(dtypes.float16)),
-    (UPat((Ops.SQRT, Ops.TRUNC), name="alu"), no_vectorized_alu)]) + create_non_native_float_pats((dtypes.bfloat16,)) + pm_manual_bf16_cast + \
+    (UPat((Ops.SQRT, Ops.TRUNC), name="alu"), no_vectorized_alu)]) + \
+    create_non_native_float_pats((dtypes.bfloat16, *dtypes.fp8s)) + pm_manual_bf16_cast + \
     CStyleLanguage.extra_matcher
 
   if sys.platform == 'win32':
@@ -269,7 +280,8 @@ class ClangRenderer(CStyleLanguage):
   for(int ridx0 = 0; ridx0 < 16; ridx0++){{ AMX(5, (int *)(&data0), 0ull<<62 | (ridx0*4ull)<<56 | ridx0*64ull); }}
   AMX_SET(1);\n  return data0;\n}}"""]
     return prefix
-  def _render_body(self, function_name, kernel, bufs, uops, pref=None) -> str: return super().render_kernel(function_name, kernel, bufs, uops, pref)
+  def _render_body(self, function_name, kernel, bufs, uops, pref=None) -> str:
+    return super().render_kernel(function_name, kernel, bufs, uops, pref)
   def _render_entry(self, function_name:str, bufs:list[tuple[str,tuple[DType,bool]]]) -> str: return ""
 
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
@@ -277,12 +289,36 @@ class ClangRenderer(CStyleLanguage):
     return defines + "\n" + self._render_body(function_name, kernel, bufs, uops, prefix) + "\n" + self._render_entry(function_name, bufs)
 
 class ClangJITRenderer(ClangRenderer):
-  def __init__(self, target:Target):
-    super().__init__(target)
+  buffer_suffix = " restrict"
+
+  def __init__(self):
     from tinygrad.runtime.support.compiler_cpu import ClangJITCompiler
     self.compiler = ClangJITCompiler()
+    self.arch = "CORALNPU"
+
+  def buf_map(self, dt):
+    return self.render_dtype(dt).replace("*", "").strip()
 
 class OpenCLRenderer(CStyleLanguage):
+  device = "CL"
+
+  def render_kernel(self, function_name:str, kernel:list[str], bufs:list[tuple[str,tuple[DType,bool]]], uops:list[UOp], prefix=None) -> str:
+    if any(uop.dtype.base == dtypes.half for uop in uops): prefix = (["#pragma OPENCL EXTENSION cl_khr_fp16 : enable"] + (prefix or []))
+    tmp = ""
+    if any(isinstance(dtype, ImageDType) for _,(dtype,_) in bufs):
+      tmp = "const sampler_t smp = CLK_NORMALIZED_COORDS_FALSE | CLK_ADDRESS_CLAMP | CLK_FILTER_NEAREST;\n"
+    buftypes = [(name, self.render_dtype(dtype, mutable)+self.buffer_suffix if isinstance(dtype, (ImageDType, PtrDType)) else
+                self.arg_int_prefix if dtype == dtypes.int else None) for name,(dtype,mutable) in bufs]
+    local_dims = [u.src[0] for u in uops if u.op is Ops.SPECIAL and u.arg[0] == "l"]
+    launch_bounds = prod([d.vmax for d in local_dims])
+    prg = ''.join([f"{self.kernel_typedef.format(launch_bounds=launch_bounds)} {function_name}(",] +
+    [', '.join([f'{t} {name}' for name,t in buftypes] + self.extra_args)] +
+    [") {\n" + tmp] + ['\n'.join(kernel), "\n}"])
+    return prg if prefix is None else "\n".join(prefix)+f"\n{prg}"
+
+  def render_dtype(self, dt:DType, mutable=True) -> str:
+    if isinstance(dt, ImageDType): return f"{'write_only' if mutable else 'read_only'} image2d_t"
+    return super().render_dtype(dt, mutable)
   has_aux = True
 
   # language options
@@ -294,8 +330,8 @@ class OpenCLRenderer(CStyleLanguage):
   float4 = "(float4)"
   code_for_workitem = {"g": lambda x: f"get_group_id({x})", "l": lambda x: f"get_local_id({x})", "i": lambda x: f"get_global_id({x})"}
   type_map = { dtypes.int8: "char", dtypes.uint8: "uchar", dtypes.uint32: "uint", dtypes.uint16: "ushort", dtypes.uint64: "ulong",
-              dtypes.bfloat16: "ushort" }
-  extra_matcher = create_non_native_float_pats((dtypes.bfloat16,)) + pm_manual_bf16_cast + extra_pm
+              dtypes.bfloat16: "ushort", dtypes.fp8e4m3fnuz: "uchar", dtypes.fp8e5m2: "uchar"}
+  extra_matcher = create_non_native_float_pats((dtypes.bfloat16, *dtypes.fp8s)) + pm_manual_bf16_cast + extra_pm
 
   string_rewrite = PatternMatcher([
     (UPat(Ops.BITCAST, name="x"), lambda ctx,x: f"as_{ctx.render_dtype(x.dtype)}(({ctx.render_dtype(x.src[0].dtype)})({ctx[x.src[0]]}))"),
@@ -303,7 +339,8 @@ class OpenCLRenderer(CStyleLanguage):
     (UPat(Ops.CONST, dtypes.bfloat16, name="x"),
       lambda ctx,x: f"{(struct.unpack('I', struct.pack('f', float_to_bf16(x.arg)))[0] >> 16)}u"),
     # load/store image (OpenCL)
-    (UPat(Ops.LOAD, dtype=dtypes.float.vec(4), src=(UPat.var('buf').index(UPat.var('idx', dtypes.int.vec(2)), UPat.var("gate")), UPat.var("var"))),
+    (UPat(Ops.LOAD, dtype=dtypes.float.vec(4),
+          src=(UPat.var('buf').index(UPat.var('idx', dtypes.int.vec(2)), UPat.var("gate")), UPat.var("var"))),
       lambda ctx,buf,idx,var,gate: f"({ctx[gate]}?read_imagef({ctx[buf]}, smp, {ctx[idx]}):{ctx[var]})"),
     (UPat(Ops.LOAD, dtype=dtypes.float.vec(4), src=(UPat.var('buf').index(UPat.var('idx', dtypes.int.vec(2))),)),
       lambda ctx,buf,idx: f"read_imagef({ctx[buf]}, smp, {ctx[idx]})"),
@@ -311,10 +348,6 @@ class OpenCLRenderer(CStyleLanguage):
                           UPat.var("var", dtypes.float.vec(4))), allow_any_len=True),
       lambda ctx,buf,idx,var: f"write_imagef({ctx[buf]}, {ctx[idx]}, {ctx[var]});"),
   ]) + base_rewrite
-
-  def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
-    if any(uop.dtype.base == dtypes.half for uop in uops): prefix = (["#pragma OPENCL EXTENSION cl_khr_fp16 : enable"] + (prefix or []))
-    return super().render_kernel(function_name, kernel, bufs, uops, prefix)
 
   def aux(self, uops:list[UOp]):
     arg_dtypes:list[list[tuple[int, DType]]] = []
@@ -324,11 +357,12 @@ class OpenCLRenderer(CStyleLanguage):
     return tuple(tuple(a) for a in arg_dtypes),
 
 class IntelRenderer(OpenCLRenderer):
-  suffix, kernel_typedef = "INTEL", "__attribute__((intel_reqd_sub_group_size(8)))\n" + "__kernel void"
+  device, suffix, kernel_typedef = "CL", "INTEL", "__attribute__((intel_reqd_sub_group_size(8)))\n" + "__kernel void"
   tensor_cores = tc.intel
 
   string_rewrite = PatternMatcher([
-    (UPat(Ops.CAST, dtype=dtypes.bfloat16, src=(UPat.var('x', dtype=dtypes.float),)), lambda ctx,x: f"intel_convert_bfloat16_as_ushort({ctx[x]})"),
+    (UPat(Ops.CAST, dtype=dtypes.bfloat16, src=(UPat.var('x', dtype=dtypes.float),)),
+     lambda ctx,x: f"intel_convert_bfloat16_as_ushort({ctx[x]})"),
     (UPat(Ops.CAST, dtype=dtypes.float, src=(UPat.var('x', dtype=dtypes.bfloat16),)), lambda ctx,x: f"intel_convert_as_bfloat16_float({ctx[x]})"),
   ]) + OpenCLRenderer.string_rewrite
 
@@ -341,11 +375,11 @@ class IntelRenderer(OpenCLRenderer):
     return super().render_kernel(function_name, kernel, bufs, uops, prefix or None)
 
 class MetalRenderer(CStyleLanguage):
+  device = "METAL"
   shared_max = 32768
-  def __init__(self, target:Target):
-    super().__init__(target)
+  def __init__(self):
     from tinygrad.runtime.ops_metal import MetalCompiler
-    self.compiler, self.tensor_cores = MetalCompiler(), tc.metal if target.arch == "arm64" else []
+    self.compiler, self.tensor_cores = MetalCompiler(), tc.metal if hasattr(os, 'uname') and os.uname().machine == "arm64" else []
 
   # language options
   kernel_typedef = "kernel void"
@@ -391,13 +425,13 @@ class CUDARenderer(CStyleLanguage):
   local_max = (1024, 1024, 64)
   shared_max = 49152
 
-  def __init__(self, target:Target, use_nvcc=False):
-    super().__init__(target)
-    from tinygrad.runtime.support.compiler_cuda import NVRTCCompiler, NVCCCompiler
+  def __init__(self, arch:str, device:str="NV", use_nvcc=False):
+    from tinygrad.runtime.support.compiler_cuda import NVCCCompiler, NVRTCCompiler
     from tinygrad.runtime.support.hcq import MOCKGPU
-    dev, arch = target.device, target.arch
-    self.compiler = (NVCCCompiler if use_nvcc else NVRTCCompiler)(arch, ptx=bool(MOCKGPU) or dev == "CUDA", cache_key=dev.lower())
-    self.tensor_cores = tc.get_cuda(arch)
+    self.device, self.arch = device, arch
+    self.compiler = (NVCCCompiler if use_nvcc else NVRTCCompiler)(arch, ptx=bool(MOCKGPU) or device == "CUDA", cache_key=device.lower())
+    self.tensor_cores = tc.cuda_sm89 if (ver:=int(arch[3:])) >= 89 else tc.cuda_sm80 if ver >= 80 else tc.cuda_sm75 if ver >= 75 else []
+  def __reduce__(self): return self.__class__, (self.arch, self.device)
 
   # language options
   # https://docs.nvidia.com/cuda/cuda-c-programming-guide/index.html
@@ -415,19 +449,23 @@ class CUDARenderer(CStyleLanguage):
     Ops.LOG2: lambda x,dtype: f"hlog2({x})" if dtype in (dtypes.half, dtypes.bfloat16) else f"log2({x})",
     Ops.EXP2: lambda x,dtype: f"hexp2({x})" if dtype in (dtypes.half, dtypes.bfloat16) else f"exp2({x})",
     Ops.SQRT: lambda x,dtype: f"hsqrt({x})" if dtype in (dtypes.half, dtypes.bfloat16) else f"sqrt({x})",
-    Ops.RECIPROCAL: lambda x,dtype: f"hrcp({x})" if dtype in (dtypes.half, dtypes.bfloat16) else f"(1/{x})" }
+    Ops.RECIPROCAL: lambda x,dtype: f"hrcp({x})" if dtype in (dtypes.half, dtypes.bfloat16) else f"(1/{x})"
+  }
   type_map = {dtypes.bfloat16: "nv_bfloat16", dtypes.fp8e4m3: "__nv_fp8_e4m3", dtypes.fp8e5m2: "__nv_fp8_e5m2"}
   extra_matcher = create_non_native_float_pats(dtypes.fp8s, casting=False) + PatternMatcher([
-    (UPat(Ops.CAST, dtypes.fp8s, UPat.var("x", dtypes.fp8s), name='y'), lambda x,y: x.cast(dtypes.float).cast(y.dtype) if x.dtype!=y.dtype else None),
+    (UPat(Ops.CAST, dtypes.fp8s, UPat.var("x", dtypes.fp8s), name='y'),
+     lambda x,y: x.cast(dtypes.float).cast(y.dtype) if x.dtype!=y.dtype else None),
   ]) + extra_pm
   string_rewrite = PatternMatcher([
-    (UPat(Ops.BITCAST, name="x"), lambda ctx,x: f"tg_bitcast<{ctx.render_dtype(x.dtype)}>(({ctx.render_dtype(x.src[0].dtype)})({ctx[x.src[0]]}))"),
+    (UPat(Ops.BITCAST, name="x"),
+     lambda ctx,x: f"tg_bitcast<{ctx.render_dtype(x.dtype)}>(({ctx.render_dtype(x.src[0].dtype)})({ctx[x.src[0]]}))"),
   ]) + base_rewrite
 
   def render_vector_prefix(self, dt:DType) -> str:
     vec, scal = self.render_dtype(dt), self.render_dtype(dt.scalar()),
     elems, header = ', '.join(_nms[:dt.count]), ', '.join([f"{scal} {x}" for x in _nms[:dt.count]])
-    return f"struct __align__({dt.itemsize}) {vec} {{ {scal} {elems}; }}; __device__ {vec} make_{vec}({header}) {{ {vec} r={{{elems}}}; return r; }}"
+    return f"struct __align__({dt.itemsize}) {vec} {{ {scal} {elems}; }}; " + \
+           f"__device__ {vec} make_{vec}({header}) {{ {vec} r={{{elems}}}; return r; }}"
 
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None):
     # TODO: why is dtypes.bfloat16.name == "__bf16"? would be easier not override dtypes.name
@@ -460,27 +498,32 @@ class CUDARenderer(CStyleLanguage):
     return super().render_kernel(function_name, kernel, bufs, uops, prefix=prefix)
 
 class NVCCRenderer(CUDARenderer):
-  def __init__(self, target:Target): super().__init__(target, use_nvcc=True)
+  def __init__(self, arch:str, device:str="NV"): super().__init__(arch, device, use_nvcc=True)
 
 def fp8_index(dtype: DType): return (dtypes.fp8e4m3, dtypes.fp8e5m2).index(dtype.scalar())
 def _ocml(op): return lambda x,dtype: f"__ocml_{op}_f{ {dtypes.half:16, dtypes.double:64}.get(dtype, 32)}({x})"
 
-class HIPRenderer(CStyleLanguage):
+class AMDHIPRenderer(CStyleLanguage):
+  device = "AMD"
   shared_max = 65536
   # NOTE: this is only really needed on gfx12, even though gfx11 reports the same limitation
   global_max = (2147483647, 65535, 65535)
   global_prod_max = (0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF)
 
   @staticmethod
+  def get_tensor_cores(arch):
+    return {"gfx942": tc.amd_cdna3, "gfx950": tc.amd_cdna4, "gfx1200": tc.amd_rdna4,
+            "gfx1201": tc.amd_rdna4}.get(arch.split(":")[0], tc.amd_rdna3)
+  @staticmethod
   def is_cdna(arch): return arch.split(":")[0] in {"gfx942", "gfx950"}
   @staticmethod
   def is_cdna4(arch): return arch.split(":")[0] == "gfx950"
-  def __init__(self, target:Target): # gfx942 => MI300, gfx1100 => RX 7900, gfx1201 => RX 9700
-    super().__init__(target)
+  def __init__(self, arch:str): # gfx942 => MI300, gfx1100 => RX 7900, gfx1201 => RX 9700
     from tinygrad.runtime.support.compiler_amd import HIPCompiler
-    self.compiler, self.tensor_cores = HIPCompiler(target.arch), tc.get_amd(target.arch)
-    if not self.is_cdna4(target.arch): self.extra_matcher += pm_manual_bf16_cast + extra_pm
-    if self.is_cdna(target.arch):
+    self.arch, self.compiler = arch, HIPCompiler(arch)
+    self.tensor_cores = self.get_tensor_cores(arch)
+    if not self.is_cdna4(self.arch): self.extra_matcher += pm_manual_bf16_cast + extra_pm
+    if self.is_cdna(self.arch):
       self.string_rewrite = PatternMatcher([
         (UPat(Ops.WMMA, name="x"), lambda ctx,x: f"__{x.arg[0]}({ctx[x.src[0]]}, {ctx[x.src[1]]}, {ctx[x.src[2]]},"
           f" {fp8_index(x.src[0].dtype)}, {fp8_index(x.src[0].dtype)}, 0, 0, 0, 0)" if x.arg[1][2] == 128 else None),
@@ -490,6 +533,7 @@ class HIPRenderer(CStyleLanguage):
         (UPat(Ops.CAST, dtypes.float, (UPat.var("y", dtypes.fp8s),), name="x",),
           lambda ctx,x,y: f"__builtin_amdgcn_cvt_f32_{('fp8', 'bf8')[fp8_index(y.dtype)]}((unsigned int){ctx[x.src[0]]}, 0)"),
       ]) + base_rewrite
+  def __reduce__(self): return self.__class__, (self.arch,)
 
   # https://clang.llvm.org/docs/AttributeReference.html#amdgpu-flat-work-group-size
   # NOTE: this makes hlb_cifar10 twice as fast, there may be more gains in tweaking these parameters
@@ -526,11 +570,12 @@ class HIPRenderer(CStyleLanguage):
     if any(u.op is Ops.SPECIAL for u in uops):
       prefix.append("typedef long unsigned int size_t;")
       ockl = [(f"__ockl_get_{name}", "unsigned int", "size_t", "const") for name in ["local_id", "group_id", "local_size"]]
-    ocml_ops = {Ops.EXP2: ("exp2", "pure"), Ops.LOG2: ("log2", "pure"), Ops.SQRT: ("sqrt", "const"), Ops.SIN: ("sin", ""), Ops.TRUNC: ("trunc", "")}
+    ocml_ops = {Ops.EXP2: ("exp2", "pure"), Ops.LOG2: ("log2", "pure"), Ops.SQRT: ("sqrt", "const"),
+                Ops.SIN: ("sin", ""), Ops.TRUNC: ("trunc", "")}
     ocml = [(f"__ocml_{ocml_ops[op][0]}_f{dt.bitsize}", dt.name, dt.name, ocml_ops[op][1])
       for op, dt in dedup((u.op, u.dtype.scalar()) for u in uops) if op in ocml_ops and dt in (dtypes.half, dtypes.float, dtypes.double)]
     if any(dt.scalar() == dtypes.bfloat16 for dt in used_dtypes):
-      prefix.append(f"typedef {'__bf16' if self.is_cdna4(self.target.arch) else 'unsigned short'} hip_bfloat16;")
+      prefix.append(f"typedef {'__bf16' if self.is_cdna4(self.arch) else 'unsigned short'} hip_bfloat16;")
     if any(dt.scalar() == dtypes.half for dt in used_dtypes): prefix.append("#define half _Float16")
     if any(dt.scalar() in dtypes.fp8s for dt in used_dtypes):
       prefix += ["typedef unsigned char hip_bf8;", "typedef unsigned char hip_fp8;"]
@@ -541,7 +586,7 @@ class HIPRenderer(CStyleLanguage):
     prefix += [self.render_vector_prefix(dt) for dt in used_dtypes if dt.count > 1]
 
     for name, (N, M, K), dtype_in, dtype_out, _, _, _, _ in wmma_args(uops): # TODO: handle TCs f32_bf16 and bf16_bf16 w/ wrapper
-      if self.is_cdna(self.target.arch):
+      if self.is_cdna(self.arch):
         if (N, M, K) == (16, 16, 16): type_map[dtypes.bfloat16] = 'bf16_1k'
         elif (N, M, K) == (16, 16, 32): type_map = {**type_map, dtypes.bfloat16: "_bf16", dtypes.half: "_f16"}
         elif (N, M, K) == (16, 16, 128): type_map = {**type_map, dtypes.fp8e4m3: "_f8f6f4", dtypes.fp8e5m2: "_f8f6f4"}
@@ -557,14 +602,18 @@ class HIPRenderer(CStyleLanguage):
   for (int n = 0; n < 8; n++) { d[n] = c_frag[n*2]; } return d;\n}""")
     return super().render_kernel(function_name, kernel, bufs, uops, prefix)
 
-class HIPCCRenderer(HIPRenderer):
-  def __init__(self, target:Target):
-    super().__init__(target)
+class HIPRenderer(AMDHIPRenderer): device = "HIP"
+class AMDHIPCCRenderer(AMDHIPRenderer):
+  def __init__(self, arch:str):
     from tinygrad.runtime.support.compiler_amd import HIPCCCompiler
-    self.compiler = HIPCCCompiler(target.arch)
+    super().__init__(arch)
+    self.compiler = HIPCCCompiler(arch)
 
 class QCOMCLRenderer(OpenCLRenderer):
-  def __init__(self, target:Target):
-    super().__init__(target)
+  device = "QCOM"
+
+  def __init__(self, chip_id):
     from tinygrad.runtime.support.compiler_qcom import QCOMCompiler
-    self.compiler = QCOMCompiler(target.arch)
+    self.chip_id, self.compiler = chip_id, QCOMCompiler(chip_id)
+
+  def __reduce__(self): return self.__class__, (self.chip_id,)

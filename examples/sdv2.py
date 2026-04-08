@@ -1,16 +1,20 @@
-from tinygrad import Tensor, dtypes, TinyJit
-from tinygrad.helpers import fetch
-from tinygrad.nn.state import safe_load, load_state_dict, get_state_dict
-from examples.stable_diffusion import AutoencoderKL, get_alphas_cumprod
-from examples.sdxl import DPMPP2MSampler, append_dims, LegacyDDPMDiscretization
-from extra.models.unet import UNetModel
-from extra.models.clip import FrozenOpenClipEmbedder
-from extra.bench_log import BenchEvent, WallTimeEvent
-
-from typing import Dict
-import argparse, tempfile, os
+import argparse
+import os
+import tempfile
 from pathlib import Path
+from typing import Dict
+
 from PIL import Image
+
+from examples.sdxl import DPMPP2MSampler, LegacyDDPMDiscretization, append_dims
+from examples.stable_diffusion import AutoencoderKL, get_alphas_cumprod
+from extra.bench_log import BenchEvent, WallTimeEvent
+from extra.models.clip import FrozenOpenClipEmbedder
+from extra.models.unet import UNetModel
+from tinygrad import Tensor, TinyJit, dtypes
+from tinygrad.helpers import fetch
+from tinygrad.nn.state import get_state_dict, load_state_dict, safe_load
+
 
 class DiffusionModel:
   def __init__(self, model:UNetModel):

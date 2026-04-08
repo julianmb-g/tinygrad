@@ -1,7 +1,9 @@
 import unittest
-from test.helpers import slow
-from examples.mamba import Mamba, generate
+
 from transformers import AutoTokenizer
+
+from examples.mamba import Mamba, generate
+from test.helpers import slow
 
 PROMPT = 'Why is gravity '
 TOKENIZER = AutoTokenizer.from_pretrained("EleutherAI/gpt-neox-20b")

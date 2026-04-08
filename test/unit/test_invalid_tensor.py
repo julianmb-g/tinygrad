@@ -1,7 +1,9 @@
 import unittest
+
 from tinygrad import Tensor
 from tinygrad.dtype import Invalid, dtypes
 from tinygrad.engine.realize import run_schedule
+
 
 class TestInvalidTensor(unittest.TestCase):
   def _invalid_test_helper(self, out, expected):

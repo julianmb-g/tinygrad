@@ -1,8 +1,10 @@
 import math
-from typing import cast, Any
-from tinygrad.uop.ops import PatternMatcher, UPat, GroupOp, Ops, UOp, print_uops, AxisType, KernelInfo, pyrender
-from tinygrad.dtype import DType, ImageDType, dtypes, PtrDType, AddrSpace, Invalid, ConstFloat
-from tinygrad.helpers import DEBUG, Context, prod, SPEC, Metadata, panic, CHECK_OOB
+from typing import Any, cast
+
+from tinygrad.dtype import AddrSpace, ConstFloat, DType, ImageDType, Invalid, PtrDType, dtypes
+from tinygrad.helpers import CHECK_OOB, DEBUG, SPEC, Context, Metadata, panic, prod
+from tinygrad.uop.ops import AxisType, GroupOp, KernelInfo, Ops, PatternMatcher, UOp, UPat, print_uops, pyrender
+
 
 def validate_index(buf:UOp, idx:UOp, gate:UOp|None=None):
   if idx.op is Ops.CONST and idx.arg is Invalid: return True
@@ -40,7 +42,7 @@ shared_spec = PatternMatcher([
   (UPat(Ops.DEFINE_VAR, name="x"), lambda x: isinstance(x.arg[1], int) and isinstance(x.arg[2], int)),
 
   # ALUs: most ALUs have all matching dtypes, except CMPLT, CMPNE, and WHERE
-  (UPat(Ops.WHERE, name="w", src=(UPat(dtype=dtypes.bool), UPat.var("x"), UPat.var("y"))), lambda w,x,y: w.dtype == x.dtype == y.dtype),
+  (UPat(Ops.WHERE, name="w", src=(UPat.var("c"), UPat.var("x"), UPat.var("y"))), lambda w,c,x,y: w.dtype == x.dtype == y.dtype and (c.dtype.scalar() == dtypes.bool or (c.dtype.itemsize == w.dtype.itemsize and getattr(c.dtype, "count", 1) == getattr(w.dtype, "count", 1)))),  # noqa: E501
   (UPat((Ops.CMPLT, Ops.CMPNE, Ops.CMPEQ), dtype=dtypes.bool, src=(UPat.var("x"), UPat.var("y"))), lambda x,y: x.dtype.base == y.dtype.base),
   # and SHL/SHR, the shift distance can be an int
   (UPat((Ops.SHL, Ops.SHR), src=(UPat.var("x"), UPat.var("y")), name="a"), lambda a,x,y: a.dtype == x.dtype and y.dtype in (x.dtype, dtypes.uint)),
@@ -311,11 +313,16 @@ def type_verify(ast:UOp|list[UOp], check_spec:PatternMatcher):
       ret = check_spec.rewrite(u)
       if cast(bool|None, ret) is not True:
         if DEBUG >= 3: print_uops(lst)
-        raise RuntimeError(f"UOp verification failed at {i} on {u.op} {u.dtype} {len(u.src)} {[(x.op, x.dtype, x.arg) for x in u.src]} {u.arg}")
+        try:
+          debug_cast = f" | type(arg)={type(u.arg)}"
+        except Exception as e:
+          debug_cast = f" | [debug_cast failed: {e}]"
+        raise RuntimeError(f"UOp verification failed at {i} on {u.op} {u.dtype} {len(u.src)} {[(x.op, x.dtype, x.arg) for x in u.src]} {u.arg}{debug_cast}")
 
 # late imports to avoid circular import
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.schedule.rangeify import BufferizeOpts
+
 glbls:dict[str, Any] = {"inf": math.inf, "nan": math.nan, "KernelInfo": KernelInfo, "Metadata": Metadata,
                         "UOp": UOp, "dtypes": dtypes, "Ops": Ops, "AxisType": AxisType, "Invalid": Invalid,
                         "Opt": Opt, "OptOps": OptOps, "BufferizeOpts": BufferizeOpts, "AddrSpace": AddrSpace, "panic": panic,

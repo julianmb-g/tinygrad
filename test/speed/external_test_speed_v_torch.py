@@ -1,18 +1,23 @@
 import os
+
 os.environ["NVIDIA_TF32_OVERRIDE"] = "0"
 os.environ["MKL_NUM_THREADS"] = "1"
 os.environ["NUMEXPR_NUM_THREADS"] = "1"
 os.environ["OMP_NUM_THREADS"] = "1"
 os.environ["VECLIB_MAXIMUM_THREADS"] = "1"
 import unittest
+
 import torch
+
 torch.set_num_threads(1)
 import time
+
 import numpy as np
+
 np.set_printoptions(linewidth=160)
-from tinygrad import Tensor, Device, GlobalCounters, TinyJit
+from tinygrad import Device, GlobalCounters, Tensor, TinyJit
+from tinygrad.helpers import CI, colorize_float, getenv
 from tinygrad.nn import Conv2d
-from tinygrad.helpers import colorize_float, getenv, CI
 
 IN_CHANS = [int(x) for x in getenv("IN_CHANS", "4,16,64").split(",")]
 
@@ -154,13 +159,11 @@ class TestSpeed(unittest.TestCase):
     def f(a, b): return a.reshape(int(4096//R), int(4096*R)).sum(axis=1)
     helper_test_generic_square('partial_sum', 4096, f, f, onearg=True)
 
-  @unittest.skip("not really used in models")
   def test_cumsum(self):
     def f0(a, b): return a.cumsum(axis=0)
     def f1(a, b): return a.cumsum(axis=1)
     helper_test_generic_square('cumsum_0', 256, f0, f0, onearg=True)
     helper_test_generic_square('cumsum_1', 256, f1, f1, onearg=True)
-
   def test_cat(self):
     helper_test_generic_square('cat_0', 2048, lambda x,y: torch.cat((x,y),dim=0), lambda x,y: x.cat(y,dim=0))
     helper_test_generic_square('cat_1', 2048, lambda x,y: torch.cat((x,y),dim=1), lambda x,y: x.cat(y,dim=1))

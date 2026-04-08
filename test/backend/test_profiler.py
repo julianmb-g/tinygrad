@@ -1,9 +1,14 @@
-import unittest, struct, contextlib, statistics, gc
-from tinygrad import Device, Tensor, dtypes, TinyJit
-from tinygrad.helpers import CI, getenv, Context, ProfileRangeEvent, cpu_profile, cpu_events, ProfilePointEvent, dedup
+import contextlib
+import gc
+import statistics
+import struct
+import unittest
+
+from tinygrad import Device, Tensor, TinyJit, dtypes
 from tinygrad.device import Buffer, BufferSpec, Compiled, ProfileDeviceEvent, ProfileGraphEvent
-from tinygrad.runtime.support.hcq import HCQCompiled
 from tinygrad.engine.realize import get_runner
+from tinygrad.helpers import CI, Context, ProfilePointEvent, ProfileRangeEvent, cpu_events, cpu_profile, dedup, getenv
+from tinygrad.runtime.support.hcq import HCQCompiled
 
 MOCKGPU = getenv("MOCKGPU")
 def _dev_base(d):
@@ -107,7 +112,7 @@ class TestProfiler(unittest.TestCase):
     try: d1 = Device[f"{Device.DEFAULT}:1"]
     except Exception as e: self.skipTest(f"second device not available {e}")
 
-    buf1 = Tensor.randn(10, 10, device=f"{Device.DEFAULT}:0").realize()
+    buf1 = ((Tensor.arange(100, device=f"{Device.DEFAULT}:0") % 10) * 0.1).reshape(10, 10).realize()
     with helper_collect_profile(TestProfiler.d0, d1) as profile:
       buf1.to(f"{Device.DEFAULT}:1").realize()
 
@@ -184,7 +189,6 @@ class TestProfiler(unittest.TestCase):
     range_events = [p for p in profile if isinstance(p, ProfileRangeEvent) and p.device == dev]
     self.assertEqual(len(range_events), 2)
 
-  @unittest.skip("this test is flaky")
   @unittest.skipUnless(Device[Device.DEFAULT].graph is not None, "graph support required")
   def test_graph(self):
     from test.backend.test_graph import helper_alloc_rawbuffer, helper_exec_op, helper_test_graphs
@@ -201,7 +205,6 @@ class TestProfiler(unittest.TestCase):
     for ge in graphs:
       self.assertEqual(len(ge.ents), len(graphs))
 
-  @unittest.skip("this test is flaky")
   def test_trace_metadata(self):
     with Context(TRACEMETA=1):
       a = Tensor.empty(1)+2

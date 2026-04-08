@@ -1,9 +1,12 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
+
 from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 PPSMC_Result: TypeAlias = Annotated[int, ctypes.c_uint32]
 PPSMC_MSG: TypeAlias = Annotated[int, ctypes.c_uint32]
 class FEATURE_LIST_e(Annotated[int, ctypes.c_uint32], c.Enum): pass
@@ -408,7 +411,7 @@ class AvfsDebugTableXcd_t(c.Struct):
 class struct_smu_hw_power_state(c.Struct):
   SIZE = 4
   magic: Annotated[Annotated[int, ctypes.c_uint32], 0]
-class struct_smu_power_state(c.Struct): SIZE = 0
+class struct_smu_power_state(ctypes.Structure): pass
 class enum_smu_state_ui_label(Annotated[int, ctypes.c_uint32], c.Enum): pass
 SMU_STATE_UI_LABEL_NONE = enum_smu_state_ui_label.define('SMU_STATE_UI_LABEL_NONE', 0)
 SMU_STATE_UI_LABEL_BATTERY = enum_smu_state_ui_label.define('SMU_STATE_UI_LABEL_BATTERY', 1)
@@ -576,7 +579,7 @@ class struct_smu_table(c.Struct):
   cpu_addr: Annotated[ctypes.c_void_p, 24]
   bo: Annotated[c.POINTER[struct_amdgpu_bo], 32]
   version: Annotated[Annotated[int, ctypes.c_uint32], 40]
-class struct_amdgpu_bo(c.Struct): SIZE = 0
+class struct_amdgpu_bo(ctypes.Structure): pass
 class enum_smu_perf_level_designation(Annotated[int, ctypes.c_uint32], c.Enum): pass
 PERF_LEVEL_ACTIVITY = enum_smu_perf_level_designation.define('PERF_LEVEL_ACTIVITY', 0)
 PERF_LEVEL_POWER_CONTAINMENT = enum_smu_perf_level_designation.define('PERF_LEVEL_POWER_CONTAINMENT', 1)

@@ -1,8 +1,14 @@
-import hashlib, tempfile, ctypes, re, pathlib
-from tinygrad.helpers import to_char_p_p, colored, getenv, system
+import ctypes
+import hashlib
+import pathlib
+import re
+import tempfile
+
+from tinygrad.device import CompileError, Compiler
+from tinygrad.helpers import colored, getenv, system, to_char_p_p
+from tinygrad.runtime.autogen import nvjitlink as jitlink
+from tinygrad.runtime.autogen import nvrtc
 from tinygrad.runtime.support.c import init_c_var
-from tinygrad.runtime.autogen import nvrtc, nvjitlink as jitlink
-from tinygrad.device import Compiler, CompileError
 
 CUDA_PATH = getenv("CUDA_PATH", "")
 

@@ -1,13 +1,15 @@
 """Tests for the pcode parser."""
 import unittest
 from collections import defaultdict
-from tinygrad.helpers import DEBUG
-from tinygrad.dtype import dtypes
-from tinygrad.uop.ops import UOp, Ops
+
 from test.mockgpu.amd.emu import parse_pcode
 from test.mockgpu.amd.pcode import parse_expr
+from tinygrad.dtype import dtypes
+from tinygrad.helpers import DEBUG
+from tinygrad.runtime.autogen.amd.rdna3.enum import DSOp, SOP2Op, VOP1Op, VOP2Op
 from tinygrad.runtime.autogen.amd.rdna3.str_pcode import PCODE
-from tinygrad.runtime.autogen.amd.rdna3.enum import VOP1Op, VOP2Op, SOP2Op, DSOp
+from tinygrad.uop.ops import Ops, UOp
+
 
 def _srcs():
   """Create minimal source variables for pcode parsing."""

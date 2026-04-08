@@ -1,6 +1,10 @@
-import unittest, functools
-from tinygrad import Tensor, Context
+import functools
+import unittest
+
 import numpy as np
+
+from tinygrad import Context, Tensor
+
 
 def orthogonality_helper(A:Tensor, tolerance=1e-5):
   b_shape,m = A.shape[0:-2],A.shape[-2]  #outer dimension should be the dim along orthogonality
@@ -12,11 +16,10 @@ def reconstruction_helper(A:list[Tensor],B:Tensor, tolerance=1e-5):
   np.testing.assert_allclose(reconstructed_tensor.numpy(),B.numpy(),atol=tolerance,rtol=tolerance)
 
 class TestLinAlg(unittest.TestCase):
-  @unittest.skip("TODO: reenable this")
   def test_svd_general(self):
     sizes = [(2,2),(5,3),(3,5),(3,4,4),(2,2,2,2,3)]
     for size in sizes:
-      a = Tensor.randn(size).realize()
+      a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
       U,S,V = a.svd()
       b_shape,m,n = size[0:-2],size[-2],size[-1]
       k = min(m,n)
@@ -25,10 +28,9 @@ class TestLinAlg(unittest.TestCase):
       orthogonality_helper(U)
       orthogonality_helper(V)
       reconstruction_helper([U,s_diag,V],a)
-
   def _test_svd_nonfull(self, size):
     with Context(CHECK_OOB=0):  # sometimes this is slow in CI
-      a = Tensor.randn(size).realize()
+      a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
       U,S,V = a.svd(full_matrices=False)
       b_shape,m,n = size[0:-2],size[-2],size[-1]
       k = min(m,n)
@@ -44,10 +46,9 @@ class TestLinAlg(unittest.TestCase):
   def test_svd_nonfull_3_5(self): self._test_svd_nonfull((3,5))
   def test_svd_nonfull_2_2_2_2_3(self): self._test_svd_nonfull((2,2,2,2,3))
 
-  @unittest.skip("very big. recommend wrapping with TinyJit around inner function")
   def test_svd_large(self):
     size = (1024,1024)
-    a = Tensor.randn(size).realize()
+    a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
     U,S,V = a.svd()
     b_shape,m,n = size[0:-2],size[-2],size[-1]
     k = min(m,n)
@@ -56,11 +57,10 @@ class TestLinAlg(unittest.TestCase):
     orthogonality_helper(U,tolerance=1e-3)
     orthogonality_helper(V,tolerance=1e-3)
     reconstruction_helper([U,s_diag,V],a,tolerance=1e-3)
-
   def test_qr_general(self):
     sizes = [(3,3),(3,6),(6,3),(2,2,2,2,2)]
     for size in sizes:
-      a = Tensor.randn(size).realize()
+      a = ((Tensor.arange(size) % 10) * 0.1).reshape(size).realize()
       Q,R = a.qr()
       orthogonality_helper(Q)
       reconstruction_helper([Q,R],a)
@@ -103,7 +103,7 @@ class TestLinAlg(unittest.TestCase):
     sizes = [(2,2), (3,2), (2,3), (2,2,2)]
     for coefs in coefficients:
       for size in sizes:
-        a = Tensor.randn(size)
+        a = ((Tensor.arange(size) % 10) * 0.1).reshape(size)
         b = a.newton_schulz(steps=20, params=coefs, eps=0.0)
         # ns(A) = U @ Vt -> (U @ Vt) @ (U @ Vt)t = I
         orthogonality_helper(b if size[-1] > size[-2] else b.transpose(-2, -1), tolerance=1e-3)

@@ -1,4 +1,6 @@
-import ctypes, struct
+import ctypes
+import struct
+
 from tinygrad.device import Compiler
 from tinygrad.helpers import DEBUG, system
 from tinygrad.runtime.support.compiler_mesa import disas_adreno
@@ -8,14 +10,13 @@ from tinygrad.runtime.autogen import llvm_qcom
 def _read_lib(lib, off) -> int: return struct.unpack("I", lib[off:off+4])[0]
 
 class QCOMCompiler(Compiler):
-  def __init__(self, arch:str):
-    assert arch == "a630", "only a630 supported"
-    self.arch, self.chip_id, self.llvm_inst = arch, 0x6030001, llvm_qcom.cl_compiler_create_llvm_instance()
-    super().__init__(f"compile_qcomcl_{arch}")
+  def __init__(self, chip_id):
+    self.chip_id, self.llvm_inst = chip_id, llvm_qcom.cl_compiler_create_llvm_instance()
+    super().__init__(f"compile_qcomcl_{chip_id}")
 
   def __del__(self): llvm_qcom.cl_compiler_destroy_llvm_instance(self.llvm_inst)
 
-  def __reduce__(self): return QCOMCompiler, (self.arch,)
+  def __reduce__(self): return QCOMCompiler, (self.chip_id,)
 
   def checked(self, handle):
     if not handle or (data:=(hc.executable if (hc:=handle.contents).type == llvm_qcom.CL_HANDLE_LINKED else hc.compiled).contents).error_code != 0:

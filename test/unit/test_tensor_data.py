@@ -1,4 +1,6 @@
-import unittest, struct
+import struct
+import unittest
+
 from tinygrad import Tensor, dtypes
 from tinygrad.uop.ops import UOp
 
@@ -71,7 +73,6 @@ class TestTensorData(unittest.TestCase):
     assert dat.format == "f"
     assert dat[0, 1] == 2.5
 
-  @unittest.skip("requires python 3.12")
   def test_data_float16(self):
     a = Tensor([[1,2.5],[3,4]], dtype=dtypes.float16)
     dat = a.data()

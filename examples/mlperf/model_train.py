@@ -1,25 +1,31 @@
-import os, time, math, functools, random, contextlib
-from pathlib import Path
+import contextlib
+import functools
+import math
 import multiprocessing
+import os
+import random
+import time
+from pathlib import Path
 
-from tinygrad import Device, GlobalCounters, Tensor, TinyJit, dtypes
-from tinygrad.helpers import getenv, BEAM, WINO, round_up, diskcache_clear, Profiling, profile_marker, DEBUG
-from tinygrad.nn.state import get_parameters, get_state_dict, load_state_dict, safe_load, safe_save
-from tinygrad.nn.optim import LAMB, LARS, SGD, OptimizerGroup, Adam, AdamW
-
-from extra.lr_scheduler import LRSchedulerGroup
-from examples.mlperf.helpers import get_training_state, load_training_state
-from extra.bench_log import BenchEvent, WallTimeEvent
 # TODO: fix benchmark logging and use tinygrad tqdm
 from tqdm import tqdm
 
+from examples.mlperf.helpers import get_training_state, load_training_state
+from extra.bench_log import BenchEvent, WallTimeEvent
+from extra.lr_scheduler import LRSchedulerGroup
+from tinygrad import Device, GlobalCounters, Tensor, TinyJit, dtypes
+from tinygrad.helpers import BEAM, DEBUG, WINO, Profiling, diskcache_clear, getenv, profile_marker, round_up
+from tinygrad.nn.optim import LAMB, LARS, SGD, Adam, AdamW, OptimizerGroup
+from tinygrad.nn.state import get_parameters, get_state_dict, load_state_dict, safe_load, safe_save
+
+
 def train_resnet():
-  from extra.models import resnet
-  from examples.mlperf.dataloader import batch_load_resnet
-  from extra.datasets.imagenet import get_train_files, get_val_files
-  from examples.mlperf.lr_schedulers import PolynomialDecayWithWarmup
-  from examples.mlperf.initializers import Conv2dHeNormal, Linear
   from examples.hlb_cifar10 import UnsyncedBatchNorm
+  from examples.mlperf.dataloader import batch_load_resnet
+  from examples.mlperf.initializers import Conv2dHeNormal, Linear
+  from examples.mlperf.lr_schedulers import PolynomialDecayWithWarmup
+  from extra.datasets.imagenet import get_train_files, get_val_files
+  from extra.models import resnet
 
   config = {}
   seed = config["seed"] = getenv("SEED", 42)
@@ -28,8 +34,8 @@ def train_resnet():
   INITMLPERF = getenv("INITMLPERF")
   RUNMLPERF = getenv("RUNMLPERF")
   if getenv("LOGMLPERF"):
-    from mlperf_logging import mllog
     import mlperf_logging.mllog.constants as mllog_constants
+    from mlperf_logging import mllog
     mllog.config(filename=f"result_resnet_{seed}.txt")
     mllog.config(root_dir=Path(__file__).parents[3].as_posix())  # truncate to log this. "file": "tinygrad/examples/mlperf/model_train.py"
     MLLOGGER = mllog.get_mllogger()
@@ -352,16 +358,17 @@ def train_resnet():
 
 def train_retinanet():
   from contextlib import redirect_stdout
-  from examples.mlperf.dataloader import batch_load_retinanet
-  from examples.mlperf.initializers import FrozenBatchNorm2dRetinaNet, Conv2dNormalRetinaNet, Conv2dKaimingUniformRetinaNet, Linear, Conv2dRetinaNet
-  from extra.datasets.openimages import MLPERF_CLASSES, BASEDIR, download_dataset, normalize, get_dataset_count
-  from extra.models import resnet, retinanet
-  from pycocotools.coco import COCO
-  from pycocotools.cocoeval import COCOeval
-  from tinygrad.helpers import colored
   from typing import Iterator
 
   import numpy as np
+  from pycocotools.coco import COCO
+  from pycocotools.cocoeval import COCOeval
+
+  from examples.mlperf.dataloader import batch_load_retinanet
+  from examples.mlperf.initializers import Conv2dKaimingUniformRetinaNet, Conv2dNormalRetinaNet, Conv2dRetinaNet, FrozenBatchNorm2dRetinaNet, Linear
+  from extra.datasets.openimages import BASEDIR, MLPERF_CLASSES, download_dataset, get_dataset_count, normalize
+  from extra.models import resnet, retinanet
+  from tinygrad.helpers import colored
 
   config, target_metric = {}, 0.34
 
@@ -378,8 +385,8 @@ def train_retinanet():
     diskcache_clear()
 
   if getenv("LOGMLPERF"):
-    from mlperf_logging import mllog
     import mlperf_logging.mllog.constants as mllog_constants
+    from mlperf_logging import mllog
 
     mllog.config(filename=f"result_retinanet_{SEED}.log")
     mllog.config(root_dir=Path(__file__).parents[3].as_posix())
@@ -709,14 +716,23 @@ def train_unet3d():
   2) To start training the model, run the following:
   ```time PYTHONPATH=. WANDB=1 TRAIN_BEAM=3 GPUS=6 BS=6 MODEL=unet3d python3 examples/mlperf/model_train.py```
   """
+  from math import ceil
+
+  from examples.mlperf.dataloader import batch_load_unet3d
   from examples.mlperf.losses import dice_ce_loss
   from examples.mlperf.metrics import dice_score
-  from examples.mlperf.dataloader import batch_load_unet3d
+  from extra.datasets.kits19 import (
+    TRAIN_PREPROCESSED_DIR,
+    VAL_PREPROCESSED_DIR,
+    get_train_files,
+    get_val_files,
+    iterate,
+    preprocess_dataset,
+    sliding_window_inference,
+  )
   from extra.models.unet3d import UNet3D
-  from extra.datasets.kits19 import iterate, get_train_files, get_val_files, sliding_window_inference, preprocess_dataset, TRAIN_PREPROCESSED_DIR, VAL_PREPROCESSED_DIR
   from tinygrad import Context
   from tinygrad.nn.optim import SGD
-  from math import ceil
 
   GPUS = [f"{Device.DEFAULT}:{i}" for i in range(getenv("GPUS", 1))]
   for x in GPUS: Device[x]
@@ -935,7 +951,7 @@ def eval_step_bert(model, input_ids:Tensor, segment_ids:Tensor, attention_mask:T
 def train_bert():
   # NOTE: pip install tensorflow, wandb required
   from examples.mlperf.dataloader import batch_load_train_bert, batch_load_val_bert
-  from examples.mlperf.helpers import get_mlperf_bert_model, get_fake_data_bert
+  from examples.mlperf.helpers import get_fake_data_bert, get_mlperf_bert_model
   from examples.mlperf.lr_schedulers import PolynomialDecayWithWarmup
 
   config = {}
@@ -950,8 +966,8 @@ def train_bert():
   RUNMLPERF = getenv("RUNMLPERF")
   BENCHMARK = getenv("BENCHMARK")
   if getenv("LOGMLPERF"):
-    from mlperf_logging import mllog
     import mlperf_logging.mllog.constants as mllog_constants
+    from mlperf_logging import mllog
 
     mllog.config(filename=f"result_bert_{seed}.log")
     mllog.config(root_dir=Path(__file__).parents[3].as_posix())
@@ -1282,7 +1298,7 @@ def train_bert():
         previous_step = i
 
 def train_llama3():
-  from examples.mlperf.models.flat_llama import FlatTransformer, apply_grad, FP8
+  from examples.mlperf.models.flat_llama import FlatTransformer, apply_grad
   from examples.llama3 import MODEL_PARAMS
   from examples.mlperf.lr_schedulers import CosineAnnealingLRWithWarmup
   from examples.mlperf.optim import GradAccClipAdamW
@@ -1418,7 +1434,7 @@ def train_llama3():
 
   # init grads
   for p in optim.params:
-    p.grad = Tensor.zeros(p.shape, dtype=p.dtype, device=p.device).contiguous()
+    p.grad = Tensor.zeros_like(p).contiguous()
   grads = [p.grad for p in optim.params]
 
   scheduler = CosineAnnealingLRWithWarmup(optim, opt_base_learning_rate, opt_end_learning_rate, opt_learning_rate_warmup_steps, opt_learning_rate_decay_steps)
@@ -1432,8 +1448,6 @@ def train_llama3():
     print(f"loading optim checkpoint from {fn}")
     load_state_dict(scheduler, safe_load(fn), realize=False)
 
-  fp8_amax = [t for ts in model._fp8_amax.values() for t in ts] if FP8 else []
-
   @TinyJit
   def minibatch(tokens:Tensor):
     if is_dp: tokens = tokens.to(None).shard(device, 0)
@@ -1446,7 +1460,7 @@ def train_llama3():
       apply_grad(g, new_g.uop)
 
     loss_cpu = loss.flatten().float().to("CPU")
-    return loss_cpu.realize(*grads, *fp8_amax)
+    return loss_cpu.realize(*grads)
 
   @TinyJit
   def optim_step():
@@ -1631,12 +1645,13 @@ def train_llama3():
         MLLOGGER.start(key=mllog_constants.BLOCK_START, metadata={mllog_constants.SAMPLES_COUNT: sequences_seen})
 
 def train_stable_diffusion():
-  from extra.models.unet import UNetModel
-  from examples.mlperf.dataloader import batch_load_train_stable_diffusion
-  from examples.mlperf.lr_schedulers import LambdaLR, LambdaLinearScheduler
-  from examples.mlperf.initializers import init_stable_diffusion
-  from examples.mlperf.helpers import get_training_state
   import numpy as np
+
+  from examples.mlperf.dataloader import batch_load_train_stable_diffusion
+  from examples.mlperf.helpers import get_training_state
+  from examples.mlperf.initializers import init_stable_diffusion
+  from examples.mlperf.lr_schedulers import LambdaLinearScheduler, LambdaLR
+  from extra.models.unet import UNetModel
 
   config = {}
   GPUS               = config["GPUS"]                   = [f"{Device.DEFAULT}:{i}" for i in range(getenv("GPUS", 1))]

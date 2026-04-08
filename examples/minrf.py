@@ -1,7 +1,8 @@
 # much taken from https://github.com/cloneofsimo/minRF
-from tinygrad import Tensor, nn, GlobalCounters, TinyJit
-from tinygrad.helpers import getenv, trange
 from extra.models.llama import Attention, FeedForward, precompute_freqs_cis
+from tinygrad import GlobalCounters, Tensor, TinyJit, nn
+from tinygrad.helpers import getenv, trange
+
 
 def modulate(x:Tensor, shift:Tensor, scale:Tensor) -> Tensor: return x * (1 + scale.unsqueeze(1)) + shift.unsqueeze(1)
 

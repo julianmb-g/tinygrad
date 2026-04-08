@@ -1,7 +1,11 @@
-import functools, itertools, math
-from tinygrad.uop.ops import PatternMatcher, UPat, Ops, UOp
+import functools
+import itertools
+import math
+
 from tinygrad.dtype import dtypes
-from tinygrad.helpers import cdiv, cmod, CORRECT_DIVMOD_FOLDING, unwrap
+from tinygrad.helpers import CORRECT_DIVMOD_FOLDING, cdiv, cmod, unwrap
+from tinygrad.uop.ops import Ops, PatternMatcher, UOp, UPat
+
 
 # NOTE: this cache is only on index UOps
 @functools.cache

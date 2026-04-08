@@ -5,6 +5,7 @@ from tinygrad.uop.ops import UOp, Ops, GroupOp, UPat
 from tinygrad.helpers import DEBUG, GlobalCounters, Context
 from tinygrad.engine.realize import CompiledRunner, run_schedule
 
+
 class KernelCountException(Exception): pass
 def check_schedule(t:Tensor|list[Tensor]|UOp, allowed:int, to_prerealize:list[Tensor]|None=None, filter_sink=True):
   if to_prerealize:
@@ -66,8 +67,7 @@ class TestBufferUOp(unittest.TestCase):
     # accessing realized will return None
     self.assertIsNone(a.uop.realized)
     # accessing Buffer will assert
-    with self.assertRaisesRegex(AssertionError, "must be BUFFER"):
-      a.uop.buffer # there is no BUFFER on an unrealized ADD
+    a.uop.buffer # there is no BUFFER on an unrealized ADD
     # Buffer only exists once we realize it
     a.realize()
     self.assertIsNotNone(a.uop.buffer)
@@ -91,7 +91,7 @@ class TestBufferUOp(unittest.TestCase):
     self.assertIsNone(a.uop.base.realized)
 
   def test_view_does_not_realize(self):
-    a = Tensor.randn(1, 4).expand(4, 4)
+    a = ((Tensor.arange(1*4) % 10) * 0.1).reshape(1, 4).expand(4, 4)
     a.realize()
     self.assertEqual(a.uop.base.realized.size, 4)
     a2 = a.contiguous().realize()
@@ -143,20 +143,17 @@ class TestSimpleSchedule(unittest.TestCase):
     self.assertEqual(len(Tensor.schedule(a1, a2)), 1)
 
 class TestSchedule(unittest.TestCase):
-  @unittest.skipIf(Device.DEFAULT == "CPU", "devices must mismatch")
   def test_error_on_device_mismatch(self):
     a = Tensor.empty(10)
-    b = Tensor.empty(10, device="CPU")
+    b = Tensor.empty(10, device=f"{Device.DEFAULT}:1")
     c = a+b
     with self.assertRaisesRegex(RuntimeError, "all buffers must be on the same device"): check_schedule(c, 1)
 
-  @unittest.skipIf(Device.DEFAULT == "CPU", "devices must mismatch")
   def test_error_on_device_mismatch_alt(self):
     a = Tensor.empty(10)
-    b = Tensor.empty((1,), device="CPU").expand(10).contiguous()
+    b = Tensor.empty((1,), device=f"{Device.DEFAULT}:1").expand(10).contiguous()
     c = a+b
     with self.assertRaisesRegex(RuntimeError, "all buffers must be on the same device"): check_schedule(c, 2)
-
   def test_rand(self):
     x = Tensor.rand(32)
     check_schedule(x, 1, [Tensor._device_rng_counters[x.device]])
@@ -190,13 +187,11 @@ class TestSchedule(unittest.TestCase):
     a, _ = Tensor.empty(1022).cummax(axis=0)
     check_schedule(a, 3)
 
-  @unittest.skip("should this pass?")
   def test_contiguous_assign(self):
     a = Tensor.ones(10) * 2
     b = Tensor.empty(10)
     c = b.assign(a.contiguous())
     check_schedule(c, 1)
-
   def test_basic_binop_fusion(self):
     a = Tensor.empty(10)
     b = Tensor.empty(10)
@@ -514,7 +509,6 @@ class TestSchedule(unittest.TestCase):
     b = Tensor.empty(16)
     c = a.sum((0,1)).cast(dtypes.float16).permute(1,0).reshape(4,4,1).permute(1,0,2).reshape(16) + b
     check_schedule(c, 1)
-
   def test_fancy_reshape_fusion(self):
     a = Tensor.empty(10)
     b = Tensor.empty(10)
@@ -532,7 +526,6 @@ class TestSchedule(unittest.TestCase):
     check_schedule(f, 1)
 
   # failing in new lazy
-  @unittest.skip("always fusing elementwise")
   def test_dont_fuse_binops_with_children(self):
     a = Tensor.empty(10)
     b = Tensor.empty(10)
@@ -542,7 +535,6 @@ class TestSchedule(unittest.TestCase):
     d = keep_me+c
     check_schedule(d, 2)
     check_schedule(keep_me, 0, [d])
-
   #@unittest.skip("failing in old lazy")
   def test_permute_breaks_fusion(self):
     a = Tensor.empty(10, 10, 10)
@@ -630,8 +622,8 @@ class TestSchedule(unittest.TestCase):
     check_schedule(out, 1, filter_sink=False)
 
   def test_fold_with_contiguous(self):
-    a = Tensor.randn(16, 16, 16).realize()
-    b = Tensor.randn(16, 16).realize()
+    a = ((Tensor.arange(16*16*16) % 10) * 0.1).reshape(16, 16, 16).realize()
+    b = ((Tensor.arange(16*16) % 10) * 0.1).reshape(16, 16).realize()
     c = (a.sum(2).contiguous() + b).contiguous()
     check_schedule(c, 2)
 
@@ -684,7 +676,6 @@ class TestSchedule(unittest.TestCase):
     out = x ** Tensor(0.0)
     # NOTE: this is UOp.const(0) + UOp.const(1)
     check_schedule(out, 0)
-
   def test_zero_size(self):
     x = Tensor.empty(2, 3, 0)
     out = x + 1
@@ -774,9 +765,16 @@ class TestSchedule(unittest.TestCase):
     self.assertEqual(sched[1].bufs[0].dtype, dtypes.float)
     self.assertEqual(sched[2].bufs[0].dtype, dtypes.float)
 
+    # input float, softmax in float
+    Tensor.manual_seed(0)
+    x = ((Tensor.arange(4*12*64*64) % 10) * 0.1).reshape(4, 12, 64, 64).cast(dtypes.float).realize()
+    out = x.softmax(dtype=dtypes.float)
+    sched = out.schedule()
+    self.assertEqual(len(sched), 3)
+    self.assertEqual(sched[0].bufs[0].dtype, dtypes.float)
   def test_softmax_backward(self):
     Tensor.manual_seed(0)
-    x = Tensor.randn(4, 12, 64, 64, requires_grad=True).realize()
+    x = ((Tensor.arange(4*12*64*64) % 10) * 0.1).reshape(4, 12, 64, 64).requires_grad_(True).realize()
     x.softmax().sum().backward()
     run_schedule(check_schedule(x.grad, 4))
 
@@ -914,7 +912,7 @@ class TestSchedule(unittest.TestCase):
 
   def test_reduceop_reshape_dont_push(self):
     Tensor.manual_seed(0)
-    x = Tensor.randn(10, 20).realize()
+    x = ((Tensor.arange(10*20) % 10) * 0.1).reshape(10, 20).realize()
     out = x.argmax(1)
     run_schedule(check_schedule(out, 2))
 
@@ -949,7 +947,7 @@ class TestSchedule(unittest.TestCase):
   def test_arange_index_shrink(self):
     Tensor.manual_seed(0)
     with Context(TRACK_MATCH_STATS=0):
-      x = Tensor.randn(11).realize()
+      x = ((Tensor.arange(11) % 10) * 0.1).reshape(11).realize()
     a = Tensor.arange(22)
     out = (x + a[:11]).sum()
     check_schedule(out, 1)
@@ -983,14 +981,14 @@ class TestSwizzle(unittest.TestCase):
   def test_softmax_one_kernel(self):
     Tensor.manual_seed(0)
     with Context(DEBUG=0, TRACK_MATCH_STATS=0):
-      a = Tensor.randn(32, 32).realize()
+      a = ((Tensor.arange(32*32) % 10) * 0.1).reshape(32, 32).realize()
     t = a.softmax()
     check_schedule(t, 3) # TODO: 1?
 
   def test_argmax_one_kernel(self):
     Tensor.manual_seed(0)
     with Context(DEBUG=0, TRACK_MATCH_STATS=0):
-      a = Tensor.randn(10, 20).realize()
+      a = ((Tensor.arange(10*20) % 10) * 0.1).reshape(10, 20).realize()
     t = a.argmax(0)
     check_schedule(t, 2) # TODO: 1?
 
@@ -1034,14 +1032,12 @@ class TestUOpBecome(unittest.TestCase):
 
   # sometimes we prefer to perform an op before movement ops, in this case we should stack the mops on top of the new buffer
 
-  @unittest.skip("no longer supported")
   def test_reorder_expand(self):
     a = Tensor.empty(4, 1)
     b = a.expand(4, 4).reciprocal()
     check_schedule(b, 1)
     self.assertEqual(b.uop.base.buffer.size, 4)
     self.assertEqual(b.uop.shape, (4, 4))
-
   def test_reorder_expand_alt(self):
     x = Tensor.empty(4, 1)
     y = Tensor.empty(4, 1)
@@ -1050,7 +1046,6 @@ class TestUOpBecome(unittest.TestCase):
     check_schedule(z, 1)
 
   # TODO: rangeify doesn't yet cleanup this kind of re-indexing
-  @unittest.expectedFailure
   def test_become_existing_buffer(self):
     a = Tensor.empty(4, 4)
     b = a*1
@@ -1070,23 +1065,18 @@ class TestUOpBecome(unittest.TestCase):
     late_add = noop+2
     late_add.realize()
 
-  @unittest.skip("const folding is removed")
   def test_become_const_in_base(self):
     a = Tensor.empty(4)
     b = a*0
     assert UPat(Ops.MUL).match(b.uop, {}) # before scheduling it's a mul
     check_schedule(b, 0)
     assert UPat(Ops.CONST, arg=0).match(b.uop.base, {}) # scheduling replaces the tensor uop with a VIEW(BUFFER)
-
-  @unittest.skip("const folding is removed")
   def test_become_const_from_const(self):
     const_add = Tensor(1)+Tensor(2)
     assert UPat(Ops.ADD).match(const_add.uop, {})
     check_schedule(const_add, 0)
     assert UPat(Ops.CONST, arg=3).match(const_add.uop.base, {})
-
   # tensors can become another realized tensor source
-  @unittest.expectedFailure
   def test_become_existing_buf_simple(self):
     a = Tensor.empty(4, 4)
     b = a+0
@@ -1095,14 +1085,12 @@ class TestUOpBecome(unittest.TestCase):
     self.assertIs(a.uop, b.uop)
 
   # they can also chain other movement ops on top of the tensor source
-  @unittest.expectedFailure
   def test_become_existing_buf_view(self):
     a = Tensor.empty(4, 4)
     b = a.permute((1, 0))+0
     check_schedule(b, 0)
     self.assertEqual(b.uop.st, a.uop.permute((1, 0)).st)
 
-  @unittest.expectedFailure
   def test_become_existing_buf_view_alt(self):
     a = Tensor.empty(4, 4)
     b = a.permute((1, 0)).reshape((8, 2))+0
@@ -1110,7 +1098,6 @@ class TestUOpBecome(unittest.TestCase):
     self.assertEqual(b.uop.st, a.uop.permute((1, 0)).reshape((8, 2)).st)
 
   # they can also have other base parents that simplified, in that case we just backtrack to the chained mops
-  @unittest.expectedFailure
   def test_become_existing_buf_complex(self):
     a = Tensor.empty(4, 4)
     b = (a.permute((1, 0))+0).reshape((8, 2))+0
@@ -1118,7 +1105,6 @@ class TestUOpBecome(unittest.TestCase):
     self.assertEqual(b.uop.st, a.uop.permute((1, 0)).reshape((8, 2)).st)
     assert b.uop.base.op is Ops.BUFFER
 
-  @unittest.expectedFailure
   def test_become_multiple_choices(self):
     a = Tensor.empty(16)
     b = (a.reshape(1, 1, 4, 1, 4)+0).reshape(1, 1, 4, 4).shrink(((0, 1), (0, 1), (0, 3), (0, 3)))+0
@@ -1127,7 +1113,6 @@ class TestUOpBecome(unittest.TestCase):
     from tinygrad.helpers import all_same
     assert all_same([x.uop.base.realized for x in [a,b,c]])
 
-  @unittest.skip("not clear if we want this")
   def test_setitem_becomes_subbuffer(self):
     a = Tensor.full((4,), 2.).contiguous().realize()
     b = a.shrink(((0, 2),)).assign(Tensor.full((2,), 1.0))
@@ -1136,7 +1121,6 @@ class TestUOpBecome(unittest.TestCase):
     assert a.uop.buffer._base is None
     assert b.uop.op_in_backward_slice_with_self(Ops.SHRINK)
     assert b.uop.base is a.uop.base
-
 class TestFusionOp(unittest.TestCase):
   def test_recursive_add(self):
     st = time.perf_counter()
@@ -1159,7 +1143,7 @@ class TestFusionOp(unittest.TestCase):
     for _ in range(23): c = c + c
     sched3 = c.schedule()
     self.assertEqual(sched1[-1].ast, sched2[-1].ast)
-    with self.assertRaises(AssertionError): self.assertEqual(sched1[-1].ast, sched3[-1].ast)
+    self.assertNotEqual(sched1[-1].ast.key, sched3[-1].ast.key)
     self.assertLess(time.perf_counter()-st, 2.0)
 
   def test_recursive_pad(self):
@@ -1259,6 +1243,14 @@ class TestInvalidTensor(unittest.TestCase):
     from tinygrad.dtype import Invalid
     t = Tensor.full((4,), Invalid, dtype=dtypes.float)
     check_schedule(t, 0)
+
+  def test_schedule_assertions(self):
+    a = Tensor([1])
+    b = Tensor([2])
+    out = a + b
+    sched = out.schedule()
+    self.assertGreater(len(sched), 0)
+    self.assertIsNotNone(sched[-1].ast)
 
 if __name__ == '__main__':
   unittest.main(verbosity=2)

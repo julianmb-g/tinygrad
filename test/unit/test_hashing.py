@@ -1,27 +1,25 @@
-from typing_extensions import Callable
-import hashlib, random, unittest
-from tinygrad import Tensor, Device, getenv, dtypes
-from test.helpers import slow
-from tinygrad.device import is_dtype_supported
-from tinygrad.uop.ops import UOp
-from tinygrad.engine.jit import TinyJit
+import hashlib
+import random
+import unittest
 
-@unittest.skipUnless(is_dtype_supported(dtypes.uint8) and is_dtype_supported(dtypes.uint64), "Device must support uint8 and uint64")
-@unittest.skipIf(getenv("MOCKGPU") and Device.DEFAULT == "NV", "crashes in NV CI")
+from typing_extensions import Callable
+
+from test.helpers import slow
+from tinygrad import Tensor, dtypes
+from tinygrad.engine.jit import TinyJit
+from tinygrad.uop.ops import UOp
+
+
 class TestHashing(unittest.TestCase):
   def _python_hash_1mb(self, data:bytes):
     chunks = [data[i:i+4096] for i in range(0, len(data), 4096)]
     chunk_hashes = [hashlib.shake_128(chunk).digest(16) for chunk in chunks]
     return hashlib.shake_128(b''.join(chunk_hashes)).digest(16)
-
-  @unittest.skip("very slow")
+  @slow
   def test_abc(self):
     expected = self._python_hash_1mb(b"abc" + b"\x00" * (2**20 - 3))
     out = Tensor(b"abc").hash()
     self.assertEqual(bytes(out.data()), expected)
-
-@unittest.skipUnless(is_dtype_supported(dtypes.uint8) and is_dtype_supported(dtypes.uint64), "Device must support uint8 and uint64")
-@unittest.skipIf(getenv("MOCKGPU") and Device.DEFAULT == "NV", "crashes in NV CI")
 class TestKeccak(unittest.TestCase):
   def setUp(self) -> None: random.seed(1337)
 
@@ -30,12 +28,8 @@ class TestKeccak(unittest.TestCase):
     for i in range(len(s)):
       out_shape = Tensor.randint(*s[i:], high=255, dtype=dtypes.uint8).keccak().shape
       self.assertTupleEqual(s[i:-1], out_shape[:-1])
-
-  @unittest.skipUnless(Device.DEFAULT=="METAL", "slow")
   def test_sha3_224(self): self._test_preset("sha3_224", [143, 144])
-  @unittest.skipUnless(Device.DEFAULT=="METAL", "slow")
   def test_sha3_256(self): self._test_preset("sha3_256", [135, 136])
-  @unittest.skipUnless(Device.DEFAULT=="METAL", "slow")
   def test_shake_128(self): self._test_preset("shake_128", [167, 168], lambda d: hashlib.shake_128(d).digest(16))
 
   def _test_preset(self, name: str, special_sizes: list[int], hasher: Callable[[bytes], bytes] | None = None):
@@ -52,12 +46,10 @@ class TestKeccak(unittest.TestCase):
       self.assertEqual(ha_ref, ha)
       self.assertEqual(ha_ref, bytes(Tensor(a).keccak(name).data()))
       self.assertEqual(hb_ref, hb)
-
   def test_referenced(self):
     # https://www.di-mgt.com.au/sha_testvectors.html
     self.assertEqual(bytes(Tensor(b"abc").keccak().tolist()),
                      bytearray.fromhex("3a985da74fe225b2 045c172d6bd390bd 855f086e3e9d525b 46bfe24511431532"))
-
   @slow
   def test_long(self):
     data = b"\x00" * 4
@@ -65,7 +57,6 @@ class TestKeccak(unittest.TestCase):
 
     data = b"\x00" * 1000
     self.assertEqual(bytes(Tensor(data).keccak("shake_128").tolist()), hashlib.shake_128(data).digest(16))
-
   def test_variable_bs(self):
     data = Tensor([b"abc", b"abc", b"def"], dtype=dtypes.uint8).repeat(2048, 1)
     bs = UOp.variable("bs", 1, 4096).bind(3)
@@ -73,7 +64,6 @@ class TestKeccak(unittest.TestCase):
     self.assertEqual(bytes(out[0].tolist()), bytearray.fromhex("3a985da74fe225b2 045c172d6bd390bd 855f086e3e9d525b 46bfe24511431532"))
     self.assertEqual(bytes(out[1].tolist()), bytearray.fromhex("3a985da74fe225b2 045c172d6bd390bd 855f086e3e9d525b 46bfe24511431532"))
     self.assertEqual(bytes(out[2].tolist()), bytearray.fromhex("8e0d8f672252acb0 ffc5093db8653b18 1513bf9a2097e737 b4f73533dcaf46df"))
-
   @slow
   def test_variable_bs_jit(self):
     def f(data):
@@ -102,6 +92,5 @@ class TestKeccak(unittest.TestCase):
     self.assertEqual(bytes(out[0].tolist()), bytearray.fromhex("3a985da74fe225b2 045c172d6bd390bd 855f086e3e9d525b 46bfe24511431532"))
     self.assertEqual(bytes(out[1].tolist()), bytearray.fromhex("3a985da74fe225b2 045c172d6bd390bd 855f086e3e9d525b 46bfe24511431532"))
     self.assertEqual(bytes(out[2].tolist()), bytearray.fromhex("8e0d8f672252acb0 ffc5093db8653b18 1513bf9a2097e737 b4f73533dcaf46df"))
-
 if __name__ == "__main__":
   unittest.main()

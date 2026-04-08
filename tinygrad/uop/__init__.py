@@ -1,6 +1,7 @@
 # flake8: noqa: E702
 # allow semicolons to put multiple ops on one line
-from enum import auto, IntEnum, Enum
+from enum import Enum, IntEnum, auto
+
 
 # wrapper around IntEnum that preserves Enum.__str__ and makes auto() unique across all FastEnum subclasses
 class FastEnum(IntEnum):

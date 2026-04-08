@@ -1,5 +1,7 @@
+import dataclasses
+import math
 from typing import cast
-import math, dataclasses, itertools
+import itertools
 from tinygrad.uop.ops import UOp, PatternMatcher, UPat, Ops, all_metadata, graph_rewrite
 from tinygrad.helpers import argsort
 from tinygrad.dtype import sum_acc_dtype
@@ -84,9 +86,9 @@ pm_gradient = PatternMatcher([
 def _deepwalk(root:UOp, targets:set[UOp]) -> tuple[list[UOp], dict[UOp, bool]]:
   # compute the target path (top down)
   in_target_path: dict[UOp, bool] = {}
-  root.topovisit(lambda u: any(in_target_path[x] or x in targets for x in u.src), in_target_path)
+  for u in root.toposort(): in_target_path[u] = any(x in targets or in_target_path[x] for x in u.src)
   # don't flow through DETACH or anything not in target path
-  return [node for node in in_target_path if node.op is not Ops.DETACH and in_target_path[node]], in_target_path
+  return list(root.toposort(lambda node: node.op is not Ops.DETACH and in_target_path[node])), in_target_path
 
 def compute_gradient(root:UOp, root_grad:UOp, targets:set[UOp]) -> dict[UOp, UOp]:
   walk, in_target_path = _deepwalk(root, targets)

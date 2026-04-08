@@ -1,9 +1,12 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
+
 from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 dll = c.DLL('libusb', 'usb-1.0')
 class enum_libusb_class_code(Annotated[int, ctypes.c_uint32], c.Enum): pass
 LIBUSB_CLASS_PER_INTERFACE = enum_libusb_class_code.define('LIBUSB_CLASS_PER_INTERFACE', 0)
@@ -259,9 +262,9 @@ class struct_libusb_control_setup(c.Struct):
   wValue: Annotated[uint16_t, 2]
   wIndex: Annotated[uint16_t, 4]
   wLength: Annotated[uint16_t, 6]
-class struct_libusb_context(c.Struct): SIZE = 0
-class struct_libusb_device(c.Struct): SIZE = 0
-class struct_libusb_device_handle(c.Struct): SIZE = 0
+class struct_libusb_context(ctypes.Structure): pass
+class struct_libusb_device(ctypes.Structure): pass
+class struct_libusb_device_handle(ctypes.Structure): pass
 @c.record
 class struct_libusb_version(c.Struct):
   SIZE = 24

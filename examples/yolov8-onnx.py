@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
 import os
-from ultralytics import YOLO
 from pathlib import Path
-from tinygrad.nn.onnx import OnnxRunner
+
+from ultralytics import YOLO
+
 from extra.onnx_helpers import get_example_inputs
+from tinygrad.nn.onnx import OnnxRunner
 
 os.chdir("/tmp")
 if not Path("yolov8n-seg.onnx").is_file():

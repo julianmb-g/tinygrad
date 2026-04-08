@@ -1,12 +1,16 @@
+import unittest
+import math
+
+import numpy as np
 import torch
 from torch import nn
-import unittest
-import numpy as np
-from tinygrad.nn.state import get_parameters, get_state_dict
-from tinygrad.nn import optim, Linear, Conv2d, BatchNorm2d
-from tinygrad.tensor import Tensor
+
 from extra.datasets import fetch_mnist
 from tinygrad.helpers import CI
+from tinygrad.nn import BatchNorm2d, Conv2d, Linear, optim
+from tinygrad.nn.state import get_parameters, get_state_dict
+from tinygrad.tensor import Tensor
+
 
 def compare_tiny_torch(model, model_torch, X, Y):
   with Tensor.train():
@@ -107,8 +111,8 @@ class TestEnd2End(unittest.TestCase):
 
   def test_bn_alone(self):
     np.random.seed(1337)
-    X = Tensor(np.random.randn(32, 10, 1, 1).astype(np.float32))
-    Y = Tensor(np.random.randn(32, 10, 1, 1).astype(np.float32))
+    X = Tensor((np.arange(math.prod((32, 10, 1, 1))) % 10 * 0.1).reshape(32, 10, 1, 1).astype(np.float32))
+    Y = Tensor((np.arange(math.prod((32, 10, 1, 1))) % 10 * 0.1).reshape(32, 10, 1, 1).astype(np.float32))
     compare_tiny_torch(BatchNorm2d(10), nn.BatchNorm2d(10), X, Y)
 
   def test_bn_linear(self):

@@ -1,5 +1,7 @@
 import unittest
+
 from extra.models import resnet
+
 
 class TestResnet(unittest.TestCase):
   def test_model_load(self):

@@ -1,6 +1,7 @@
 import unittest
+
 from tinygrad import Tensor
-from tinygrad.uop.ops import UPat, Ops, UOp
+from tinygrad.uop.ops import Ops, UOp, UPat
 
 # NOTE: unlike before base for a realized tensor is always a BUFFER
 realized_pattern = UPat(Ops.BUFFER)
@@ -8,7 +9,6 @@ def is_pattern_uop(u:UOp, pat:UPat): assert pat.match(u, {}), f"{u}\nis not\n{pa
 def is_pattern(ten:Tensor, pat:UPat): is_pattern_uop(ten.uop, pat)
 
 class TestTensorMutates(unittest.TestCase):
-  @unittest.skip("this doesn't mutate anymore")
   def test_mutate_add(self):
     a = Tensor([1,2,3])
     b = Tensor([4,5,6])
@@ -21,7 +21,6 @@ class TestTensorMutates(unittest.TestCase):
     self.assertIsNot(pb, b.uop)
     self.assertIsNot(pr, ret.uop)
     for t in [a,b,ret]: is_pattern_uop(t.uop.base, realized_pattern)
-
   def test_reshape_is_same_parent(self):
     a = Tensor([1,2,3])
     b = Tensor([4,5,6])

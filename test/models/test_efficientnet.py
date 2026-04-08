@@ -1,14 +1,17 @@
-import ast, pathlib, unittest
+import ast
+import pathlib
+import unittest
 
 import numpy as np
 from PIL import Image
 
+from extra.models.efficientnet import EfficientNet
+from extra.models.resnet import ResNet50
+from extra.models.vit import ViT
+from test.helpers import slow
 from tinygrad import Tensor
 from tinygrad.helpers import getenv
-from test.helpers import slow
-from extra.models.efficientnet import EfficientNet
-from extra.models.vit import ViT
-from extra.models.resnet import ResNet50
+
 
 def _load_labels():
   labels_filename = pathlib.Path(__file__).parent / 'efficientnet/imagenet1000_clsidx_to_labels.txt'
@@ -72,7 +75,6 @@ class TestEfficientNet(unittest.TestCase):
     self.assertEqual(_LABELS[labels[0]], "hen")
     self.assertEqual(_LABELS[labels[1]], "sports car, sport car")
 
-@unittest.skip("these pretrained models are no longer available")
 class TestViT(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
@@ -86,11 +88,9 @@ class TestViT(unittest.TestCase):
   def test_chicken(self):
     labels = _infer(self.model, chicken_img)
     self.assertEqual(_LABELS[labels[0]], "cock")
-
   def test_car(self):
     labels = _infer(self.model, car_img)
     self.assertEqual(_LABELS[labels[0]], "racer, race car, racing car")
-
 class TestResNet(unittest.TestCase):
   @classmethod
   def setUpClass(cls):

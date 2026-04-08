@@ -1,13 +1,16 @@
-import unittest
-import torch
-import tqdm
-import torchaudio
-import pathlib
-import jiwer
 import os
+import pathlib
+import unittest
+
+import jiwer
 import numpy as np
+import torch
+import torchaudio
+import tqdm
 from whisper.normalizers import EnglishTextNormalizer
+
 from examples.whisper import init_whisper, transcribe_waveform
+
 
 class TestWhisperLibriSpeech(unittest.TestCase):
   # reference WERs determined by running https://github.com/openai/whisper/blob/main/notebooks/LibriSpeech.ipynb

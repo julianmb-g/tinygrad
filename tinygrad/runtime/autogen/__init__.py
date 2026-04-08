@@ -1,5 +1,13 @@
-import glob, importlib, os, pathlib, shutil, subprocess, tarfile, tempfile
-from tinygrad.helpers import fetch, flatten, system, getenv
+import glob
+import importlib
+import os
+import pathlib
+import shutil
+import subprocess
+import tarfile
+import tempfile
+
+from tinygrad.helpers import fetch, flatten, getenv, system
 
 root = (here:=pathlib.Path(__file__).parent).parents[2]
 nv_src = {"nv_570": "https://github.com/NVIDIA/open-gpu-kernel-modules/archive/81fe4fb417c8ac3b9bdcc1d56827d116743892a5.tar.gz",

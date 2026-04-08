@@ -1,13 +1,16 @@
-import random, ctypes
+import ctypes
+import random
+
 import numpy as np
+
 from tinygrad.device import Buffer, Device
-from tinygrad.helpers import Context, getenv, from_mv
 from tinygrad.dtype import dtypes
-from tinygrad.tensor import Tensor, _to_np_dtype
+from tinygrad.engine.jit import apply_graph_to_jit
 from tinygrad.engine.realize import BufferXfer, get_runner
 from tinygrad.engine.schedule import ExecItem
-from tinygrad.uop.ops import UOp, Ops
-from tinygrad.engine.jit import apply_graph_to_jit
+from tinygrad.helpers import Context, from_mv, getenv
+from tinygrad.tensor import Tensor, _to_np_dtype
+from tinygrad.uop.ops import Ops, UOp
 
 BUF_LEN = getenv("BUF_LEN", 128)
 
@@ -16,7 +19,7 @@ def gen_prg(device, inputs_cnt):
   if (device, inputs_cnt) in cached_prgs: return cached_prgs[(device, inputs_cnt)]
 
   with Context(DEBUG=0):
-    fst = [Tensor.randn(BUF_LEN, dtype=dtypes.int).realize() for i in range(inputs_cnt)]
+    fst = [((Tensor.arange(BUF_LEN) % 10) * 0.1).reshape(BUF_LEN).cast(dtypes.int).realize() for i in range(inputs_cnt)]
     s = fst[0]
     for i in range(1, inputs_cnt): s = s.bitwise_xor(fst[i])
 

@@ -1,21 +1,24 @@
 # https://arxiv.org/pdf/2112.10752.pdf
 # https://github.com/ekagra-ranjan/huggingface-blog/blob/main/stable_diffusion.md
+import argparse
 import tempfile
-from pathlib import Path
-import argparse, time
+import time
 from collections import namedtuple
-from typing import Dict, Any
+from pathlib import Path
+from typing import Any, Dict
 
 import numpy as np
-from tinygrad import Device, GlobalCounters, dtypes, Tensor, TinyJit
-from tinygrad.helpers import Timing, Context, getenv, fetch, colored, tqdm, flatten, profile_marker
-from tinygrad.nn import Conv2d, GroupNorm
-from tinygrad.nn.state import torch_load, load_state_dict, get_state_dict
-from extra.models.clip import Closed, Tokenizer, FrozenOpenClipEmbedder
-from extra.models import unet, clip
-from extra.models.unet import UNetModel
-from examples.mlperf.initializers import AutocastLinear, AutocastConv2d, AutocastGroupNorm, AutocastLayerNorm, zero_module, attn_f32_softmax, gelu_erf
+
+from examples.mlperf.initializers import AutocastConv2d, AutocastGroupNorm, AutocastLayerNorm, AutocastLinear, attn_f32_softmax, gelu_erf, zero_module
 from extra.bench_log import BenchEvent, WallTimeEvent
+from extra.models import clip, unet
+from extra.models.clip import Closed, FrozenOpenClipEmbedder, Tokenizer
+from extra.models.unet import UNetModel
+from tinygrad import Device, GlobalCounters, Tensor, TinyJit, dtypes
+from tinygrad.helpers import Context, Timing, colored, fetch, flatten, getenv, profile_marker, tqdm
+from tinygrad.nn import Conv2d, GroupNorm
+from tinygrad.nn.state import get_state_dict, load_state_dict, torch_load
+
 
 class AttnBlock:
   def __init__(self, in_channels):

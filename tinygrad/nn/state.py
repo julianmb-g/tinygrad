@@ -1,9 +1,19 @@
-import json, pathlib, zipfile, pickle, tarfile, struct, functools, io, zlib
+import functools
+import io
+import json
+import pathlib
+import pickle
+import struct
+import tarfile
+import zipfile
+import zlib
 from collections import OrderedDict
-from typing import Any, Callable, BinaryIO, Iterable, cast
-from tinygrad.tensor import Tensor
+from typing import Any, BinaryIO, Callable, Iterable, cast
+
 from tinygrad.dtype import dtypes
-from tinygrad.helpers import prod, argsort, DEBUG, Timing, CI, GlobalCounters, tqdm, round_up, T, strides_for_shape
+from tinygrad.helpers import CI, DEBUG, GlobalCounters, T, Timing, argsort, prod, round_up, strides_for_shape, tqdm
+from tinygrad.tensor import Tensor
+
 
 class TensorIO(io.RawIOBase, BinaryIO):
   def __init__(self, t: Tensor):
@@ -292,6 +302,23 @@ def torch_load(t:Tensor) -> dict[str, Tensor]:
       base_offset += 8 + lens[i]
     fobj.seek(rwd)
     return TorchPickle(fobj).load()
+
+def tflite(model_path):
+  import os
+  import tempfile
+
+  import tf2onnx
+
+  from tinygrad.nn.onnx import OnnxRunner
+
+  onnx_graph, _ = tf2onnx.convert.from_tflite(model_path, opset=13, inputs_as_nchw=["input"])
+  fd, tmp_path = tempfile.mkstemp(suffix=".onnx")
+  os.close(fd)
+  with open(tmp_path, "wb") as f:
+    f.write(onnx_graph.SerializeToString())
+  runner = OnnxRunner(tmp_path)
+  os.remove(tmp_path)
+  return runner
 
 def ggml_data_to_tensor(t: Tensor, n: int, ggml_type: int) -> Tensor:
   """

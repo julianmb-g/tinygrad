@@ -1,12 +1,16 @@
-import unittest, os
-import numpy as np
+import os
+import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
-from tinygrad import Device, Tensor
-from tinygrad.helpers import getenv, Context
-from tinygrad.nn.state import safe_save, torch_load, get_parameters
+
+import numpy as np
+
 from examples.mlperf.model_eval import eval_stable_diffusion, vae_decode
 from examples.stable_diffusion import AutoencoderKL
+from tinygrad import Device, Tensor
+from tinygrad.helpers import Context, getenv
+from tinygrad.nn.state import get_parameters, safe_save, torch_load
+
 
 def set_eval_params():
   # override these as needed from cli

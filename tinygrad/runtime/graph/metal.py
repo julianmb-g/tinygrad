@@ -1,13 +1,20 @@
+import ctypes
+import decimal
+import re
 from typing import Any, cast
-import ctypes, decimal
-from tinygrad.dtype import dtypes
-from tinygrad.helpers import dedup, getenv, merge_dicts, PROFILE
+
 from tinygrad.device import Buffer, ProfileGraphEntry, ProfileGraphEvent
 from tinygrad.uop.ops import UOp, Ops
 from tinygrad.engine.realize import CompiledRunner
 from tinygrad.engine.jit import GraphRunner, GraphException
 from tinygrad.runtime.ops_metal import wait_check, to_ns_str
 from tinygrad.runtime.autogen import metal
+from tinygrad.runtime.support import objc
+from tinygrad.helpers import getenv
+from tinygrad.helpers import dedup, merge_dicts, PROFILE
+from tinygrad.dtype import dtypes
+
+
 class MetalGraph(GraphRunner):
   def __init__(self, *args, **kwargs):
     super().__init__(*args, **kwargs)
@@ -22,7 +29,9 @@ class MetalGraph(GraphRunner):
     self.icb = self.dev.sysdevice.newIndirectCommandBufferWithDescriptor_maxCommandCount_options(icb_descriptor, len(self.jit_cache),
                                                                                                  metal.MTLResourceCPUCacheModeDefaultCache)
     if self.icb.value is None: raise GraphException("create indirect command buffer failed, does your system support this?")
-    self.needs_icb_fix = int(self.dev.gpu_family < 9)  # ICB fix not required on M3+ (Apple9+)
+    # TODO: needs categories
+    icb_label = bytes(objc.msg("UTF8String", ctypes.c_char_p)(objc.msg("description")(self.icb).retained())).decode()
+    self.needs_icb_fix = int((m := re.search(r'AGXG(\d+)XFamily', icb_label)) is None or int(m.group(1)) < 15) # not required on M3+
 
     self.fixedvars = merge_dicts([ji.fixedvars for ji in self.jit_cache])
     self.varlist = self.vars + list(self.fixedvars.keys())

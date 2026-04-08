@@ -1,6 +1,8 @@
-import unittest
 import pickle
-from tinygrad.helpers import diskcache_get, diskcache_put, diskcache, diskcache_clear
+import unittest
+
+from tinygrad.helpers import diskcache, diskcache_clear, diskcache_get, diskcache_put
+
 
 def remote_get(table,q,k): q.put(diskcache_get(table, k))
 def remote_put(table,k,v): diskcache_put(table, k, v)
@@ -25,6 +27,7 @@ class DiskCache(unittest.TestCase):
     diskcache_put(table, "k", "getme")
     q = Queue()
     p = Process(target=remote_get, args=(table,q,"k"))
+    p.daemon = True
     p.start()
     p.join()
     self.assertEqual(q.get(), "getme")
@@ -33,6 +36,7 @@ class DiskCache(unittest.TestCase):
     table = "test_putotherprocess"
     from multiprocessing import Process
     p = Process(target=remote_put, args=(table,"k", "remote"))
+    p.daemon = True
     p.start()
     p.join()
     self.assertEqual(diskcache_get(table, "k"), "remote")
@@ -81,7 +85,6 @@ class DiskCache(unittest.TestCase):
     diskcache_put(table, "key", "test")
     self.assertEqual(diskcache_get(table, "key"), "test")
 
-  @unittest.skip("disabled by default because this drops cache table")
   def test_clear_cache(self):
     # clear cache to start
     diskcache_clear()
@@ -103,6 +106,5 @@ class DiskCache(unittest.TestCase):
     diskcache_clear()
     diskcache_clear()
     diskcache_clear()
-
 if __name__ == "__main__":
   unittest.main()

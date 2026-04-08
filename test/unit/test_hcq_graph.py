@@ -1,16 +1,15 @@
 import unittest
+
+from test.mockgpu.usb import MockUSB
 from tinygrad import Device, Tensor
 from tinygrad.engine.jit import TinyJit
 from tinygrad.uop.ops import UOp, Ops
 from tinygrad.dtype import dtypes
 from tinygrad.runtime.graph.hcq import HCQGraph
-from tinygrad.runtime.support.hcq import HCQCompiled
 from tinygrad.runtime.support.usb import USBMMIOInterface
-from test.mockgpu.usb import MockUSB
 
-@unittest.skipUnless(issubclass(type(Device[Device.DEFAULT]), HCQCompiled), "HCQ device required to run")
+
 class TestHCQUnit(unittest.TestCase):
-  @unittest.skipIf(Device.DEFAULT == "CPU", "requires non-CPU HCQ device")
   def test_supports_exec_item(self):
     d0, cpu_dev = Device[Device.DEFAULT], Device["CPU"]
 

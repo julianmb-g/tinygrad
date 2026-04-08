@@ -1,7 +1,9 @@
 import unittest
+
 from tinygrad import Device
+from tinygrad.helpers import CI, OSX, getenv
 from tinygrad.tensor import Tensor
-from tinygrad.helpers import getenv, CI, OSX
+
 
 def multidevice_test(fxn):
   exclude_devices = getenv("EXCLUDE_DEVICES", "").split(",")

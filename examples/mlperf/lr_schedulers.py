@@ -1,9 +1,10 @@
 import math
-from tinygrad import dtypes, Tensor
-from tinygrad.nn.optim import Optimizer
+from typing import Callable
 
 from extra.lr_scheduler import LR_Scheduler
-from typing import Callable
+from tinygrad import Tensor, dtypes
+from tinygrad.nn.optim import Optimizer
+
 
 # https://github.com/mlcommons/training/blob/e237206991d10449d9675d95606459a3cb6c21ad/image_classification/tensorflow2/lars_util.py
 class PolynomialDecayWithWarmup(LR_Scheduler):

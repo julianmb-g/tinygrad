@@ -4,7 +4,9 @@ Includes: v_fma_f32, v_div_scale_f32, v_div_fmas_f32, v_div_fixup_f32,
           v_alignbit_b32, v_bfe_i32, v_mad_u64_u32, v_readlane_b32, v_writelane_b32
 """
 import unittest
+
 from test.amd.hw.helpers import *
+
 
 class TestFMA(unittest.TestCase):
   """Tests for FMA instructions."""
@@ -1598,7 +1600,7 @@ class TestModifierInteractions(unittest.TestCase):
     instructions = [
       s_mov_b32(s[0], quiet_nan),
       v_mov_b32_e32(v[0], s[0]),
-      VOP3(VOP3Op.V_ADD_F32, vdst=v[1], src0=v[0], src1=0.0, clmp=1),
+      VOP3(VOP3Op.V_ADD_F32, vdst=v[1], src0=v[0], src1=0.0, clamp=1),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertTrue(math.isnan(i2f(st.vgpr[0][1])))
@@ -2760,7 +2762,7 @@ class TestVOP3VOPC(unittest.TestCase):
       s_mov_b32(s[1], 0x00000000),  # 0.0
       v_mov_b32_e32(v[5], s[0]),
       v_mov_b32_e32(v[3], s[1]),
-      VOP3_SDST(VOP3Op.V_CMP_GE_F32, vdst=s[5], src0=v[5], src1=v[3], abs=3),
+      VOP3_SDST(VOP3Op.V_CMP_GE_F32, vdst=s[5], src0=v[5], src1=v[3], abs_=3),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.sgpr[5], 0)  # NaN comparison is always FALSE

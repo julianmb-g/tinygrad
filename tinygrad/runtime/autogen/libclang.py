@@ -1,10 +1,13 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
-from tinygrad.runtime.support import c
+
 from tinygrad.helpers import OSX
+from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 dll = c.DLL('libclang', '/opt/homebrew/opt/llvm@20/lib/libclang.dylib' if OSX else ['clang-20', 'clang'])
 CXIndex: TypeAlias = ctypes.c_void_p
 class struct_CXTargetInfoImpl(ctypes.Structure): pass

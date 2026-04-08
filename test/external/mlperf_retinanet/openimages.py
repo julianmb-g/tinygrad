@@ -1,7 +1,8 @@
+import torch
+
 from test.external.mlperf_retinanet.model.boxes import box_iou
 from test.external.mlperf_retinanet.model.utils import Matcher
 
-import torch
 
 # This applies the filtering in https://github.com/mlcommons/training/blob/cdd928d4596c142c15a7d86b2eeadbac718c8da2/single_stage_detector/ssd/model/retinanet.py#L117
 # and https://github.com/mlcommons/training/blob/cdd928d4596c142c15a7d86b2eeadbac718c8da2/single_stage_detector/ssd/model/retinanet.py#L203

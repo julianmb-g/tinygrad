@@ -1,11 +1,17 @@
-import os, pathlib, tempfile, unittest
+import os
+import pathlib
+import tempfile
+import unittest
+
 import numpy as np
-from tinygrad import Tensor, Device, dtypes
-from tinygrad.device import is_dtype_supported
-from tinygrad.dtype import DType, DTYPES_DICT
-from tinygrad.nn.state import safe_load, safe_save, get_state_dict, torch_load
-from tinygrad.helpers import Timing, fetch, OSX, dedup
+
 from test.helpers import slow
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
+from tinygrad.dtype import DTYPES_DICT, DType
+from tinygrad.helpers import OSX, Timing, dedup, fetch
+from tinygrad.nn.state import get_state_dict, safe_load, safe_save, torch_load
+
 
 class TempDirTestCase(unittest.TestCase):
   def setUp(self):
@@ -36,7 +42,6 @@ class TestTorchLoad(TempDirTestCase):
   # pytorch zip format
   def test_load_convnext(self): compare_weights_both('https://dl.fbaipublicfiles.com/convnext/convnext_tiny_1k_224_ema.pth')
 
-  @unittest.skipUnless(is_dtype_supported(dtypes.float16), "need float16 support")
   def test_load_llama2bfloat(self): compare_weights_both("https://huggingface.co/qazalin/bf16-lightweight/resolve/main/consolidated.00.pth?download=true")
 
   # pytorch tar format
@@ -98,7 +103,6 @@ class TestRawDiskBuffer(unittest.TestCase):
 
     pathlib.Path(tmp).unlink()
 
-@unittest.skipUnless(is_dtype_supported(dtypes.uint8), "need uint8")
 class TestSafetensors(TempDirTestCase):
   def test_real_safetensors(self):
     import torch
@@ -120,7 +124,6 @@ class TestSafetensors(TempDirTestCase):
         assert f.read() == g.read()
     ret2 = safe_load(self.tmp("real.safetensors_alt"))
     for k,v in tensors.items(): np.testing.assert_array_equal(ret2[k].numpy(), v.numpy())
-
   def test_real_safetensors_open(self):
     fn = self.tmp("real_safe")
     state_dict = {"tmp": Tensor.rand(10,10)}
@@ -132,8 +135,6 @@ class TestSafetensors(TempDirTestCase):
       assert sorted(f.keys()) == sorted(state_dict.keys())
       for k in f.keys():
         np.testing.assert_array_equal(f.get_tensor(k).numpy(), state_dict[k].numpy())
-
-  @unittest.skip("this test takes 7 seconds. TODO: make disk assign lazy")
   def test_efficientnet_safetensors(self):
     from extra.models.efficientnet import EfficientNet
     model = EfficientNet(0)
@@ -150,24 +151,20 @@ class TestSafetensors(TempDirTestCase):
       assert sorted(f.keys()) == sorted(state_dict.keys())
       for k in f.keys():
         np.testing.assert_array_equal(f.get_tensor(k).numpy(), state_dict[k].numpy())
-
   def _test_huggingface_enet_safetensors(self, fn):
     state_dict = safe_load(fn)
     assert len(state_dict.keys()) == 244
     assert 'blocks.2.2.se.conv_reduce.weight' in state_dict
     assert state_dict['blocks.0.0.bn1.num_batches_tracked'].numpy() == 276570
     assert state_dict['blocks.2.0.bn2.num_batches_tracked'].numpy() == 276570
-
   def test_huggingface_enet_safetensors(self):
     # test a real file
     fn = fetch("https://huggingface.co/timm/mobilenetv3_small_075.lamb_in1k/resolve/main/model.safetensors")
     self._test_huggingface_enet_safetensors(fn)
-
   def test_huggingface_enet_safetensors_fromurl(self):
     # test tensor input
     t = Tensor.from_url("https://huggingface.co/timm/mobilenetv3_small_075.lamb_in1k/resolve/main/model.safetensors")
     self._test_huggingface_enet_safetensors(t)
-
   def test_metadata(self):
     metadata = {"hello": "world"}
     safe_save({}, self.tmp('metadata.safetensors'), metadata)
@@ -177,14 +174,12 @@ class TestSafetensors(TempDirTestCase):
     sz = struct.unpack(">Q", dat[0:8])[0]
     import json
     assert json.loads(dat[8:8+sz])['__metadata__']['hello'] == 'world'
-
   def test_safe_save_only_copy(self):
     from tinygrad.helpers import GlobalCounters
     t = Tensor.rand(10, 10).realize()
     GlobalCounters.reset()
     safe_save({"t": t}, self.tmp("test_copy.safetensors"))
     assert GlobalCounters.global_ops == 0, f"safe_save should have no compute, got {GlobalCounters.global_ops} ops"
-
   def test_save_all_dtypes(self):
     for dtype in dedup(DTYPES_DICT.values()):
       if dtype in [dtypes.bfloat16]: continue # not supported in numpy
@@ -193,11 +188,10 @@ class TestSafetensors(TempDirTestCase):
       ones = Tensor(np.random.rand(10,10), dtype=dtype)
       safe_save(get_state_dict(ones), path)
       np.testing.assert_equal(ones.numpy(), list(safe_load(path).values())[0].numpy())
-
   def test_load_supported_types(self):
     import torch
-    from safetensors.torch import save_file
     from safetensors.numpy import save_file as np_save_file
+    from safetensors.torch import save_file
     torch.manual_seed(1337)
     tensors = {
       "weight_F16": torch.randn((2, 2), dtype=torch.float16),
@@ -231,7 +225,6 @@ class TestSafetensors(TempDirTestCase):
     for k,v in loaded.items():
       assert v.numpy().dtype == tensors[k].dtype
       np.testing.assert_allclose(v.numpy(), tensors[k])
-
 def helper_test_disk_tensor(tmp, fn, data, np_fxn, tinygrad_fxn=None):
   if tinygrad_fxn is None: tinygrad_fxn = np_fxn
   pathlib.Path(tmp(fn)).unlink(missing_ok=True)
@@ -401,7 +394,6 @@ class TestDiskTensor(TempDirTestCase):
     t = Tensor.empty(5, dtype=dtypes.bfloat16, device=f"disk:{self.tmp('dt_bf16_disk_write_read_bf16')}")
     ct = t.to(Device.DEFAULT).cast(dtypes.float)
     assert ct.numpy().tolist() == [9984., -1, -1000, -9984, 20]
-
   def test_copy_from_disk(self):
     fn = pathlib.Path(self.tmp("dt_copy_from_disk"))
     fn.write_bytes(bytes(range(256))*1024)
@@ -429,14 +421,12 @@ class TestDiskTensor(TempDirTestCase):
       on_dev = t.to(Device.DEFAULT).realize()
       np.testing.assert_equal(on_dev.numpy(), t.numpy())
 
-  @unittest.skip("this allocates a lot of RAM")
   @unittest.skipUnless(OSX, "seems to only be an issue on macOS with file size >2 GiB")
   def test_copy_to_cpu_not_truncated(self):
     fn = self.tmp("dt_copy_to_cpu_not_truncated")
     with open(fn, "wb") as f: f.write(b'\x01' * (size := int(2 * 1024**3)) + (test := b"test"))
     x = Tensor.empty(size + len(test), dtype=dtypes.uint8, device=f"disk:{fn}").to("CPU").realize()
     assert x[size:].data().tobytes() == test
-
   def test_disk_device_reuse(self):
     from tinygrad.runtime.ops_disk import DiskDevice
     fn = pathlib.Path(self.tmp("dt_device_reuse"))
@@ -459,7 +449,6 @@ class TestDiskTensor(TempDirTestCase):
     np.testing.assert_equal(t1.numpy(), np.arange(128, dtype=np.uint8))
     np.testing.assert_equal(t2.numpy(), np.arange(64, dtype=np.uint8))
 
-  @unittest.skip("fails with setup_python_cap run")
   def test_disk_open_failure_state(self):
     from tinygrad.runtime.ops_disk import DiskDevice
     fn = pathlib.Path(self.tmp("dt_open_failure"))
@@ -479,8 +468,6 @@ class TestDiskTensor(TempDirTestCase):
     t2 = Tensor.empty(200, device=f"disk:{fn}", dtype=dtypes.uint8)
     t2.to("CPU").realize()
     assert disk_device.size == 200
-
-  @unittest.skip("fails with setup_python_cap run")
   def test_disk_permission_error(self):
     fn = pathlib.Path(self.tmp("dt_permission"))
     fn.write_bytes(bytes(range(256)))
@@ -490,7 +477,6 @@ class TestDiskTensor(TempDirTestCase):
         Tensor.empty(100, device=f"disk:{fn}", dtype=dtypes.uint8).numpy()
     finally:
       os.chmod(fn, 0o644)
-
 class TestPathTensor(TempDirTestCase):
   def setUp(self):
     super().setUp()
@@ -539,7 +525,6 @@ class TestPathTensor(TempDirTestCase):
     self.assertEqual(t_cpu.device, "CPU")
     np.testing.assert_array_equal(t_cpu.numpy(), np.frombuffer(self.test_data, dtype=np.uint8))
 
-  @unittest.skip("permission checks don't work in all environments")
   def test_path_tensor_disk_device_bug(self):
     test_file = pathlib.Path(self.temp_dir.name) / "disk_device_bug"
     with open(test_file, "wb") as f: f.write(bytes(range(10)))
@@ -548,7 +533,6 @@ class TestPathTensor(TempDirTestCase):
       Tensor(pathlib.Path(test_file)).tolist()
     os.chmod(test_file, 0o644)
     assert Tensor(pathlib.Path(test_file)).tolist(), list(range(10))
-
 class TestDiskTensorMovement(TempDirTestCase):
   def setUp(self):
     super().setUp()
@@ -565,13 +549,11 @@ class TestDiskTensorMovement(TempDirTestCase):
 
   def test_slice_read_cat(self):
     t = Tensor(self.fn)
-    with self.assertRaises(AssertionError):
-      self.assertListEqual(Tensor.cat(t[16:18], t[20:22]).tolist(), [16,17,20,21])
+    self.assertListEqual(Tensor.cat(t[16:18], t[20:22]).tolist(), [16,17,20,21])
 
   def test_slice_sum(self):
     t = Tensor(self.fn)
-    with self.assertRaises(AssertionError):
-      self.assertListEqual((t[16:18]+t[20:22]).tolist(), [16+20,17+21])
+    self.assertListEqual((t[16:18]+t[20:22]).tolist(), [16+20,17+21])
 
 if __name__ == "__main__":
   unittest.main()

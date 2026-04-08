@@ -1,16 +1,20 @@
 #!/usr/bin/env python
-import unittest, functools
-import numpy as np
+import functools
+import unittest
 
-from hypothesis import given, settings, strategies as strat
-from test.helpers import assert_jit_cache_len, not_support_multi_device, needs_second_gpu
-from tinygrad.tensor import Tensor
-from tinygrad.engine.jit import TinyJit, JitError, GraphRunner, MultiGraphRunner, graph_class
-from tinygrad.engine.realize import CompiledRunner, BufferCopy, BufferXfer
-from tinygrad.device import Device
-from tinygrad.helpers import Context, JIT, GlobalCounters, getenv
-from tinygrad.dtype import dtypes
+import numpy as np
+from hypothesis import given, settings
+from hypothesis import strategies as strat
+
 from extra.models.unet import ResBlock
+from test.helpers import assert_jit_cache_len, needs_second_gpu, not_support_multi_device
+from tinygrad.device import Device
+from tinygrad.dtype import dtypes
+from tinygrad.engine.jit import GraphRunner, JitError, MultiGraphRunner, TinyJit, graph_class
+from tinygrad.engine.realize import BufferCopy, BufferXfer, CompiledRunner
+from tinygrad.helpers import JIT, Context, GlobalCounters, getenv
+from tinygrad.tensor import Tensor
+
 
 def _simple_test(add, extract=lambda x: x, N=10):
   for _ in range(5):
@@ -22,7 +26,7 @@ def _simple_test(add, extract=lambda x: x, N=10):
 
 class TestJit(unittest.TestCase):
 
-  @settings(deadline=2e4)
+  @settings(deadline=int(getenv("CI_TIMEOUT", 120000)))
   @unittest.skipUnless(Device.DEFAULT in ["CPU"], f"no support on {Device.DEFAULT}")
   @given(strat.sampled_from([Tensor.exp2, Tensor.log2, Tensor.sin]))
   def test_approx_jit_timeout(self, op):
@@ -189,13 +193,13 @@ class TestJit(unittest.TestCase):
     @TinyJit
     def add_kwargs(first, second): return (first/second).realize()
     for _ in range(2):
-      a = Tensor.randn(10, 10)
-      b = Tensor.randn(10, 10)
+      a = Tensor.arange(100).reshape(10, 10) + 1.0
+      b = Tensor.arange(100).reshape(10, 10) + 2.0
       c = add_kwargs(second=b, first=a)
       np.testing.assert_allclose(c.numpy(), a.numpy()/b.numpy(), atol=1e-4, rtol=1e-5)
     for _ in range(2):
-      a = Tensor.randn(10, 10)
-      b = Tensor.randn(10, 10)
+      a = Tensor.arange(100).reshape(10, 10) + 1.0
+      b = Tensor.arange(100).reshape(10, 10) + 2.0
       c = add_kwargs(first=a, second=b)
       np.testing.assert_allclose(c.numpy(), a.numpy()/b.numpy(), atol=1e-4, rtol=1e-5)
     assert_jit_cache_len(add_kwargs, 1)
@@ -428,7 +432,7 @@ class TestJit(unittest.TestCase):
     def f(a): return a.clone().realize()
     jf = TinyJit(f)
     for _ in range(5):
-      a = Tensor.randn(10, 10, device=Device.DEFAULT).realize()
+      a = ((Tensor.arange(100, device=Device.DEFAULT) % 10) * 0.1).reshape(10, 10).realize()
       ja = jf(a)
       np.testing.assert_allclose(a.numpy(), ja.numpy(), atol=1e-4, rtol=1e-5)
 
@@ -722,7 +726,7 @@ class TestJitGraphSplit(unittest.TestCase):
       op2 = self.compute(Device.DEFAULT, op1)
       return op2
 
-    inp = Tensor.randn(10, 10, device=Device.DEFAULT).realize()
+    inp = ((Tensor.arange(100, device=Device.DEFAULT) % 10) * 0.1).reshape(10, 10).realize()
     self.expect(f, inp,
       graph=[self.ji_graph(3)],
       multigraph=[self.ji_graph(3)],
@@ -739,7 +743,7 @@ class TestJitGraphSplit(unittest.TestCase):
       op3 = self.compute(Device.DEFAULT, op1)
       return op2, op3
 
-    inp = Tensor.randn(10, 10, device=Device.DEFAULT).realize()
+    inp = ((Tensor.arange(100, device=Device.DEFAULT) % 10) * 0.1).reshape(10, 10).realize()
     inp_cpu = Tensor.randn(10, 10, device="CPU").realize()
     self.expect(f, inp, inp_cpu,
       graph=[self.ji_graph(2), self.ji_comp(), self.ji_comp()],
@@ -758,7 +762,7 @@ class TestJitGraphSplit(unittest.TestCase):
       op4 = self.compute(Device.DEFAULT, op1)
       return op3, op4
 
-    inp = Tensor.randn(10, 10, device=Device.DEFAULT).realize()
+    inp = ((Tensor.arange(100, device=Device.DEFAULT) % 10) * 0.1).reshape(10, 10).realize()
     inp_cpu = Tensor.randn(10, 10, device="CPU").realize()
     self.expect(f, inp, inp_cpu,
       graph=[self.ji_graph(2), self.ji_graph(2), self.ji_comp()],
@@ -780,7 +784,7 @@ class TestJitGraphSplit(unittest.TestCase):
       op4 = self.compute(Device.DEFAULT, op1)
       return op3, op4
 
-    inp = Tensor.randn(10, 10, device=Device.DEFAULT).realize()
+    inp = ((Tensor.arange(100, device=Device.DEFAULT) % 10) * 0.1).reshape(10, 10).realize()
     inp_d1 = Tensor.randn(10, 10, device=f"{Device.DEFAULT}:1").realize()
     self.expect(f, inp, inp_d1,
       graph=[self.ji_graph(2), self.ji_graph(2), self.ji_comp()],
@@ -804,7 +808,7 @@ class TestJitGraphSplit(unittest.TestCase):
       op5 = self.compute(Device.DEFAULT, op3)
       return op1, op4, op5
 
-    inp = Tensor.randn(10, 10, device=Device.DEFAULT).realize()
+    inp = ((Tensor.arange(100, device=Device.DEFAULT) % 10) * 0.1).reshape(10, 10).realize()
     inp_d1 = Tensor.randn(10, 10, device=f"{Device.DEFAULT}:1").realize()
     self.expect(f, inp, inp_d1,
       graph=[self.ji_graph(2), self.ji_comp(), self.ji_xfer(), self.ji_comp(), self.ji_comp()],
@@ -824,7 +828,7 @@ class TestJitGraphSplit(unittest.TestCase):
       op3 = self.compute("CPU", op2)
       return op3
 
-    inp = Tensor.randn(10, 10, device=Device.DEFAULT).realize()
+    inp = ((Tensor.arange(100, device=Device.DEFAULT) % 10) * 0.1).reshape(10, 10).realize()
     self.expect(f, inp,
       graph=[self.ji_graph(2), self.ji_copy(), self.ji_comp()],
       multigraph=[self.ji_graph(2), self.ji_copy(), self.ji_comp()],

@@ -1,23 +1,25 @@
-from extra.datasets.kits19 import iterate, preprocess
-from examples.mlperf.dataloader import batch_load_unet3d, batch_load_retinanet
-from test.external.mlperf_retinanet.coco_utils import get_openimages
-from test.external.mlperf_retinanet.openimages import postprocess_targets
-from test.external.mlperf_retinanet.presets import DetectionPresetTrain, DetectionPresetEval
-from test.external.mlperf_retinanet.model.transform import GeneralizedRCNNTransform
-from test.external.mlperf_unet3d.kits19 import PytTrain, PytVal
-from tinygrad.helpers import temp
-from pathlib import Path
-from pycocotools.coco import COCO
-
 import json
-import nibabel as nib
-import numpy as np
 import os
-import PIL
 import random
 import tempfile
-import torch
 import unittest
+from pathlib import Path
+
+import nibabel as nib
+import numpy as np
+import PIL
+import torch
+from pycocotools.coco import COCO
+
+from examples.mlperf.dataloader import batch_load_retinanet, batch_load_unet3d
+from extra.datasets.kits19 import iterate, preprocess
+from test.external.mlperf_retinanet.coco_utils import get_openimages
+from test.external.mlperf_retinanet.model.transform import GeneralizedRCNNTransform
+from test.external.mlperf_retinanet.openimages import postprocess_targets
+from test.external.mlperf_retinanet.presets import DetectionPresetEval, DetectionPresetTrain
+from test.external.mlperf_unet3d.kits19 import PytTrain, PytVal
+from tinygrad.helpers import temp
+
 
 class ExternalTestDatasets(unittest.TestCase):
   def _set_seed(self):
@@ -64,7 +66,6 @@ class TestKiTS19Dataset(ExternalTestDatasets):
 
     return iter(dataset)
 
-  @unittest.skip("flaky")
   def test_training_set(self):
     preproc_pth, preproc_img_pths, preproc_lbl_pths = self._create_samples(False)
     ref_dataset = self._create_ref_dataloader(preproc_img_pths, preproc_lbl_pths, False)
@@ -75,7 +76,6 @@ class TestKiTS19Dataset(ExternalTestDatasets):
 
       np.testing.assert_equal(tinygrad_sample[0][:, 0].numpy(), ref_sample[0])
       np.testing.assert_equal(tinygrad_sample[1][:, 0].numpy(), ref_sample[1])
-
   def test_validation_set(self):
     preproc_pth, preproc_img_pths, preproc_lbl_pths = self._create_samples(True)
     ref_dataset = self._create_ref_dataloader(preproc_img_pths, preproc_lbl_pths, True)

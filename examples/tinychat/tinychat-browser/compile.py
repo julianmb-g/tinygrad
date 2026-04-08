@@ -1,10 +1,16 @@
-import os, json, hashlib, math
+import hashlib
+import json
+import math
+import os
+
+from tiktoken.load import dump_tiktoken_bpe, load_tiktoken_bpe
+
+from examples.llama3 import Tokenizer, build_transformer
 from extra.export_model import export_model
-from examples.llama3 import build_transformer, Tokenizer
+from tinygrad import Device, Tensor, TinyJit, Variable, dtypes
+from tinygrad.helpers import Context, fetch
 from tinygrad.nn.state import get_state_dict, load_state_dict
-from tinygrad import Device, Variable, Tensor, dtypes, TinyJit
-from tinygrad.helpers import DEV, fetch, Context
-from tiktoken.load import load_tiktoken_bpe, dump_tiktoken_bpe
+from tinygrad.helpers import DEV
 
 def prepare_browser_chunks(model):
   # split weights into browser-friendly chunks

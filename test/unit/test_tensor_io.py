@@ -1,6 +1,8 @@
 import unittest
+
 from tinygrad import Tensor
 from tinygrad.nn.state import TensorIO
+
 
 class TestTensorIO(unittest.TestCase):
   def test_read(self):

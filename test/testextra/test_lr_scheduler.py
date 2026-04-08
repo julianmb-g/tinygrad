@@ -1,13 +1,16 @@
+import unittest
+import math
+
 import numpy as np
 import torch
-import unittest
-from tinygrad.tensor import Tensor
-from tinygrad.nn.state import get_parameters
-from tinygrad.nn.optim import Adam, SGD
-from tinygrad.helpers import DEBUG
-from extra.lr_scheduler import MultiStepLR, ReduceLROnPlateau, CosineAnnealingLR, OneCycleLR
-from extra.training import train, evaluate
+
 from extra.datasets import fetch_mnist
+from extra.lr_scheduler import CosineAnnealingLR, MultiStepLR, OneCycleLR, ReduceLROnPlateau
+from extra.training import evaluate, train
+from tinygrad.helpers import DEBUG
+from tinygrad.nn.optim import SGD, Adam
+from tinygrad.nn.state import get_parameters
+from tinygrad.tensor import Tensor
 
 np.random.seed(1337)
 Tensor.manual_seed(1337)
@@ -77,7 +80,7 @@ class TestLrScheduler(unittest.TestCase):
   def _test_multisteplr(self, epochs, opts, atol, rtol, adam=True):
     self._test_lr_scheduler(MultiStepLR, torch.optim.lr_scheduler.MultiStepLR, epochs, opts, atol, rtol, adam=adam)
   def _test_reducelronplateau(self, epochs, opts, atol, rtol):
-    opts['accs'] = np.random.randn(epochs)
+    opts['accs'] = (np.arange(math.prod((epochs,))) % 10 * 0.1).reshape(epochs)
     self._test_lr_scheduler(ReduceLROnPlateau, torch.optim.lr_scheduler.ReduceLROnPlateau, epochs, opts, atol, rtol)
   def _test_cosineannealinglr(self, epochs, opts, atol, rtol):
     opts['T_max'] = epochs
@@ -110,7 +113,6 @@ class TestLrScheduler(unittest.TestCase):
   def test_onecyclelr(self): self._test_onecyclelr(100, {'pct_start': 0.3, 'anneal_strategy': 'linear',
                                                          'cycle_momentum': False, 'div_factor': 25.0,
                                                          'final_div_factor': 10000.0, 'max_lr':1e-5}, 1e-6, 1e-6)
-  @unittest.skip("slow")
   def test_training(self):
     without = lr_scheduler_training()
     sched_fns = [MultiStepLR, ReduceLROnPlateau, CosineAnnealingLR, OneCycleLR]
@@ -120,6 +122,5 @@ class TestLrScheduler(unittest.TestCase):
     for sched_fn, args in zip(sched_fns, argss):
       with_sched = lr_scheduler_training(sched_fn, args)
       assert with_sched > without
-
 if __name__ == '__main__':
   unittest.main()

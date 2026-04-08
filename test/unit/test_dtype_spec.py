@@ -8,6 +8,8 @@ from hypothesis import given, settings, strategies as strat
 import numpy as np
 import torch
 
+from tinygrad.tensor import Device, dtypes
+
 settings.register_profile("my_profile", max_examples=50, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")
 
@@ -41,24 +43,21 @@ class TestTypeSpec(unittest.TestCase):
   def tearDown(self):
     dtypes.default_int, dtypes.default_float = self.old_default_int, self.old_default_float
 
-  @unittest.skip("this test is slow and spawning whole pythons")
   def test_env_set_default_float(self):
     # check default
-    subprocess.run(['python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.float"'],
+    subprocess.run(['python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.float"'], timeout=15.0,
                     shell=True, check=True)
     # check change
-    subprocess.run(['DEFAULT_FLOAT=HALF python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.half"'],
+    subprocess.run(['DEFAULT_FLOAT=HALF python3 -c "from tinygrad import dtypes; assert dtypes.default_float == dtypes.half"'], timeout=15.0,
                     shell=True, check=True)
     # check invalid
     with self.assertRaises(subprocess.CalledProcessError):
-      subprocess.run(['DEFAULT_FLOAT=INT32 python3 -c "from tinygrad import dtypes"'],
+      subprocess.run(['DEFAULT_FLOAT=INT32 python3 -c "from tinygrad import dtypes"'], timeout=15.0,
                       shell=True, check=True)
 
     with self.assertRaises(subprocess.CalledProcessError):
-      subprocess.run(['DEFAULT_FLOAT=TYPO python3 -c "from tinygrad import dtypes"'],
+      subprocess.run(['DEFAULT_FLOAT=TYPO python3 -c "from tinygrad import dtypes"'], timeout=15.0,
                       shell=True, check=True)
-
-  @unittest.skipUnless(is_dtype_supported(dtypes.int8), f"no int8 on {Device.DEFAULT}")
   def test_dtype_str_arg(self):
     n = np.random.normal(0, 1, (10, 10)).astype(np.float32)
     tested = 0
@@ -75,7 +74,6 @@ class TestTypeSpec(unittest.TestCase):
     with self.assertRaises(AttributeError): Tensor([1, 2, 3], dtype="")
 
     np.testing.assert_equal(Tensor(n).sum(dtype="int16").numpy(), Tensor(n).sum(dtype=dtypes.int16).numpy())
-
   @given(strat.sampled_from(dtype_ints), strat.sampled_from(dtype_floats))
   def test_creation(self, default_int, default_float):
     dtypes.default_int, dtypes.default_float = default_int, default_float
@@ -166,7 +164,6 @@ class TestAutoCastType(unittest.TestCase):
       # float16 can have larger precision errors
       np.testing.assert_allclose(func(Tensor(a, dtype=dtype)).numpy(), func(torch.tensor(a)), rtol=1e-3, atol=1e-3)
 
-  @unittest.skipUnless(is_dtype_supported(dtypes.float16), "need float16")
   def test_sum_dtype_arg(self):
     t = Tensor([40000, 40000], dtype=dtypes.float16)
     # default float16 sum returns in float16, overflowed in this case
@@ -175,7 +172,6 @@ class TestAutoCastType(unittest.TestCase):
     # specifiying dtype and it's not downcasted
     assert t.sum(dtype=dtypes.float32).dtype == dtypes.float32
     np.testing.assert_allclose(t.sum(dtype=dtypes.float32).numpy(), 80000)
-
   def test_prod_dtype_arg(self):
     t = Tensor([100, 200], dtype=dtypes.int32)
     assert t.prod().dtype == dtypes.int32
@@ -201,27 +197,18 @@ class TestAutoCastType(unittest.TestCase):
 
     dtypes.default_float = old_default_float
 
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "very slow")
   @slow
-  @unittest.skipIf(Device.DEFAULT == "WEBGPU", "Binding size is larger than the maximum storage buffer binding size")
-  @unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
   def test_mean_half_precision_underflow(self):
     N = 10000
     x = 0.001
     t = Tensor([[x]], dtype=dtypes.half, requires_grad=True).expand(N, N).contiguous()
     np.testing.assert_allclose(t.mean(axis=1).numpy(), np.array([x] * N, dtype=np.float16), rtol=1e-3)
-
-  @unittest.skip("this test only works with SPLIT_REDUCEOP=1")
-  @unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
   def test_mean_half_precision_overflow(self):
     N = 256
     t = Tensor([60000] * N*N, dtype=dtypes.half, requires_grad=True).reshape(N, N)
     np.testing.assert_allclose(t.mean().numpy(), 60000)
     t.square().mean().backward()
     np.testing.assert_allclose(t.grad.numpy().flatten(), [60000 * 2 / (N*N)] * N*N)
-
-  @unittest.skipIf(Device.DEFAULT == "WEBGPU", "Precision error")
-  @unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
   def test_softmax_dtype(self):
     data = [1, 2, 3]
     t = Tensor(data, dtype=dtypes.half)

@@ -1,12 +1,14 @@
 #!/usr/bin/env python
+import math
 import unittest
-import torch
-import numpy as np
 
-from tinygrad.helpers import getenv, CI
-from tinygrad.tensor import Tensor
+import numpy as np
+import torch
+
 from tinygrad.device import Device
 from tinygrad.dtype import _from_torch_dtype, _to_torch_dtype
+from tinygrad.helpers import CI, getenv
+from tinygrad.tensor import Tensor
 
 MOCKGPU = getenv("MOCKGPU")
 
@@ -36,7 +38,7 @@ class TestInterop(unittest.TestCase):
     np.testing.assert_allclose(tg_res, torch_out.cpu().numpy(), atol=1e-5, rtol=1e-5)
 
   def test_torch_interop_write(self):
-    tg_data = Tensor.randn((4, 4), device=Device.DEFAULT)
+    tg_data = ((Tensor.arange(math.prod((4, 4)), device=Device.DEFAULT) % 10) * 0.1).reshape((4, 4))
 
     out = torch.empty(4, 4, device=torch.device(self.torch_device), dtype=_to_torch_dtype(tg_data.dtype))
     tg_out = Tensor.from_blob(out.data_ptr(), out.shape, dtype=_from_torch_dtype(out.dtype))

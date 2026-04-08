@@ -1,10 +1,17 @@
-import unittest, math
-from tinygrad import Tensor, Device, dtypes
+import math
+import unittest
+import pytest
+
+pytestmark = pytest.mark.timeout(30)
+
+import numpy as np
+
+from test.helpers import not_support_multi_device
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DTYPES_DICT
 from tinygrad.uop.ops import Ops
-from tinygrad.device import is_dtype_supported
-import numpy as np
-from test.helpers import not_support_multi_device
+
 
 def _check_ast_count(desired_count:int, t:Tensor):
   # NOTE: this has side effect because everything can be scheduled only once
@@ -78,7 +85,7 @@ class TestReduceOpsConstFolding(unittest.TestCase):
   def test_zero_size_ops_realized(self):
     for reduceop in [lambda x:x.prod(), lambda x:x.sum()]:
       _check_ast_count(0, reduceop((Tensor.randn(0, 1)+1).realize()))
-      np.testing.assert_equal(reduceop((Tensor.randn(shape:=(0, 1))+1).realize()).numpy(), reduceop(np.empty(shape)))
+      np.testing.assert_equal(reduceop((((Tensor.arange(math.prod(shape:=(0, 1))) % 10) * 0.1).reshape(shape)+1).realize()).numpy(), reduceop(np.empty(shape)))  # noqa: E501
 
   def test_zero_size_realize_folded(self):
     # non contiguous folded output doesn't realize
@@ -113,7 +120,7 @@ class TestReduceOpsConstFolding(unittest.TestCase):
         t = Tensor.ones(16, dtype=dt).reshape(4, 4)
         assert t.sum().dtype == t.contiguous().sum().dtype
 
-@unittest.skipIf(not_support_multi_device() or True, "no multi, RANGEIFY doesn't support multi const folding")
+@unittest.skipIf(not_support_multi_device(), "no multi, RANGEIFY doesn't support multi const folding")
 class TestMultiConstFolding(unittest.TestCase):
   def test_multi_const_folding_literal(self):
     ds = tuple(f"{Device.DEFAULT}:{i}" for i in range(4))
@@ -159,9 +166,9 @@ class TestMultiConstFolding(unittest.TestCase):
     _check_ast_count(0, t ** zero)
     _check_ast_count(0, t ** one)
     _check_ast_count(0, one ** t)
-    np.testing.assert_equal((t ** zero).numpy(), [1] * 16)
-    np.testing.assert_equal((t ** one).numpy(), np.arange(16))
-    np.testing.assert_equal((one ** t).numpy(), [1] * 16)
+    np.testing.assert_allclose((t ** zero).numpy(), [1] * 16)
+    np.testing.assert_allclose((t ** one).numpy(), np.arange(16))
+    np.testing.assert_allclose((one ** t).numpy(), [1] * 16)
 
 class TestTautologicalCompare(unittest.TestCase):
   # without const folding, these would have triggered -Wtautological-compare in clang

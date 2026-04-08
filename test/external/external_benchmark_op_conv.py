@@ -1,12 +1,13 @@
 # ruff: noqa: E501 E712 F401
 from dataclasses import replace
-from tinygrad import dtypes, Device
-from tinygrad.uop.ops import UOp, AxisType, Ops, KernelInfo
-from tinygrad.codegen.opt import Opt, OptOps # pylint: disable=unused-import
-from tinygrad.engine.realize import CompiledRunner, get_program
-from tinygrad.helpers import dedup, getenv
+
+from tinygrad import Device, dtypes
+from tinygrad.codegen.opt import Opt, OptOps  # pylint: disable=unused-import
 from tinygrad.device import Buffer
 from tinygrad.dtype import ImageDType, Invalid
+from tinygrad.engine.realize import CompiledRunner, get_program
+from tinygrad.helpers import dedup, getenv
+from tinygrad.uop.ops import AxisType, KernelInfo, Ops, UOp
 
 # PYTHONPATH="." DEV=QCOM FLOAT16=1 IMAGE=2 NOLOCALS=1 taskset -c 4-7 python3 examples/openpilot/compile3.py https://github.com/commaai/openpilot/raw/720392c9a5b986981fdbed1bb8c47a6c5573a50e/selfdrive/modeld/models/driving_vision.onnx
 

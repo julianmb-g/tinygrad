@@ -1,11 +1,11 @@
 import unittest
+
 from tinygrad import Device, Tensor, dtypes
-from tinygrad.uop.ops import UOp, Ops
 from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.engine.realize import get_program
-from tinygrad.helpers import AMX
+from tinygrad.uop.ops import Ops, UOp
 
-@unittest.skipUnless(Device[Device.DEFAULT].renderer.supports_float4, "need backends that support float4")
+
 class TestFloat4(unittest.TestCase):
   @staticmethod
   def count_float4(uops: list[UOp], n=4):
@@ -15,7 +15,6 @@ class TestFloat4(unittest.TestCase):
   def count_half4(uops: list[UOp]):
     return (len([uop for uop in uops if uop.op is Ops.LOAD and uop.dtype == dtypes.half.vec(4)]),
             len([uop for uop in uops if uop.op is Ops.STORE and uop.src[1].dtype == dtypes.half.vec(4)]))
-
   def test_float4_basic(self):
     a = Tensor.empty(2, 8).realize()
     b = Tensor.empty(2, 8).realize()
@@ -27,8 +26,6 @@ class TestFloat4(unittest.TestCase):
     program = get_program(realized_ast, renderer=Device[Device.DEFAULT].renderer, opts=opts_to_apply)
 
     assert TestFloat4.count_float4(program.uops) == (2, 1)
-
-  @unittest.skipIf(Device.DEFAULT in {"CPU"} and AMX, "CPU with AMX upcasts float up to size 16")
   def test_float4_multidim(self):
     a = Tensor.empty(2, 8).realize()
     b = Tensor.empty(2, 8).realize()
@@ -38,8 +35,6 @@ class TestFloat4(unittest.TestCase):
     uops = get_program(s.ast, renderer=Device[Device.DEFAULT].renderer,
                        opts=[Opt(op=OptOps.UPCAST, axis=0, arg=4), Opt(op=OptOps.UPCAST, axis=0, arg=2)]).uops
     assert TestFloat4.count_float4(uops) == (4, 2)
-
-  @unittest.skipUnless(Device.DEFAULT in {"CPU"} and AMX, "Only CPU with AMX upcasts float up to size 16")
   def test_float4_multidim_amx(self):
     def kernel_for_shape(size, shift):
       a = Tensor.empty(2, size).realize()
@@ -57,7 +52,6 @@ class TestFloat4(unittest.TestCase):
 
     for i in range(len(sizes)):
       assert TestFloat4.count_float4(kernel_for_shape(sizes[i], shifts[i]), expected_upcast_size[i]) == expected_output[i]
-
   def test_float4_unaligned_load(self):
     a = Tensor.empty(9).realize().shrink(((1, 9),))
     b = Tensor.empty(9).realize().shrink(((1, 9),))
@@ -69,8 +63,6 @@ class TestFloat4(unittest.TestCase):
     program = get_program(realized_ast, renderer=Device[Device.DEFAULT].renderer, opts=opts_to_apply)
 
     assert TestFloat4.count_float4(program.uops) == (0, 1)
-
-  @unittest.skipIf(Device.DEFAULT in {"CPU"} and AMX, "CPU with AMX upcasts float up to size 16")
   def test_float4_multidim_unaligned_load(self):
     a = Tensor.empty(2, 9).realize().shrink(((0, 2), (1, 9),))
     b = Tensor.empty(2, 9).realize().shrink(((0, 2), (1, 9),))
@@ -81,8 +73,6 @@ class TestFloat4(unittest.TestCase):
                        opts=[Opt(op=OptOps.UPCAST, axis=1, arg=4), Opt(op=OptOps.UPCAST, axis=1, arg=2)]).uops
 
     assert TestFloat4.count_float4(uops) == (0, 2)
-
-  @unittest.skipUnless(Device.DEFAULT in {"CPU"} and AMX, "Only CPU with AMX upcasts float up to size 16")
   def test_float4_multidim_unaligned_load_amx(self):
     def kernel_for_shape(size, shift):
       a = Tensor.empty(2, size).realize().shrink(((0, 2), (1, size),))
@@ -100,7 +90,6 @@ class TestFloat4(unittest.TestCase):
 
     for i in range(len(sizes)):
       assert TestFloat4.count_float4(kernel_for_shape(sizes[i], shifts[i]), expected_upcast_size[i]) == expected_output[i]
-
   def test_float4_sometimes_unaligned(self):
     a = Tensor.empty(1, 1, 8).realize()
     b = Tensor.empty(1, 1, 5).realize().shrink(((0, 1), (0, 1), (1, 5)))
@@ -112,7 +101,6 @@ class TestFloat4(unittest.TestCase):
     uops = get_program(s.ast, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(op=OptOps.UNROLL, axis=0, arg=4)]).uops
 
     assert TestFloat4.count_float4(uops) == (0, 0)
-
   def test_float4_multidim_sometimes_unaligned(self):
     a = Tensor.empty(1, 1, 7).realize()
     b = Tensor.empty(1, 1, 5).realize().shrink(((0, 1), (0, 1), (1, 5)))
@@ -127,7 +115,6 @@ class TestFloat4(unittest.TestCase):
                        opts=[Opt(op=OptOps.UPCAST, axis=0, arg=0), Opt(op=OptOps.UNROLL, axis=0, arg=0)]).uops
 
     assert TestFloat4.count_float4(uops) in {(0,1), (1,1)}
-
   def test_float4_expand(self):
     a = Tensor.empty(9).realize().shrink(((1, 9),))
     b = Tensor.empty(2).realize().reshape((2, 1)).expand((2,4)).reshape((8,))
@@ -140,7 +127,6 @@ class TestFloat4(unittest.TestCase):
     uops = get_program(s.ast, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(op=OptOps.UPCAST, axis=0, arg=4)]).uops
 
     assert TestFloat4.count_float4(uops) == (0, 1)
-
   def test_float4_heterogeneous(self):
     a = Tensor.empty(8).realize()
     b = Tensor.empty(9).realize().shrink(((1, 9),))
@@ -152,6 +138,5 @@ class TestFloat4(unittest.TestCase):
     uops = get_program(s.ast, renderer=Device[Device.DEFAULT].renderer, opts=[Opt(op=OptOps.UPCAST, axis=0, arg=4)]).uops
 
     assert TestFloat4.count_float4(uops) == (1, 1)
-
 if __name__ == '__main__':
   unittest.main()

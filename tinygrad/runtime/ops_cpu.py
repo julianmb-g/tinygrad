@@ -11,6 +11,7 @@ from tinygrad.renderer.nir import LVPRenderer
 from tinygrad.runtime.support.elf import jit_loader
 from tinygrad.uop.ops import sint
 
+
 class CPUSignal(HCQSignal):
   def _sleep(self, time_spent_since_last_sleep_ms:int):
     if self.is_timeline and self.owner is not None:
@@ -136,5 +137,5 @@ class CPUDevice(HCQCompiled):
   def __init__(self, device:str=""):
     self.tasks:queue.Queue = queue.Queue()
     CPUWorker(self, self.tasks, thread_id=0).start()
-    renderers:list[type[Renderer]] = [ClangJITRenderer, CPULLVMRenderer, LVPRenderer]
+    renderers:list[type[Renderer]|functools.partial] = [ClangJITRenderer, CPULLVMRenderer, functools.partial(LVPRenderer, "")]
     super().__init__(device, CPUAllocator(self), renderers, functools.partial(CPUProgram, self), CPUSignal, CPUComputeQueue)

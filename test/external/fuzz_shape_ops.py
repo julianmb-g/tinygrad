@@ -1,15 +1,16 @@
 from __future__ import annotations
+
 import unittest
 from math import prod
 
-from hypothesis import assume, given, settings, strategies as st
-from hypothesis.extra import numpy as stn
-
 import numpy as np
 import torch
+from hypothesis import assume, given, settings
+from hypothesis import strategies as st
+from hypothesis.extra import numpy as stn
+
 from tinygrad import Tensor
 from tinygrad.helpers import getenv
-
 
 settings.register_profile(__file__, settings.default,
                           max_examples=100, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
@@ -33,9 +34,9 @@ def tensors_for_shape(s:tuple[int, ...]) -> tuple[torch.tensor, Tensor]:
 def apply(tor, ten, tor_fn, ten_fn=None):
   ok = True
   try: tor = tor_fn(tor)
-  except: tor, ok = None, not ok  # noqa: E722
+  except Exception: tor, ok = None, not ok  # noqa: E722
   try: ten = ten_fn(ten) if ten_fn is not None else tor_fn(ten)
-  except: ten, ok = None, not ok  # noqa: E722
+  except Exception: ten, ok = None, not ok  # noqa: E722
   return tor, ten, ok
 
 class TestShapeOps(unittest.TestCase):

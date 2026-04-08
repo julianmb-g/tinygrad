@@ -3,9 +3,11 @@
 # not a stable API, but works
 
 import torch
-from tinygrad import Tensor, TinyJit, Device
-from tinygrad.helpers import Context, OSX
+
+from tinygrad import Device, Tensor, TinyJit
 from tinygrad.dtype import _from_torch_dtype
+from tinygrad.helpers import OSX, Context
+
 
 @TinyJit
 def f(tg_out, tg_data): return tg_out.assign(tg_data[:, :, 0] * 0.2989 + tg_data[:, :, 1] * 0.5870 + tg_data[:, :, 2] * 0.1140).realize()

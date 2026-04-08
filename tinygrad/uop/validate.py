@@ -1,8 +1,10 @@
 from typing import Callable, cast
-from tinygrad.uop.ops import PatternMatcher, UPat, GroupOp, Ops, UOp, python_alu
-from tinygrad.dtype import dtypes, Invalid
-from tinygrad.helpers import cpu_profile
+
 import z3
+
+from tinygrad.dtype import Invalid, dtypes
+from tinygrad.helpers import cpu_profile
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, python_alu
 
 # older versions of z3 dont have some operators like & overloaded
 if z3.get_version() < (4, 12, 4, 0):

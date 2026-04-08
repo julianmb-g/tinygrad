@@ -1,7 +1,10 @@
 import unittest
+
 import numpy as np
-from tinygrad.helpers import polyN, is_numpy_ndarray
+
+from tinygrad.helpers import is_numpy_ndarray, polyN
 from tinygrad.tensor import Tensor
+
 
 class TestPolyN(unittest.TestCase):
   def test_tensor(self):

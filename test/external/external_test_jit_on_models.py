@@ -1,12 +1,14 @@
 #!/usr/bin/env python
 import unittest
+
 import numpy as np
+
+from examples.llama import Transformer
+from test.helpers import derandomize_model
 from tinygrad import Tensor, dtypes
 from tinygrad.engine.jit import TinyJit
 from tinygrad.helpers import CI
-from test.helpers import derandomize_model
 
-from examples.llama import Transformer
 
 def helper_test_jitted_correctness(gen, train, train_jit):
   nojit = train(*gen()).numpy()
@@ -37,7 +39,7 @@ class TestJittedModels(unittest.TestCase):
 
     @TinyJit
     def test_jit(t, t2): return model(t, 801, t2).realize()
-    helper_test_jitted_correctness(lambda: (Tensor.randn(1, 4, 16, 16),Tensor.randn(1, 77, 768)), test, test_jit)
+    helper_test_jitted_correctness(lambda: (((Tensor.arange(1*4*16*16) % 10) * 0.1).reshape(1, 4, 16, 16),((Tensor.arange(1*77*768) % 10) * 0.1).reshape(1, 77, 768)), test, test_jit)  # noqa: E501
 
 if __name__ == "__main__":
   unittest.main()

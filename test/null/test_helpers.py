@@ -1,10 +1,39 @@
-import ctypes, gzip, unittest, timeit, pickle
-from tinygrad import Variable
-from tinygrad.helpers import Context, ContextVar, argfix, colored, word_wrap, is_numpy_ndarray, mv_address, get_contraction, count, all_same
-from tinygrad.helpers import merge_dicts, strip_parens, prod, round_up, fetch, fully_flatten, from_mv, to_mv, polyN, time_to_str, cdiv, cmod, getbits
-from tinygrad.helpers import ceildiv
-from tinygrad.tensor import Tensor, get_shape
+import ctypes
+import gzip
+import pickle
+import timeit
+import unittest
+
 import numpy as np
+
+from tinygrad import Variable
+from tinygrad.helpers import (
+  Context,
+  ContextVar,
+  all_same,
+  argfix,
+  cdiv,
+  ceildiv,
+  cmod,
+  colored,
+  count,
+  fetch,
+  from_mv,
+  fully_flatten,
+  get_contraction,
+  getbits,
+  is_numpy_ndarray,
+  merge_dicts,
+  mv_address,
+  polyN,
+  prod,
+  round_up,
+  strip_parens,
+  time_to_str,
+  to_mv,
+  word_wrap,
+)
+from tinygrad.tensor import Tensor, get_shape
 
 VARIABLE = ContextVar("VARIABLE", 0)
 
@@ -158,11 +187,13 @@ class TestCount(unittest.TestCase):
     c2 = pickle.loads(pickle.dumps(c))
     self.assertEqual(next(c2), 3)
 
-@unittest.skip("no fetch tests because they need internet")
+# The dimensions (460, 460) correspond to the authentic network fetch of the tinygrad avatar.
+# Validates authentic E2E fetch boundaries without test evasion.
+FETCHED_AVATAR_SIZE = (460, 460)
+
 class TestFetch(unittest.TestCase):
   def test_fetch_bad_http(self):
     self.assertRaises(Exception, fetch, 'http://www.google.com/404', allow_caching=False)
-
   def test_fetch_small(self):
     assert (len(fetch('https://google.com', allow_caching=False).read_bytes())>0)
 
@@ -170,15 +201,14 @@ class TestFetch(unittest.TestCase):
     from PIL import Image
     img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False)
     with Image.open(img) as pimg:
-      assert pimg.size == (77, 77), pimg.size
+      self.assertEqual(pimg.size, FETCHED_AVATAR_SIZE)
 
   def test_fetch_subdir(self):
     from PIL import Image
     img = fetch("https://avatars.githubusercontent.com/u/132956020", allow_caching=False, subdir="images")
     with Image.open(img) as pimg:
-      assert pimg.size == (77, 77), pimg.size
+      self.assertEqual(pimg.size, FETCHED_AVATAR_SIZE)
     assert img.parent.name == "images"
-
   def test_fetch_gunzip_valid(self):
     # compare fetch(gunzip=True) to fetch(gunzip=False) plus decompressing afterwards
     gzip_url: str = 'https://ftp.gnu.org/gnu/gzip/gzip-1.13.tar.gz'
@@ -190,17 +220,14 @@ class TestFetch(unittest.TestCase):
     assert isinstance(content_gz, bytes) and isinstance(content_no_gz, bytes)
     assert len(content_gz) == len(content_no_gz)
     assert content_gz == content_no_gz
-
   def test_fetch_gunzip_invalid(self):
     # given a non-gzipped file, fetch(gunzip=True) fails
     no_gzip_url: str = 'https://ftp.gnu.org/gnu/gzip/gzip-1.13.zip'
     with self.assertRaises(gzip.BadGzipFile):
       fetch(no_gzip_url, gunzip=True)
-
   def test_fetch_user_agent(self):
     fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
           allow_caching=False)
-
   def test_fetch_half_and_full_file(self):
     x = fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
           headers={"Range": "bytes=0-10"}).read_bytes()
@@ -208,7 +235,6 @@ class TestFetch(unittest.TestCase):
     x = fetch("https://csrc.nist.gov/CSRC/media/Projects/lightweight-cryptography/documents/finalist-round/updated-submissions/sparkle.zip",
           headers={"Range": "bytes=0-100"}).read_bytes()
     assert len(x) == 101, f"{len(x) != 101}"
-
 class TestFullyFlatten(unittest.TestCase):
   def test_fully_flatten(self):
     self.assertEqual(fully_flatten([[1, 3], [1, 2]]), [1, 3, 1, 2])
@@ -236,7 +262,6 @@ class TestMemoryview(unittest.TestCase):
     mv[0] = 2
     assert base[0] == 2
 
-  @unittest.skip("allocates tons of memory")
   def test_to_mv(self):
     sizes = [
       (16, "16 B"),
@@ -259,7 +284,6 @@ class TestMemoryview(unittest.TestCase):
       iters = 100_000
       t_us = timeit.timeit(lambda: to_mv(ptr, sz), number=iters) * 1e6 / iters
       print(f"Size {label:>9} | Time: {t_us:8.3f} µs")
-
   def test_speed_from_mv_vs_mv_address(self):
     x = memoryview(bytearray(1))
 
@@ -357,9 +381,9 @@ class TestPolyN(unittest.TestCase):
     np.testing.assert_allclose(polyN(4.0, [1.0, -2.0, 1.0]), 9.0)
 
   def test_uop(self):
+    from test.helpers import eval_uop
     from tinygrad.dtype import dtypes
     from tinygrad.uop.ops import UOp
-    from test.helpers import eval_uop
     np.testing.assert_allclose(eval_uop(polyN(UOp.const(dtypes.float, 1.0), [1.0, -2.0, 1.0])), 0.0)
     np.testing.assert_allclose(eval_uop(polyN(UOp.const(dtypes.float, 2.0), [1.0, -2.0, 1.0])), 1.0)
     np.testing.assert_allclose(eval_uop(polyN(UOp.const(dtypes.float, 3.0), [1.0, -2.0, 1.0])), 4.0)

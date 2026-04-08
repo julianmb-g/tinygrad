@@ -1,13 +1,16 @@
 import unittest
+
 import numpy as np
+
 from tinygrad import Tensor, function
 from tinygrad.dtype import dtypes
-from tinygrad.uop.ops import UOp, Ops
+from tinygrad.uop.ops import Ops, UOp
+
 
 class TestCall(unittest.TestCase):
   def test_call_plus(self):
-    a = Tensor.randn(10, 10)
-    b = Tensor.randn(10, 10)
+    a = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10)
+    b = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10)
     Tensor.realize(a,b)
 
     # we define a plus function
@@ -54,17 +57,16 @@ class TestCall(unittest.TestCase):
 
   def test_call_gemm(self):
     M, K, N = 4, 8, 4
-    a = Tensor.randn(M, K)
-    b = Tensor.randn(K, N)
+    a = ((Tensor.arange(M*K) % 10) * 0.1).reshape(M, K)
+    b = ((Tensor.arange(K*N) % 10) * 0.1).reshape(K, N)
     Tensor.realize(a, b)
     c = Tensor.call(a, b, fxn=a.as_param(0) @ b.as_param(1))
     np.testing.assert_allclose(c.numpy(), a.numpy() @ b.numpy(), rtol=1e-5, atol=1e-6)
 
-  @unittest.skip("needs GEMM on mixins")
   def test_call_gemm_uop(self):
     M, K, N = 4, 8, 4
-    a = Tensor.randn(M, K)
-    b = Tensor.randn(K, N)
+    a = ((Tensor.arange(M*K) % 10) * 0.1).reshape(M, K)
+    b = ((Tensor.arange(K*N) % 10) * 0.1).reshape(K, N)
     Tensor.realize(a, b)
 
     # we define a gemm function
@@ -73,11 +75,10 @@ class TestCall(unittest.TestCase):
     c = Tensor.call(a, b, fxn=x@y)
 
     np.testing.assert_allclose(c.numpy(), a.numpy() @ b.numpy(), rtol=1e-5, atol=1e-6)
-
   def test_call_complex_backward_auto(self):
     # complex chain: (a*b + a).exp2() * b.reciprocal() - tests mul, add, exp2, reciprocal, param reuse
-    a = Tensor.randn(10, 10, requires_grad=True)
-    b = Tensor.randn(10, 10, requires_grad=True) + 2  # avoid div by zero
+    a = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10).requires_grad_(True)
+    b = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10).requires_grad_(True) + 2  # avoid div by zero
     Tensor.realize(a, b)
 
     ((a*b + a).exp2() * b.reciprocal()).mean().backward()
@@ -163,10 +164,10 @@ class TestCallSchedule(unittest.TestCase):
     s(s(a).contiguous()).realize()
 
   def test_call_double_gemm(self):
-    a = Tensor.randn(4, 8, requires_grad=True)
-    b = Tensor.randn(8, 12, requires_grad=True)
-    c = Tensor.randn(12, 16, requires_grad=True)
-    ref = Tensor.randn(4, 16)
+    a = ((Tensor.arange(4*8) % 10) * 0.1).reshape(4, 8).requires_grad_(True)
+    b = ((Tensor.arange(8*12) % 10) * 0.1).reshape(8, 12).requires_grad_(True)
+    c = ((Tensor.arange(12*16) % 10) * 0.1).reshape(12, 16).requires_grad_(True)
+    ref = ((Tensor.arange(4*16) % 10) * 0.1).reshape(4, 16)
     Tensor.realize(a,b,c,ref)
     @function(precompile=True)
     def gemm(a:Tensor, b:Tensor, c:Tensor) -> Tensor: return (a@b)@c

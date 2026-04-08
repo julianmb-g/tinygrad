@@ -1,23 +1,23 @@
 #!/usr/bin/env python
-import unittest, math
+import math
+import unittest
+
 import numpy as np
 import tensorflow as tf
 from tensorflow.keras.optimizers import Lamb
 from tensorflow.python.ops import math_ops
+
+from examples.mlperf.lr_schedulers import CosineAnnealingLRWithWarmup, LambdaLinearScheduler, LambdaLR, PolynomialDecayWithWarmup
 from extra.lr_scheduler import LRSchedulerGroup
-
-from tinygrad.tensor import Tensor
-from tinygrad.nn.optim import LAMB, LARS, SGD, OptimizerGroup, AdamW
-
 from test.external.mlperf_resnet.lars_optimizer import LARSOptimizer
-
-from examples.mlperf.lr_schedulers import PolynomialDecayWithWarmup, CosineAnnealingLRWithWarmup, LambdaLR, LambdaLinearScheduler
 from test.external.mlperf_resnet.lars_util import PolynomialDecayWithWarmup as PolynomialDecayWithWarmup_tf
+from tinygrad.nn.optim import LAMB, LARS, SGD, AdamW, OptimizerGroup
+from tinygrad.tensor import Tensor
 
 np.random.seed(1337)
-x_init = np.random.randn(1,4).astype(np.float32)
-W_init = np.random.randn(4,4).astype(np.float32)
-m_init = np.random.randn(1,4).astype(np.float32)
+x_init = (np.arange(math.prod((1, 4))) % 10 * 0.1).reshape(1,4).astype(np.float32)
+W_init = (np.arange(math.prod((4, 4))) % 10 * 0.1).reshape(4,4).astype(np.float32)
+m_init = (np.arange(math.prod((1, 4))) % 10 * 0.1).reshape(1,4).astype(np.float32)
 
 class TinyNet:
   def __init__(self):
@@ -158,7 +158,6 @@ class ExternalTestOptim(unittest.TestCase):
       'skip_list': True
     }, 1e-5, 1e-5)
 
-  @unittest.skip("slow, but you can run this locally to check")
   def test_lars_polylr_resnet(self):
     train_files = 1_281_167
     BS = 624
@@ -172,8 +171,6 @@ class ExternalTestOptim(unittest.TestCase):
       'train_steps': steps_per_epoch * epochs,
       'warmup': steps_per_epoch * warmup_epochs,
     }, 1e-5, 1e-5, do_optim=False)
-
-
 class TestCosineAnnealingLRWithWarmup(unittest.TestCase):
   # only tests the lr
   def _test_lr(self, base_lr, end_lr, warmup_steps, decay_steps):

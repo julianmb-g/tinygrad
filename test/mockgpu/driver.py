@@ -1,5 +1,6 @@
-from typing import Any
 from dataclasses import dataclass
+from typing import Any
+
 
 class VirtFileDesc:
   def __init__(self, fd): self.fd, self.off = fd, 0

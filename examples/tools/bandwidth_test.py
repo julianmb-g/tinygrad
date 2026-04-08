@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-from tinygrad import Tensor, Device, GlobalCounters, Context, dtypes
-from tinygrad.helpers import getenv, colored
+from tinygrad import Context, Device, GlobalCounters, Tensor, dtypes
+from tinygrad.helpers import colored, getenv
 
 SZ = 8_000_000_000
 GPUS = getenv("GPUS", 4) # TODO: expose a way in tinygrad to access this

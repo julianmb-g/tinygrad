@@ -1,12 +1,15 @@
-import time, unittest
+import time
+import unittest
+
+from tinygrad.codegen.opt.kernel import Kernel
 from tinygrad.runtime.support.hip_comgr import compile_hip
+
 from tinygrad import Tensor
 from tinygrad.device import Device
 from tinygrad.engine.schedule import create_schedule
-from tinygrad.codegen.opt.kernel import Kernel
+
 
 class TestHIPCompileSpeed(unittest.TestCase):
-  @unittest.skipIf(Device.DEFAULT != "HIP", "only run on HIP")
   def test_hip_compile(self):
     a, b = Tensor([1,2,3,4,5]), Tensor([1,2,3,4,5])
     out = a + b
@@ -14,7 +17,7 @@ class TestHIPCompileSpeed(unittest.TestCase):
     lin.to_program()
 
     reference = """
-#include <hip/hip_common.h>
+  #include <hip/hip_common.h>
     typedef long unsigned int size_t;
     extern "C" __attribute__((device)) __attribute__((const)) size_t __ockl_get_local_id(unsigned int);
     extern "C" __attribute__((device)) __attribute__((const)) size_t __ockl_get_group_id(unsigned int);

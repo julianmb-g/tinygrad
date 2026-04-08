@@ -1,10 +1,14 @@
+import math
+import unittest
 from typing import Callable
-import unittest, math
+
 import torch
+
 from tinygrad import Tensor
 from tinygrad.dtype import dtypes
-from tinygrad.uop.ops import UOp
 from tinygrad.gradient import compute_gradient
+from tinygrad.uop.ops import UOp
+
 
 class TestGradient(unittest.TestCase):
   def _cmp_nan_okay(self, x, y):
@@ -64,7 +68,7 @@ class TestGradient(unittest.TestCase):
 
 class TestRealizeMeansRealize(unittest.TestCase):
   def test_randn_realizes(self):
-    x = Tensor.randn(2, 3, 64, 64, requires_grad=True).realize()
+    x = ((Tensor.arange(2*3*64*64) % 10) * 0.1).reshape(2, 3, 64, 64).requires_grad_(True).realize()
     assert x.uop is not x.uop.base
     assert x.uop.is_realized
 

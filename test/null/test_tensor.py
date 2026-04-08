@@ -1,17 +1,21 @@
 # tensor tests that pass on NULL backend (no copyout needed)
-import numpy as np
 import unittest
-from tinygrad import Tensor, Device, dtypes
-from tinygrad.device import is_dtype_supported
-from tinygrad.uop.ops import Ops, UOp
-from tinygrad.renderer.ptx import PTXRenderer
-from tinygrad.renderer.nir import NIRRenderer
-from tinygrad.engine.realize import get_program
-from tinygrad.dtype import DType
 
-x_init = np.random.randn(1,3).astype(np.float32)
-W_init = np.random.randn(3,3).astype(np.float32)
-m_init = np.random.randn(1,3).astype(np.float32)
+import numpy as np
+
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.dtype import DType
+from tinygrad.engine.realize import get_program
+from tinygrad.renderer.nir import NIRRenderer
+from tinygrad.device import is_dtype_supported
+from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.uop.ops import Ops, UOp
+
+import math
+
+x_init = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
+W_init = (np.arange(math.prod((3,3))) % 10 * 0.1).reshape(3,3).astype(np.float32)
+m_init = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
 
 class TestTrainMode(unittest.TestCase):
   def test_train_mode(self):
@@ -85,50 +89,40 @@ class TestIdxUpcast(unittest.TestCase):
   def do_op_then_assert(self, dtype: DType, dim1, dim2, dim3):
     self._assert(dtype, Tensor.empty(dim1, dim2, 1).expand(-1, -1, dim3).contiguous())
 
-  @unittest.skipUnless(is_dtype_supported(dtypes.long), "int64 is supported")
   def test_overflow(self):
     # 2**11, 2**11, 2**11 -> 2**33 will overflow when indexed
     self.do_op_then_assert(dtypes.long, 2048, 2048, 2048)
-
-  @unittest.skipUnless(is_dtype_supported(dtypes.long), "int64 is supported")
   def test_overflow_sym(self):
     self.do_op_then_assert(dtypes.long, 2048, 2048, UOp.variable("dim3", 1, 2048).bind(32))
-
   def test_regular(self):
     self.do_op_then_assert(dtypes.int, 64, 64, 64)
 
   def test_regular_sym(self):
     self.do_op_then_assert(dtypes.int, 2048, 2048, UOp.variable("dim3", 1, 64).bind(32))
 
-  @unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, (PTXRenderer, NIRRenderer)), "PTX and NIR always converts Ops.INDEX to int64")
   def test_symfold(self):
     # This would cause an overflow, but after sym fold it's within int32
     a = Tensor.arange(65535)
     uops = self._schedule_render(a)
     assert all(uop.dtype is not dtypes.long for uop in uops)
-
   def test_arange_raise_overflow(self):
     with self.assertRaises(ValueError):
       self._schedule_render(Tensor.arange(2**33, dtype=dtypes.int))
 
-  @unittest.skipIf(is_dtype_supported(dtypes.long), "int64 is supported")
+  @unittest.skipIf(is_dtype_supported(dtypes.int64), "int64 is supported")
   def test_int64_unsupported_overflow_sym(self):
     with self.assertRaises((KeyError, RuntimeError)):
       self.do_op_then_assert(dtypes.long, 2048, 2048, UOp.variable("dim3", 1, 2048).bind(32))
-
-  @unittest.skipIf(is_dtype_supported(dtypes.long), "int64 is supported")
   @unittest.expectedFailure  # bug in gpu dims limiting
+  @unittest.skipIf(is_dtype_supported(dtypes.int64), "int64 is supported")
   def test_int64_unsupported_overflow(self):
     with self.assertRaises((KeyError, RuntimeError)):
       self.do_op_then_assert(dtypes.long, 2048, 2048, 2048)
-
-  @unittest.skip("This is kept for reference, it requires large memory to run")
   def test_overflow_kernel_run(self):
     # This creates a total of 2**31+10 elements, requiring at least 2147 MB memory to run
     # Modified example from issue 3271
     a = Tensor.empty(2**11, 2**11, 1, dtype=dtypes.int8).permute((2, 0, 1)).expand((2**9+10, -1, -1)).contiguous()
     a.realize()
-
 class TestTensorUnique(unittest.TestCase):
   def test_empty_bufs_unique(self):
     a = Tensor.empty(10, 10).contiguous()

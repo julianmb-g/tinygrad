@@ -1,11 +1,12 @@
 from pathlib import Path
+
 from examples.yolov8 import YOLOv8, get_weights_location
-from tinygrad.tensor import Tensor
-from tinygrad.nn.state import safe_save
 from extra.export_model import export_model
 from tinygrad.device import Device
 from tinygrad.helpers import DEV
 from tinygrad.nn.state import safe_load, load_state_dict
+from tinygrad.tensor import Tensor
+from tinygrad.nn.state import safe_save
 
 if __name__ == "__main__":
     DEV.value = "WEBGPU"

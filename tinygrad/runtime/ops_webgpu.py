@@ -4,7 +4,10 @@ from tinygrad.renderer.wgsl import WGSLRenderer
 from tinygrad.helpers import round_up, suppress_finalizing
 from tinygrad.runtime.autogen import webgpu
 from tinygrad.runtime.support import c
-from typing import cast, List, Any, TypeAlias
+from typing import Any
+from typing import List
+from typing import TypeAlias
+from typing import cast
 import ctypes
 import os
 

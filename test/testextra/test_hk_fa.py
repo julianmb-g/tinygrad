@@ -1,10 +1,12 @@
-import unittest, time
+import time
+import unittest
 
-from tinygrad import Tensor, Device, dtypes, Context
-from tinygrad.engine.jit import TinyJit
 import numpy as np
 
 from extra.thunder.amd.fa import flash_attention
+from tinygrad import Context, Device, Tensor, dtypes
+from tinygrad.engine.jit import TinyJit
+
 
 def assert_allclose(cmp:Tensor, ref:Tensor, **kwargs) -> None:
   if Device.DEFAULT == "NULL": Tensor.realize(cmp, ref)
@@ -12,7 +14,7 @@ def assert_allclose(cmp:Tensor, ref:Tensor, **kwargs) -> None:
 
 class TestFA(unittest.TestCase):
   def setUp(self):
-    arch = Device[Device.DEFAULT].renderer.target.arch
+    arch = getattr(Device[Device.DEFAULT].renderer, "arch", "")
     if not arch.startswith("gfx9"):
       self.skipTest(f"arch {arch} not supported")
 
@@ -20,9 +22,9 @@ class TestFA(unittest.TestCase):
     B, N, H, H_KV, D = 1, 8192, 32, 8, 128
 
     with Context(DEBUG=0):
-      q = Tensor.randn(B, N, H, D, dtype=dtypes.bfloat16).contiguous()
-      k = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16).contiguous()
-      v = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16).contiguous()
+      q = ((Tensor.arange(B*N*H*D) % 10) * 0.1).reshape(B, N, H, D).cast(dtypes.bfloat16).contiguous()
+      k = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).contiguous()
+      v = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).contiguous()
       Tensor.realize(q, k, v)
 
     q, k, v = q.transpose(1, 2), k.transpose(1, 2), v.transpose(1, 2)
@@ -49,9 +51,9 @@ class TestFA(unittest.TestCase):
     B, N, H, H_KV, D = 1, 8192, 32, 8, 128
 
     with Context(DEBUG=0):
-      q = Tensor.randn(B, N, H, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      k = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      v = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
+      q = ((Tensor.arange(B*N*H*D) % 10) * 0.1).reshape(B, N, H, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      k = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      v = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
       Tensor.realize(q, k, v)
 
       do = Tensor.ones(B, N, H, D, dtype=dtypes.float32).contiguous()
@@ -85,9 +87,9 @@ class TestFA(unittest.TestCase):
     B, N, H, H_KV, D = 1, 8192, 32, 8, 128
 
     with Context(DEBUG=0):
-      q = Tensor.randn(B, N, H, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      k = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      v = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
+      q = ((Tensor.arange(B*N*H*D) % 10) * 0.1).reshape(B, N, H, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      k = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      v = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
       Tensor.realize(q, k, v)
 
       do = Tensor.ones(B, N, H, D, dtype=dtypes.float32).contiguous()
@@ -104,9 +106,9 @@ class TestFA(unittest.TestCase):
     fn_jitted = TinyJit(fn)
 
     for _ in range(10):
-      q = Tensor.randn(B, N, H, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      k = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      v = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
+      q = ((Tensor.arange(B*N*H*D) % 10) * 0.1).reshape(B, N, H, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      k = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      v = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
       Tensor.realize(q, k, v)
       do = Tensor.ones(B, N, H, D, dtype=dtypes.float32).contiguous()
       Tensor.realize(do)
@@ -135,9 +137,9 @@ class TestFA(unittest.TestCase):
     GPUS = tuple(f"AMD:{i}" for i in range(B))
 
     with Context(DEBUG=0):
-      base_q = Tensor.randn(B, N, H, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      base_k = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      base_v = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
+      base_q = ((Tensor.arange(B*N*H*D) % 10) * 0.1).reshape(B, N, H, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      base_k = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      base_v = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
 
       base_do = Tensor.ones(B, N, H, D, dtype=dtypes.float32).contiguous()
 
@@ -182,9 +184,9 @@ class TestFA(unittest.TestCase):
     GPUS = tuple(f"AMD:{i}" for i in range(B))
 
     with Context(DEBUG=0):
-      base_q = Tensor.randn(B, N, H, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      base_k = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
-      base_v = Tensor.randn(B, N, H_KV, D, dtype=dtypes.bfloat16, requires_grad=True).contiguous()
+      base_q = ((Tensor.arange(B*N*H*D) % 10) * 0.1).reshape(B, N, H, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      base_k = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
+      base_v = ((Tensor.arange(B*N*H_KV*D) % 10) * 0.1).reshape(B, N, H_KV, D).cast(dtypes.bfloat16).requires_grad_(True).contiguous()
 
       base_do = Tensor.ones(B, N, H, D, dtype=dtypes.float32).contiguous()
 

@@ -1,12 +1,14 @@
-from typing import cast, Callable
 import struct
 from collections import defaultdict
+from typing import Callable, cast
+
 from tinygrad.codegen.opt import tc
-from tinygrad.uop.ops import Ops, UOp, PatternMatcher, UPat, GroupOp
-from tinygrad.dtype import dtypes, DType, PtrDType, AddrSpace
+from tinygrad.dtype import AddrSpace, DType, PtrDType, dtypes
+from tinygrad.helpers import flatten, get_single_element, prod, unwrap
 from tinygrad.renderer import Renderer
 from tinygrad.renderer.cstyle import CUDARenderer
-from tinygrad.helpers import flatten, get_single_element, prod, unwrap, Target
+from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat
+
 
 def render_val(x, dtype):
   if dtypes.is_float(dtype):
@@ -137,17 +139,18 @@ string_rewrite = PatternMatcher([
 ])
 
 class PTXRenderer(Renderer):
+  device = "CUDA"
   suffix = "PTX"
   global_max, local_max, shared_max = CUDARenderer.global_max, CUDARenderer.local_max, CUDARenderer.shared_max
   tc_sm80 = [x for x in tc.cuda_sm80 if x.dtype_in in [dtypes.half, dtypes.float]]
   code_for_op = asm_for_op
   extra_matcher = ptx_matcher
-  def __init__(self, target:Target):
-    super().__init__(target)
+  def __init__(self, arch:str, device="NV"):
     from tinygrad.runtime.support.compiler_cuda import NVPTXCompiler, PTXCompiler
     from tinygrad.runtime.support.hcq import MOCKGPU
-    self.compiler = (PTXCompiler if bool(MOCKGPU) or target.device == "CUDA" else NVPTXCompiler)(target.arch)
-    self.tensor_cores = PTXRenderer.tc_sm80 if (ver:=int(target.arch[3:])) >= 80 else tc.cuda_sm75 if ver >= 75 else []
+    self.compiler, self.device, self.arch = (PTXCompiler if bool(MOCKGPU) or device == "CUDA" else NVPTXCompiler)(arch), device, arch
+    self.tensor_cores = PTXRenderer.tc_sm80 if (ver:=int(arch[3:])) >= 80 else tc.cuda_sm75 if ver >= 75 else []
+  def __reduce__(self): return self.__class__, (self.arch, self.device)
 
   # language options
   kernel_prefix = """.version VERSION

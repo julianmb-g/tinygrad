@@ -1,14 +1,17 @@
 # https://raw.githubusercontent.com/pjreddie/darknet/master/cfg/yolov3.cfg
-import sys
 import io
-import time
 import math
+import sys
+import time
+
 import cv2
 import numpy as np
 from PIL import Image
-from tinygrad.tensor import Tensor
-from tinygrad.nn import BatchNorm2d, Conv2d
+
 from tinygrad.helpers import fetch
+from tinygrad.nn import BatchNorm2d, Conv2d
+from tinygrad.tensor import Tensor
+
 
 def show_labels(prediction, confidence=0.5, num_classes=80):
   coco_labels = fetch('https://raw.githubusercontent.com/pjreddie/darknet/master/data/coco.names').read_bytes()

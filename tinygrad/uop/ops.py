@@ -1,14 +1,73 @@
 from __future__ import annotations
-from typing import Any, Callable, cast, TYPE_CHECKING, Type, Sequence, Iterable, Final, Iterator
-import sys, time, functools, itertools, math, operator, hashlib, os, types, pickle, pathlib, inspect, weakref, collections, struct
+
+import collections
+import functools
+import hashlib
+import inspect
+import itertools
+import math
+import operator
+import os
+import pathlib
+import pickle
+import struct
+import sys
+import time
+import types
+import weakref
 from dataclasses import dataclass
 from enum import Enum, auto
-from tinygrad.uop import Ops, GroupOp
-from tinygrad.dtype import ConstType, ImageDType, dtypes, DType, truncate, PtrDType, least_upper_dtype, Invalid, AddrSpace, ConstFloat, PyConst
-from tinygrad.dtype import storage_fmt_for_dtype, to_storage_scalar, from_storage_scalar
-from tinygrad.helpers import ContextVar, all_int, prod, getenv, all_same, Context, partition, temp, unwrap, T, argfix, Metadata, flatten, TRACEMETA
-from tinygrad.helpers import PROFILE, dedup, cdiv, cmod, diskcache_put, to_function_name, cpu_profile, TracingKey, VIZ, SPEC, CAPTURE_PROCESS_REPLAY
-from tinygrad.helpers import strip_parens, colored, ansilen, printable
+from typing import TYPE_CHECKING, Any, Callable, Final, Iterable, Iterator, Sequence, Type, cast
+
+from tinygrad.dtype import (
+  AddrSpace,
+  ConstFloat,
+  ConstType,
+  DType,
+  ImageDType,
+  Invalid,
+  PtrDType,
+  PyConst,
+  dtypes,
+  from_storage_scalar,
+  least_upper_dtype,
+  storage_fmt_for_dtype,
+  to_storage_scalar,
+  truncate,
+)
+from tinygrad.helpers import (
+  CAPTURE_PROCESS_REPLAY,
+  PROFILE,
+  SPEC,
+  TRACEMETA,
+  VIZ,
+  Context,
+  ContextVar,
+  Metadata,
+  T,
+  TracingKey,
+  all_int,
+  all_same,
+  ansilen,
+  argfix,
+  cdiv,
+  cmod,
+  colored,
+  cpu_profile,
+  dedup,
+  diskcache_put,
+  flatten,
+  getenv,
+  partition,
+  printable,
+  prod,
+  strip_parens,
+  temp,
+  to_function_name,
+  unwrap,
+)
+from tinygrad.uop import GroupOp, Ops
+
 if TYPE_CHECKING:
   from tinygrad.device import Buffer, MultiBuffer
   from tinygrad.renderer import Estimates
@@ -123,6 +182,7 @@ class recursive_property(property):
 # we import this late so we can use resolve/smax in mixins
 from tinygrad.mixin import OpMixin
 
+
 # NOTE: this should be frozen, but frozen is slower
 @dataclass(eq=False, slots=True)
 class UOp(OpMixin, metaclass=UOpMetaClass):
@@ -134,7 +194,7 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
   def __del__(self):
     if Ops is not None and self.op is Ops.BUFFER and (buffer:=buffers.get(self)) is not None: buffer.ref(-1)
     try: del UOpMetaClass.ucache[(self.op, self.dtype, self.src, self.arg, self.tag)]
-    except AttributeError: pass
+    except (AttributeError, KeyError): pass
   def __reduce__(self):
     args = [self.op, self.dtype, self.src, self.arg, self.tag, self.metadata]
     if self.op is Ops.BUFFER and self.realized is not None: args.append(self.realized)
@@ -142,9 +202,10 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
   def replace(self, **kwargs) -> UOp:
     new_args = (kwargs.pop("op", self.op), kwargs.pop("dtype", self.dtype), kwargs.pop("src", self.src),
                 kwargs.pop("arg", self.arg), kwargs.pop("tag", self.tag))
+    new_metadata = kwargs.pop("metadata", self.metadata if new_args[0] == self.op else None)
     assert len(kwargs) == 0, f"unused kwargs in replace {list(kwargs)}"
-    if (self.op, self.dtype, self.src, self.arg, self.tag) == new_args: return self
-    return UOp(*new_args)
+    if (self.op, self.dtype, self.src, self.arg, self.tag) == new_args and new_metadata == self.metadata: return self
+    return UOp(*new_args, metadata=new_metadata)
   def rtag(self, tag=True): return self.replace(tag=tag)
   @recursive_property
   def key(self) -> bytes:
@@ -288,7 +349,7 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
           if prod(ps) != prod(self.marg): raise ValueError(f"bad reshape: {ps} -> {self.marg}")
           return self.marg
         case Ops.EXPAND:
-          if len(ps) != len(self.marg) or not all(s==ns or (s==1 and ns>=0) for s,ns in zip(ps, self.marg)):
+          if len(ps) != len(self.marg) or not all(resolve(s==ns) or (resolve(s==1) and resolve(ns>=0)) for s,ns in zip(ps, self.marg)):
             raise ValueError(f"bad expand: {ps} -> {self.marg}")
           return self.marg
         case Ops.PERMUTE:
@@ -433,7 +494,10 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
   def index(self, *srcs:UOp|None, ptr=False, **kwargs):
     return UOp(Ops.INDEX, kwargs.pop("dtype", self.dtype if ptr else self.dtype.base), (self,)+tuple([x for x in srcs if x is not None]), **kwargs)
   def __getitem__(self, idx):
-    idx = self._normalize_indices(list(argfix(idx)))
+    idx = argfix(idx)
+    # add : to the end
+    if len(idx) < len(self.shape): idx += tuple([slice(None)]*(len(self.shape)-len(idx)))
+    assert len(idx) == len(self.shape), f"__getitem__ shape mismatch, indexing {self.shape} with {len(idx)} args"
     if len(slice_idx:=[i for i,x in enumerate(idx) if isinstance(x, slice)]):
       # apply SHRINK for slices that aren't the full range
       bounds = tuple((s.start or 0, s.stop if s.stop is not None else self.shape[i]) if isinstance(s, slice) else (0, self.shape[i])
@@ -443,7 +507,8 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
       if not non_slice_args: return src  # all dims are slices, no indexing needed
       perm = src.permute(tuple([i for i in range(src.ndim) if i not in slice_idx] + slice_idx))
       return perm.index(*non_slice_args, ptr=True)
-    return self.index(*[UOp.const(dtypes.weakint, x) if isinstance(x, int) else x for x in idx])
+    else:
+      return self.index(*[UOp.const(dtypes.weakint, x) if isinstance(x, int) else x for x in idx])
   def const_like(self, b:ConstLike):
     # constants can optionally have a DEVICE source
     ret = UOp.const(self.dtype.base, b, device=self._device, shape=self.shard_shape if self.axis is not None else self._shape)
@@ -452,12 +517,13 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
     assert self.dtype.vcount == 1
     if count == 1: return self
     return UOp(Ops.VECTORIZE, self.dtype.vec(count), (self,)*count)
-  def cast(self, dtype:DType):
+  def cast(self, dtype:DType, bitcast=False, allow_buffer_view=True, **kwargs):
+    if bitcast: return self.bitcast(dtype, allow_buffer_view=allow_buffer_view)
     # TODO: we shouldn't have to check for dtype.count == 1 here, but CAST is misused in AMD LLVM
     if dtype.count == 1 and dtype.count != self.dtype.count: dtype = dtype.vec(self.dtype.count)
     if self.dtype == dtype: return self
     return UOp(Ops.CAST, dtype, (self,))
-  def bitcast(self, dtype:DType): return UOp(Ops.BITCAST, dtype, (self,))
+  def bitcast(self, dtype:DType, allow_buffer_view=True, **kwargs): return UOp(Ops.BITCAST, dtype, (self,))
   def gep(self, i:tuple[int, ...]|int):
     if isinstance(i, tuple) and len(i) == 1: return self.gep(i[0])
     if isinstance(i, int):
@@ -470,7 +536,7 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
   def load(self, *src:UOp, **kwargs): return UOp(Ops.LOAD, dtype=kwargs.pop("dtype", self.dtype.base), src=(self,)+src, **kwargs)
   def store(self, src:UOp|ConstType, **kwargs):
     return UOp(Ops.STORE, dtypes.void, (self, self.const_like(src) if not isinstance(src, UOp) else src), **kwargs)
-  def end(self, *src:UOp): return UOp(Ops.END, src=(self,)+src) if len(src) else self
+  def end(self, *src:UOp, **kwargs): return UOp(Ops.END, src=(self,)+src, **kwargs) if len(src) else self
   def after(self, *src:UOp, **kwargs): return UOp(Ops.AFTER, self.dtype, (self,)+src, **kwargs) if len(src) else self
   def barrier(self, *src:UOp): return UOp(Ops.BARRIER, src=(self,)+src)
   def contract(self, *rngs:UOp):
@@ -623,6 +689,7 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
       case Ops.CONST: return self.arg
       case Ops.VCONST: return self.arg[i]
       case Ops.VECTORIZE: return self.src[i].sintify()
+      case _ if self.dtype.count == 1 and i == 0: return self.sintify()
       case _: raise RuntimeError(f"no sgep on {self.op}")
 
   @functools.cached_property
@@ -812,19 +879,23 @@ class UOp(OpMixin, metaclass=UOpMetaClass):
   def const_factor(self) -> int:
     """largest known int that divides self"""
     # TODO: for negatives it's not the largest
-    if self.op is Ops.CONST: return self.arg
-    if self.op is Ops.VCONST: return math.gcd(*self.arg)
-    if self.op is Ops.ADD: return math.gcd(self.src[0].const_factor(), self.src[1].const_factor())
-    if self.op is Ops.MUL: return self.src[0].arg if self.src[0].op is Ops.CONST else self.src[1].arg if self.src[1].op is Ops.CONST else 1
-    return 1
+    if self.op is Ops.CONST: f = self.arg
+    elif self.op is Ops.VCONST: f = math.gcd(*self.arg)
+    elif self.op is Ops.ADD: f = math.gcd(self.src[0].const_factor(), self.src[1].const_factor())
+    elif self.op is Ops.MUL: f = self.src[0].const_factor() * self.src[1].const_factor()
+    else: f = 1
+    return f or 1
   def divides(self, v:int) -> UOp|None:
     if v==1: return self
     if self.op is Ops.CONST: return self.const_like(self.arg//v) if self.arg%v == 0 else None
     if self.op is Ops.VCONST: return self.const_like(tuple(x//v for x in self.arg)) if all(x%v == 0 for x in self.arg) else None
     if self.op is Ops.ADD: return d0+d1 if (d0:=self.src[0].divides(v)) is not None and (d1:=self.src[1].divides(v)) is not None else None
     if self.op is Ops.MUL:
-      if (d0:=self.src[0].divides(v)) is not None: return d0 * self.src[1]
-      if (d1:=self.src[1].divides(v)) is not None: return self.src[0] * d1
+      if (d0:=self.src[0].divides(v)) is not None: return self.src[1] if getattr(d0, "arg", None) == 1 else d0 * self.src[1]
+      if (d1:=self.src[1].divides(v)) is not None: return self.src[0] if getattr(d1, "arg", None) == 1 else self.src[0] * d1
+      if (g:=math.gcd(v, self.src[0].const_factor())) > 1 and g != v:
+        if (d0:=self.src[0].divides(g)) is not None and (d1:=self.src[1].divides(v//g)) is not None:
+          return d1 if getattr(d0, "arg", None) == 1 else (d0 if getattr(d1, "arg", None) == 1 else d0 * d1)
     return None # generic None if we aren't sure
   def pop_const(self, op=Ops.ADD) -> tuple[UOp, PyConst]:  # NOTE: assume Invalid ALU is resolved
     return (self.src[0], self.src[1].arg) if self.op is op and self.src[1].op is Ops.CONST else (self, identity_element(op, self.dtype))
@@ -1005,7 +1076,7 @@ def safe_pow(x, y):
 python_alu: dict[Ops, Callable]  = {
   Ops.LOG2: lambda x: math.log2(x) if x > 0 else -math.inf if x == 0 else math.nan, Ops.EXP2: safe_exp2,
   Ops.SQRT: lambda x: math.sqrt(x) if x >= 0 else math.nan, Ops.RECIPROCAL: lambda x: 1/x if x != 0 else math.copysign(math.inf, x),
-  Ops.SIN: lambda x: math.sin(x) if not math.isinf(x) else math.nan, Ops.POW: safe_pow, Ops.TRUNC: math.trunc,
+  Ops.SIN: lambda x: math.sin(x) if not math.isinf(x) else math.nan, Ops.POW: safe_pow, Ops.TRUNC: lambda x: math.nan if isinstance(x, float) and (math.isnan(x) or math.isinf(x)) else math.trunc(x),  # noqa: E501
   Ops.NEG: operator.neg, Ops.ADD: operator.add, Ops.SUB: operator.sub, Ops.MUL: operator.mul, Ops.CMPNE: operator.ne, Ops.CMPLT: operator.lt,
   Ops.XOR: operator.xor, Ops.OR: operator.or_, Ops.AND: operator.and_, Ops.SHR: operator.rshift, Ops.SHL: operator.lshift, Ops.MAX: max,
   Ops.MOD: cmod, Ops.IDIV: cdiv, Ops.MULACC: lambda x,y,z: (x*y)+z, Ops.WHERE: lambda x,y,z: y if x else z, Ops.CMPEQ: operator.eq}
@@ -1219,7 +1290,8 @@ _name_cnt:dict[str, itertools.count] = {}
 
 if CAPTURE_PROCESS_REPLAY:
   replay_capture: list[bytes] = []
-  import atexit, uuid
+  import atexit
+  import uuid
   @atexit.register
   def save_to_diskcache():
     uid = uuid.uuid4() # one id per process
@@ -1377,7 +1449,7 @@ class RewriteContext:
       else:
         # rebuild node with rewritten srcs
         new_src = tuple(self.replace.get(x, x) for x in n.src)
-        new_n = UOp(n.op, n.dtype, new_src, n.arg, n.tag) if new_src != n.src else n
+        new_n = UOp(n.op, n.dtype, new_src, n.arg, n.tag, metadata=n.metadata) if new_src != n.src else n
         # top-down: try pm on rebuilt node, use result as-is (no re-traversal)
         if self.pm is not None and (rewritten:=self.pm_rewrite(new_n)) is not None: new_n = rewritten
         self.replace[n] = new_n
@@ -1434,7 +1506,7 @@ class RewriteContext:
               continue
           else:
             # if srcs changed from rewrites, construct a new UOp with the new srcs
-            new_src_n = UOp(new_n.op, new_n.dtype, new_src, new_n.arg, new_n.tag)
+            new_src_n = UOp(new_n.op, new_n.dtype, new_src, new_n.arg, new_n.tag, metadata=new_n.metadata if new_n.op == n.op else None)
           # trigger a rewrite of new_src_n, then after that rewrite is done, link it back to n
           stack.append((n, 2, new_src_n))
           stack.append((new_src_n, 0, new_src_n))

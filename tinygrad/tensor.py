@@ -1,10 +1,25 @@
 # inspired by https://github.com/karpathy/micrograd/blob/master/micrograd/engine.py
 from __future__ import annotations
-import time, math, itertools, functools, struct, sys, inspect, pathlib, string, hashlib, weakref
+
+import functools
+import hashlib
+import inspect
+import itertools
+import math
+import pathlib
+import string
+import struct
+import sys
+import time
+import weakref
 from contextlib import ContextDecorator
-from typing import Any, Callable, ClassVar, Sequence, cast, get_args, Literal, SupportsIndex, ParamSpec, TypeVar, Generic, TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, Callable, ClassVar, Generic, Literal, ParamSpec, Sequence, SupportsIndex, TypeVar, cast, get_args
+
 if TYPE_CHECKING: import numpy
-from tinygrad.dtype import DType, DTypeLike, dtypes, ConstType, least_upper_float, least_upper_dtype, to_dtype, truncate
+
+from tinygrad.engine.schedule import ExecItem, complete_create_schedule_with_vars
+from tinygrad.engine.allocations import transform_to_call
+from tinygrad.dtype import DType, DTypeLike, dtypes, ConstType, least_upper_float, least_upper_dtype, sum_acc_dtype, to_dtype, truncate
 from tinygrad.dtype import _from_np_dtype, _to_np_dtype, PyConst, Invalid, InvalidType
 from tinygrad.helpers import argfix, make_tuple, flatten, prod, all_int, round_up, merge_dicts, argsort, getenv, all_same, fully_flatten
 from tinygrad.helpers import IMAGE, FLOAT16, WINO, Metadata, TRACEMETA, ASM_GEMM, ceildiv, fetch, is_numpy_ndarray, TracingKey, cpu_profile
@@ -13,13 +28,11 @@ from tinygrad.gradient import compute_gradient
 from tinygrad.mixin import OpMixin
 from tinygrad.uop.ops import smax, smin, resolve, UOp, Ops, sint, identity_element, all_metadata, _index_to_concrete_int, sint_to_uop, Variable
 from tinygrad.uop.ops import _broadcast_shape
-from tinygrad.engine.schedule import ExecItem, complete_create_schedule_with_vars
 from tinygrad.device import Buffer
+from tinygrad.device import Device
 from tinygrad.engine.realize import run_schedule
-from tinygrad.engine.allocations import transform_to_call
 
 def canonicalize_device(device:str|tuple|list|None) -> str|tuple[str, ...]:
-  from tinygrad.device import Device
   if not isinstance(device, (tuple, list)): return Device.canonicalize(device)
   return canonical[0] if len(canonical:=tuple(Device.canonicalize(d) for d in device)) == 1 else canonical
 
@@ -103,7 +116,7 @@ class Tensor(OpMixin):
 
   ```python exec="true" session="tensor"
   from tinygrad import Tensor, dtypes, nn
-  import numpy as np
+if TYPE_CHECKING: import numpy as np
   import math
   np.set_printoptions(precision=4)
   ```
@@ -164,7 +177,9 @@ class Tensor(OpMixin):
     all_tensors[weakref.ref(self)] = None
 
   @suppress_finalizing
-  def __del__(self): all_tensors.pop(weakref.ref(self), None)
+  def __del__(self):
+    try: all_tensors.pop(weakref.ref(self), None)
+    except (AttributeError, KeyError): pass
 
   def _apply_uop(self, fxn:Callable[..., UOp], *x:Tensor, extra_args=(), **kwargs) -> Tensor:
     srcs = (self,)+x
@@ -817,6 +832,32 @@ class Tensor(OpMixin):
       return Tensor.full(self.shape, fill_value, dtype=dtype or self.dtype, device=self.device).requires_grad_(requires_grad)
     return self.const_like(fill_value) if dtype is None else self.const_like(fill_value).cast(dtype)
 
+  def zeros_like(self, **kwargs) -> Tensor:
+    """
+    Creates a tensor with the same shape as `self`, filled with zeros.
+
+    You can pass in `dtype` and `device` keyword arguments to control the data type and device of the tensor.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    t = Tensor.ones(2, 3)
+    print(Tensor.zeros_like(t).numpy())
+    ```
+    """
+    return self.full_like(0, **kwargs)
+
+  def ones_like(self, **kwargs) -> Tensor:
+    """
+    Creates a tensor with the same shape as `self`, filled with ones.
+
+    You can pass in `dtype` and `device` keyword arguments to control the data type and device of the tensor.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    t = Tensor.zeros(2, 3)
+    print(Tensor.ones_like(t).numpy())
+    ```
+    """
+    return self.full_like(1, **kwargs)
+
   def rand_like(self, **kwargs) -> Tensor:
     """
     Creates a tensor with the same shape and sharding as `self`, filled with random values from a uniform distribution over the interval `[0, 1)`.
@@ -1142,7 +1183,15 @@ class Tensor(OpMixin):
   def _getitem(self, indices, v: Tensor|None = None) -> Tensor:
     # wrap single index into a list
     if (isinstance(indices, list) and all_int(indices)) or not isinstance(indices, (tuple, list)): indices = [indices]
-    x, indices = self, self._normalize_indices(list(indices))
+    x, indices = self, list(indices)
+
+    # fill ellipsis or rest of indices with slice(None)
+    if len(ellipsis_idx := [dim for dim, i in enumerate(indices) if i is Ellipsis]) > 1: raise IndexError("indices can only have a single ellipsis")
+    # NOTE: None adds a dim later
+    num_indices = len(indices) - len(ellipsis_idx) - sum(1 for i in indices if i is None)
+    if num_indices > self.ndim: raise IndexError(f"too many {num_indices=} for {self.ndim=}")
+    fill_idx = ellipsis_idx[0] if ellipsis_idx else len(indices)
+    indices[fill_idx:fill_idx+1] = [slice(None)] * (self.ndim - num_indices)
 
     indices_parsed, dim = [], 0
     for index in indices:
@@ -1461,6 +1510,119 @@ class Tensor(OpMixin):
     """
     return bool(self.isclose(other, rtol=rtol, atol=atol, equal_nan=equal_nan).all().item())
 
+  def mean(self, axis:int|Sequence[int]|None=None, keepdim=False) -> Tensor:
+    """
+    Returns the mean value of the tensor along the specified axis or axes.
+
+    You can pass in `axis` and `keepdim` keyword arguments to control the axis along
+    which the mean is computed and whether the reduced dimensions are retained.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    Tensor.manual_seed(42)
+    t = Tensor.normal(2, 3, mean=2.5, std=0.5)
+    print(t.numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.mean().numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.mean(axis=0).numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.mean(axis=1).numpy())
+    ```
+    """
+    output_dtype = self.dtype if dtypes.is_float(self.dtype) else dtypes.float32
+    numerator = self.cast(sum_acc_dtype(self.dtype)).sum(axis=axis, keepdim=keepdim)
+    denominator = prod([si for si, so in zip(self.shape, self.sum(axis=axis, keepdim=True).shape) if resolve(si != so)])
+    return numerator.div(denominator).cast(output_dtype)
+
+  def var(self, axis:int|Sequence[int]|None=None, keepdim=False, correction=1) -> Tensor:
+    """
+    Returns the variance of the tensor along the specified axis or axes.
+
+    You can pass in `axis`, `keepdim`, and `correction` keyword arguments to control the axis along
+    which the variance is computed, whether the reduced dimensions are retained, and the Bessel's correction applied.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    Tensor.manual_seed(42)
+    t = Tensor.normal(2, 3, mean=2.5, std=0.5)
+    print(t.numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.var().numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.var(axis=0).numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.var(axis=1).numpy())
+    ```
+    """
+    squares = (self - self.mean(axis=axis, keepdim=True)).square()
+    n = prod([si for si, so in zip(self.shape, squares.sum(axis=axis, keepdim=True).shape) if resolve(si != so)])
+    denominator = Tensor(n, device=self.device) - correction
+    # TODO: infer device and remove relu
+    return squares.sum(axis=axis, keepdim=keepdim).div(denominator.relu())
+
+  def var_mean(self, axis:int|Sequence[int]|None=None, keepdim=False, correction=1) -> tuple[Tensor, Tensor]:
+    """
+    Calculates the variance and mean over the dimensions specified by dim.
+    Syntactic sugar around `Tensor.var` and `Tensor.mean` to match `torch.var_mean`.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    Tensor.manual_seed(42)
+    t = Tensor.normal(2, 3, mean=2.5, std=0.5)
+    print(t.numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    var, mean = t.var_mean()
+    print(var.numpy(), mean.numpy())
+    ```
+    """
+    return self.var(axis, keepdim, correction), self.mean(axis, keepdim)
+
+  def std(self, axis:int|Sequence[int]|None=None, keepdim=False, correction=1) -> Tensor:
+    """
+    Returns the standard deviation of the tensor along the specified axis or axes.
+
+    You can pass in `axis`, `keepdim`, and `correction` keyword arguments to control the axis along
+    which the standard deviation is computed, whether the reduced dimensions are retained, and the Bessel's correction applied.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    Tensor.manual_seed(42)
+    t = Tensor.normal(2, 3, mean=2.5, std=0.5)
+    print(t.numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.std().numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.std(axis=0).numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(t.std(axis=1).numpy())
+    ```
+    """
+    return self.var(axis, keepdim, correction).sqrt()
+
+  def std_mean(self, axis:int|Sequence[int]|None=None, keepdim=False, correction=1) -> tuple[Tensor, Tensor]:
+    """
+    Calculates the standard deviation and mean over the dimensions specified by dim.
+    Syntactic sugar around `Tensor.std` and `Tensor.mean` to match `torch.std_mean`.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    Tensor.manual_seed(42)
+    t = Tensor.normal(2, 3, mean=2.5, std=0.5)
+    print(t.numpy())
+    ```
+    ```python exec="true" source="above" session="tensor" result="python"
+    std, mean = t.std_mean()
+    print(std.numpy(), mean.numpy())
+    ```
+    """
+    return self.std(axis, keepdim, correction), self.mean(axis, keepdim)
+
   def keccak(self, cfg:str|tuple[int, int]="sha3_256"):
     """
     Calculates a Keccak hash over the last dimension. Uses "sha3_256" by default.
@@ -1512,6 +1674,8 @@ class Tensor(OpMixin):
         # χ and ι step
         state = state.bitwise_xor(~state.roll(shifts=-1, dims=2) & state.roll(shifts=-2, dims=2))
         state = state.flatten(1) ^ rnd_const_masks[i]
+
+      state = state.realize()
       # NOTE: there was a kernelize here to prevent internal stack from growing propotional to data size, do we need something else?
     return state.bitcast(dtypes.uint8)[:,:(obytes:=(200 - rate) // 2)].reshape(*self.shape[:-1], obytes)
 
@@ -2385,6 +2549,69 @@ class Tensor(OpMixin):
     """
     return self._apply_uop(UOp.contiguous_backward)
 
+  def logsigmoid(self) -> Tensor:
+    """
+    Applies the LogSigmoid function element-wise.
+
+    - See: https://docs.pytorch.org/docs/stable/generated/torch.nn.functional.logsigmoid.html
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(Tensor([-3., -2., -1., 0., 1., 2., 3.]).logsigmoid().numpy())
+    ```
+    """
+    return -(-self).softplus()
+
+  # ***** math functions *****
+
+  def lerp(self, end:Tensor, weight:Tensor|float) -> Tensor:
+    """
+    Linearly interpolates between `self` and `end` by `weight`.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(Tensor([1., 2., 3.]).lerp(Tensor([4., 5., 6.]), 0.5).numpy())
+    ```
+    """
+    if self.dtype == dtypes.uint8 and isinstance(weight, Tensor):
+      w_i = (weight * (1<<(W_PREC:=7)) + 0.5).cast(dtypes.int16)
+      return (self+(((end - self).cast(dtypes.int8) * w_i + (1<<W_PREC-1)).cast(dtypes.uint16) >> W_PREC)).cast(dtypes.uint8)
+    return self + (end - self) * weight
+
+  # ***** activation functions *****
+
+  def selu(self, alpha=1.67326, gamma=1.0507) -> Tensor:
+    """
+    Applies the Scaled Exponential Linear Unit (SELU) function element-wise.
+
+    - Paper: https://arxiv.org/abs/1706.02515v5
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(Tensor([-3., -2., -1., 0., 1., 2., 3.]).selu().numpy())
+    ```
+    """
+    return gamma * (self >= 0).detach().where(self, alpha * (self.exp() - 1))
+
+  def mish(self) -> Tensor:
+    """
+    Applies the Mish function element-wise.
+
+    - Paper: https://arxiv.org/abs/1908.08681v3
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(Tensor([-3., -2., -1., 0., 1., 2., 3.]).mish().numpy())
+    ```
+    """
+    return self * self.softplus().tanh()
+
+  def softplus(self, beta=1.0) -> Tensor:
+    """
+    Applies the Softplus function element-wise.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(Tensor([-3., -2., -1., 0., 1., 2., 3.]).softplus().numpy())
+    ```
+    """
+    return (1/beta) * (self*beta).logaddexp(0.0)
+
   # ***** broadcasted elementwise ops *****
 
   def ufix(self, x) -> Tensor:
@@ -2439,6 +2666,30 @@ class Tensor(OpMixin):
     """
     a, b = self._broadcasted(x, reverse)
     return a - a.div(b, rounding_mode="floor") * b
+
+  def lshift(self, x:Tensor|int, reverse=False) -> Tensor:
+    """
+    Computes left arithmetic shift of `self` by `x` bits. `self` must have unsigned dtype.
+    Equivalent to `self << x`.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(Tensor([1, 3, 31], dtype=dtypes.uint8).lshift(2).numpy())
+    ```
+    """
+    assert dtypes.is_unsigned(self.dtype) and isinstance(x, int) and x >= 0 and not reverse, f"not supported {self.dtype=} {x=}"
+    return self.mul(2 ** x, reverse)
+
+  def rshift(self, x:Tensor|int, reverse=False) -> Tensor:
+    """
+    Computes right arithmetic shift of `self` by `x` bits. `self` must have unsigned dtype.
+    Equivalent to `self >> x`.
+
+    ```python exec="true" source="above" session="tensor" result="python"
+    print(Tensor([4, 13, 125], dtype=dtypes.uint8).rshift(2).numpy())
+    ```
+    """
+    assert dtypes.is_unsigned(self.dtype) and isinstance(x, int) and x >= 0 and not reverse, f"not supported {self.dtype=} {x=}"
+    return self.idiv(2 ** x, reverse)
 
   def where(self:Tensor, x:Tensor|ConstType|sint, y:Tensor|ConstType|sint) -> Tensor:
     """

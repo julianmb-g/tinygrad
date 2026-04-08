@@ -1,6 +1,9 @@
-import unittest, pickle
+import pickle
+import unittest
+
+from tinygrad.dtype import DType, ImageDType, Invalid, InvalidType, PtrDType, dtypes, to_dtype
 from tinygrad.tensor import Tensor
-from tinygrad.dtype import dtypes, DType, ImageDType, PtrDType, to_dtype, Invalid, InvalidType
+
 
 class TestImageDType(unittest.TestCase):
   def test_image_scalar(self):

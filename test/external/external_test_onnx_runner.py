@@ -1,11 +1,17 @@
-import unittest, onnx, tempfile, pathlib
+import pathlib
+import tempfile
+import unittest
+
 import numpy as np
-from tinygrad import dtypes, Tensor
-from tinygrad.uop.ops import Ops
+import onnx
+from hypothesis import given
+from hypothesis import strategies as st
+
+from tinygrad import Tensor, dtypes
 from tinygrad.device import is_dtype_supported
 from typing import Any
 from tinygrad.nn.onnx import OnnxRunner, OnnxPBParser, OnnxDataType
-from hypothesis import given, strategies as st
+from tinygrad.uop.ops import Ops
 
 # copied from test_const_folding.py
 def _check_ast_count(desired_count:int, t:Tensor):
@@ -57,12 +63,9 @@ class TestOnnxRunner(unittest.TestCase):
     output = runner({'inp': Tensor([1, 2, 3, 4])})['output']
     _check_ast_count(0, output)
 
-  @unittest.skip("const folding is removed")
   def test_const_fold_from_disk(self):
     self._test_const_fold_unary_op(True)
     self._test_const_fold_binary_op(True)
-
-  @unittest.skip("const folding is removed")
   def test_const_fold_from_memory(self):
     self._test_const_fold_unary_op(False)
     # TODO: understand this and fix this, bitcast related

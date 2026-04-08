@@ -4,8 +4,10 @@
 Note: Graphics-only formats (EXP, MUBUF, MTBUF, MIMG) are not supported - use GLOBAL/FLAT for memory access in compute.
 """
 import unittest
+
+from tinygrad.renderer.amd.dsl import EXEC_LO, NULL, VCC_HI
 from tinygrad.runtime.autogen.amd.rdna3.ins import *
-from tinygrad.renderer.amd.dsl import VCC_HI, EXEC_LO, NULL
+
 OFF = NULL  # OFF is alias for NULL
 from tinygrad.renderer.amd import detect_format
 

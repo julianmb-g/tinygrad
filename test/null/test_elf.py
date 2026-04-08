@@ -1,6 +1,10 @@
-import unittest, subprocess, platform
+import platform
+import subprocess
+import unittest
+
 from tinygrad.runtime.support.compiler_cpu import ClangJITCompiler
 from tinygrad.runtime.support.elf import elf_loader
+
 
 class TestElfLoader(unittest.TestCase):
   def test_load_clang_jit_strtab(self):

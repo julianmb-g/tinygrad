@@ -1,13 +1,16 @@
-import os, struct, unittest
-from tinygrad import dtypes, Tensor, fetch, Device
-from tinygrad.nn.state import ggml_data_to_tensor, gguf_load
-from tinygrad.device import is_dtype_supported
+import os
+import struct
+import unittest
+
 import numpy as np
-from gguf import GGUFReader, GGUFValueType, GGMLQuantizationType, GGML_QUANT_SIZES, dequantize, quantize
+from gguf import GGML_QUANT_SIZES, GGMLQuantizationType, GGUFReader, GGUFValueType, dequantize, quantize
+
+from tinygrad import Device, Tensor, dtypes, fetch
+from tinygrad.device import is_dtype_supported
+from tinygrad.nn.state import ggml_data_to_tensor, gguf_load
 
 ggml_test_block_count = 4
 
-@unittest.skipIf(any(not is_dtype_supported(t) for t in [ dtypes.uint8, dtypes.half ]), "Backend must support uint8 and half")
 class TestGGUF(unittest.TestCase):
   def test_load_tinyllama_q8_0(self): self._test_gguf_load("https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories15M-q8_0.gguf?download=true")
   def test_load_tinyllama_q4_0(self): self._test_gguf_load("https://huggingface.co/ggml-org/models/resolve/main/tinyllamas/stories15M-q4_0.gguf?download=true")
@@ -19,7 +22,6 @@ class TestGGUF(unittest.TestCase):
     block = np.frombuffer(np.float16(2.0).tobytes() + np.arange(1, 33, dtype=np.int8).tobytes(), dtype=np.uint8).copy()
     expected = np.arange(1, 33, dtype=np.float32) * 2.0
     np.testing.assert_equal(ggml_data_to_tensor(Tensor(block), 32, GGMLQuantizationType.Q8_0.value).numpy().flatten(), expected)
-
   def test_dequantization_mxfp4_hardcoded(self):
     # MXFP4: 1 byte shared exponent E + 16 packed bytes (32 x 4-bit values)
     # nibble: bit3=sign, bit2:1=exp, bit0=mant; E=128 gives scale=1.0
@@ -27,7 +29,6 @@ class TestGGUF(unittest.TestCase):
     block = np.array([0x80] + list(range(16)), dtype=np.uint8)  # E=128, nibbles 0-15 in low, zeros in high
     expected = np.array([0., 1., 2., 3., 4., 6., 8., 12., -0., -1., -2., -3., -4., -6., -8., -12.] + [0.]*16, dtype=np.float32)
     np.testing.assert_equal(ggml_data_to_tensor(Tensor(block), 32, GGMLQuantizationType.MXFP4.value).numpy().flatten(), expected)
-
   def test_dequantization_q4_0(self): self._test_dequantization(GGMLQuantizationType.Q4_0)
   def test_dequantization_q4_1(self): self._test_dequantization(GGMLQuantizationType.Q4_1)
   def test_dequantization_q8_0(self): self._test_dequantization(GGMLQuantizationType.Q8_0)
@@ -58,7 +59,6 @@ class TestGGUF(unittest.TestCase):
     tensor = Tensor(np.concatenate(blocks))
     out = ggml_data_to_tensor(tensor, len(expected), GGMLQuantizationType.MXFP4.value)
     np.testing.assert_equal(out.numpy(), expected)
-
   def test_dequantization_mxfp4_block(self):
     # https://gist.github.com/Ananta-Ranganathan/3317b6ed51a3b033e9c2564fafb4e043
     # used the above script to download the first block of blk.0.attn_k_b.weight from
@@ -76,11 +76,9 @@ class TestGGUF(unittest.TestCase):
                         0.04687500,  0.00000000, 0.00000000,  0.01562500], dtype=np.float32)
     out = ggml_data_to_tensor(Tensor(block), 32, GGMLQuantizationType.MXFP4.value)
     np.testing.assert_equal(out.numpy(), expected)
-
   def test_expected_failure_unknown_type(self):
     with self.assertRaises(ValueError):
       ggml_data_to_tensor(Tensor.empty(512, dtype=dtypes.uint8), 256, 1337)
-
   def _test_dequantization(self, qtype: GGMLQuantizationType):
     block_size, type_size = GGML_QUANT_SIZES[qtype]
     n_el, n_bytes = ggml_test_block_count * block_size, ggml_test_block_count * type_size
@@ -95,7 +93,6 @@ class TestGGUF(unittest.TestCase):
     dq_tensor = ggml_data_to_tensor(q_tensor, n_el, qtype.value).reshape(n_el)
 
     np.testing.assert_equal(dq_tensor.numpy(), ref)
-
   def _test_gguf_load(self, url: str):
     fp = fetch(url)
     model_size = os.stat(fp).st_size
@@ -116,7 +113,6 @@ class TestGGUF(unittest.TestCase):
         self.assertEqual(kv_data[k], [read_val(i) for i in f.data])
       else:
         self.assertEqual(kv_data[k], read_val(-1))
-
 class TestGGUFGEMV(unittest.TestCase):
   def _test_gguf_gemv(self, qtype: GGMLQuantizationType):
     block_size, type_size = GGML_QUANT_SIZES[qtype]

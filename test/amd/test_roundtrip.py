@@ -1,10 +1,16 @@
 #!/usr/bin/env python3
 """Roundtrip tests: generate tinygrad kernels, decode instructions, re-encode, verify match."""
-import unittest, io, sys, re
-from tinygrad import Device
-from tinygrad.renderer.amd import detect_format
-from test.amd.helpers import llvm_assemble, llvm_disasm, get_target, get_mattr
+import io
+import re
+import sys
+import unittest
 from test.amd.disasm import disasm
+from test.amd.helpers import get_mattr, get_target, llvm_assemble, llvm_disasm
+from tinygrad.renderer.amd import detect_format
+from test.amd.test_compare_emulators import get_kernels_from_tinygrad
+from tinygrad.runtime.support.elf import elf_loader
+from tinygrad.runtime.support.compiler_amd import HIPCompiler, AMDLLVMCompiler
+
 
 def disassemble_lib(lib: bytes, compiler) -> list[tuple[str, bytes]]:
   """Disassemble ELF binary and return list of (instruction_text, machine_code_bytes)."""
@@ -44,6 +50,8 @@ def compile_and_disasm_batch(instrs: list[str], arch: str = 'rdna3') -> list[str
   code = b''.join(llvm_assemble(instrs, mcpu, mattr))
   return llvm_disasm(code, mcpu, mattr)[:len(instrs)]
 
+from tinygrad.device import Device
+
 @unittest.skipUnless(Device.DEFAULT == "AMD", "requires AMD device")
 class TestTinygradKernelRoundtrip(unittest.TestCase):
   """Test roundtrip on real tinygrad-generated kernels using get_kernels_from_tinygrad pattern."""
@@ -57,9 +65,6 @@ class TestTinygradKernelRoundtrip(unittest.TestCase):
     """
     arch = self.arch
 
-    from test.amd.test_compare_emulators import get_kernels_from_tinygrad
-    from tinygrad.runtime.support.elf import elf_loader
-    from tinygrad.runtime.support.compiler_amd import HIPCompiler, AMDLLVMCompiler
     from tinygrad.helpers import DEV
 
     kernels, _, _ = get_kernels_from_tinygrad(op_fn)
@@ -71,6 +76,7 @@ class TestTinygradKernelRoundtrip(unittest.TestCase):
     for ki, kernel in enumerate(kernels):
       offset = 0
       code = next((s.content for s in elf_loader(compiler.compile(kernel.src))[1] if s.name == ".text"))
+
       while offset < len(code):
         remaining = code[offset:]
         fmt = detect_format(remaining, arch)
@@ -210,7 +216,6 @@ class TestTinygradKernelRoundtrip(unittest.TestCase):
 
 class TestTinygradKernelRoundtripRDNA4(TestTinygradKernelRoundtrip): arch = 'rdna4'
 
-@unittest.skip("CDNA decode roundtrip not yet supported")
 class TestTinygradKernelRoundtripCDNA(TestTinygradKernelRoundtrip): arch = 'cdna'
 
 if __name__ == "__main__":

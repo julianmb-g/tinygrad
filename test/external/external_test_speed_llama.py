@@ -1,12 +1,15 @@
 # NOTE: this only tests the speed of the LLaMA codegen, it doesn't actually run the net
-import unittest, time
-from examples.llama import Transformer, MODEL_PARAMS
-from tinygrad.tensor import Tensor
+import time
+import unittest
+
+from examples.llama import MODEL_PARAMS, Transformer
 from tinygrad import Device
-from tinygrad.nn.state import get_state_dict
 from tinygrad.device import Allocator, Compiled
 from tinygrad.engine.realize import method_cache
 from tinygrad.helpers import Profiling
+from tinygrad.nn.state import get_state_dict
+from tinygrad.tensor import Tensor
+
 
 class FakeProgram:
   def __init__(self, name:str, prg:bytes, **kwargs): pass

@@ -1,11 +1,41 @@
 import itertools
-from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
-from tinygrad.helpers import getenv, DEBUG, prod, NOLOCALS, TC_OPT, TC_SELECT, USE_TC, AMX, IMAGE
-from tinygrad.dtype import PtrDType, ImageDType
-from tinygrad.uop.ops import Ops, resolve, AxisType
+
+from tinygrad.codegen.opt import KernelOptError, Opt, OptOps
 from tinygrad.codegen.opt.postrange import Scheduler
+from tinygrad.dtype import ImageDType
+from tinygrad.helpers import AMX, DEBUG, NOLOCALS, TC_OPT, TC_SELECT, USE_TC, getenv, prod
+from tinygrad.uop.ops import AxisType, Ops, resolve
+
+
+class OutOfMemoryError(Exception): pass
+CORALNPU_L1_LIMIT = 12288
 
 def hand_coded_optimizations(k:Scheduler) -> Scheduler:
+  if k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU":
+    can_split_k = k.ren.has_local
+    reduction_axes = k.axes_of(AxisType.REDUCE)
+    contiguous_shapes = []
+    if reduction_axes:
+      for axis in reduction_axes:
+        rng = k.rngs[axis]
+        is_contiguous = False
+        for b in k.bufs:
+          idx = b.src[1].get_idx()
+          for c in idx.split_uop(Ops.ADD):
+            if c is rng:
+              is_contiguous = True
+            elif c.op is Ops.MUL and c.src[0] is rng and c.src[1].op is Ops.CONST and c.src[1].arg == 1:
+              is_contiguous = True
+            elif c.op is Ops.MUL and c.src[1] is rng and c.src[0].op is Ops.CONST and c.src[0].arg == 1:
+              is_contiguous = True
+        if is_contiguous:
+          contiguous_shapes.append(k.full_shape[axis])
+
+      if contiguous_shapes:
+        contiguous_reduction_size = prod(contiguous_shapes)
+        if resolve(contiguous_reduction_size > CORALNPU_L1_LIMIT, False) and not can_split_k:
+          raise OutOfMemoryError("Contiguous reduction axis exceeds Split-K limits")
+
   # first try the tensor cores
   """ Attempts to apply a tensor core optimization to the kernel. If one exists and applies properly, return true, otherwise return false.
   Tensor cores are optimized instructions that matrix multiply-accumulate across a wave of threads: D(M, N) = A(M, K) * B(K, N) + C(M, N).
@@ -49,17 +79,16 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   k = k.copy()
 
   # upcast float4 images, this must be early so we don't accidentally add locals before the upcast
-  if IMAGE:
-    for buf_index,buf in enumerate(k.bufs):
-      if isinstance(buf.src[0].dtype, PtrDType) and ImageDType.valid_dims(buf.src[0].dtype):
-        # part of is_expanded
-        unit_stride_axes_mul_4 = [k.rngs.index(c) for c in k.bufs[buf_index].src[1].get_idx().split_uop(Ops.ADD) if
-          c.op is Ops.RANGE and (c.vmax+1)%4 == 0]
-        if len(unit_stride_axes_mul_4):
-          if (axis:=unit_stride_axes_mul_4[0]) in k.upcastable_dims:
-            k.apply_opt(Opt(OptOps.UPCAST, axis, 4))
-          elif axis in k.unrollable_dims:
-            k.apply_opt(Opt(OptOps.UNROLL, k.unrollable_dims.index(axis), 4))
+  for buf_index,buf in enumerate(k.bufs):
+    if isinstance(buf.src[0].dtype, ImageDType):
+      # part of is_expanded
+      unit_stride_axes_mul_4 = [k.rngs.index(c) for c in k.bufs[buf_index].src[1].get_idx().split_uop(Ops.ADD) if
+        c.op is Ops.RANGE and (c.vmax+1)%4 == 0]
+      if len(unit_stride_axes_mul_4):
+        if (axis:=unit_stride_axes_mul_4[0]) in k.upcastable_dims:
+          k.apply_opt(Opt(OptOps.UPCAST, axis, 4))
+        elif axis in k.unrollable_dims:
+          k.apply_opt(Opt(OptOps.UNROLL, k.unrollable_dims.index(axis), 4))
 
   # should use matvec - TODO: adjust/tune based on the wide vs tall/large vs small mat
   MV_BLOCKSIZE, MV_THREADS_PER_ROW, MV_ROWS_PER_THREAD = getenv("MV_BLOCKSIZE", 4), getenv("MV_THREADS_PER_ROW", 8), getenv("MV_ROWS_PER_THREAD", 4)
@@ -106,12 +135,13 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   for axis in to_upcast[::-1]: k.apply_opt(Opt(OptOps.UPCAST, axis, 0))
 
   # potentially do more upcasts of non reduce axes based on a heuristic
-  is_dsp = k.ren is not None and k.ren.target.device == "DSP"
+  is_dsp = k.ren is not None and k.ren.device == "DSP"
+  max_upcast = getattr(k.ren, "max_upcast", 31) if k.ren is not None else 31
   upcasted_axis: set[int] = set()
-  while resolve(prod(k.output_shape[i] for i in k.upcastable_dims) >= 1024) and (k.upcast_size() < 32):
+  while resolve(prod(k.output_shape[i] for i in k.upcastable_dims) >= 1024) and (k.upcast_size() <= max_upcast):
     xb_choices = []
     # consider all upcastable axes with 3 or 4 upcast (128 on the DSP)
-    for axis, upcast_amount in itertools.product(k.upcastable_dims, ([128] if not len(upcasted_axis) else []) if is_dsp else [3,4]):
+    for axis, upcast_amount in itertools.product(k.upcastable_dims, ([128] if not len(upcasted_axis) else []) if is_dsp else [3, 4]):
       # if we haven't upcasted it, it mods, and buffer has stride 0 on axis while having no stride 0 in the upcasted axis already
       if axis in upcasted_axis or k.full_shape[axis]%upcast_amount != 0: continue
       rng = k.rngs[axis]
@@ -136,8 +166,10 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   # if last reduce dim is small(ish), loop unroll the reduce
   # NOTE: this can fail on multireduce with mismatching dimensions, this is okay
   try:
-    if k.unrollable_dims and (k.upcast_size() <= 4 or not k.axes_of(AxisType.UNROLL)) and (k.upcast_size() < 64):
-      if (s:=k.full_shape[k.unrollable_dims[-1]]) <= 32:
+    max_unroll = getattr(k.ren, "max_upcast", 63) if k.ren is not None else 63
+    max_small_unroll = getattr(k.ren, "max_upcast", 32) if k.ren is not None else 32
+    if k.unrollable_dims and (k.upcast_size() <= 4 or not k.axes_of(AxisType.UNROLL)) and (k.upcast_size() <= max_unroll):
+      if (s:=k.full_shape[k.unrollable_dims[-1]]) <= max_small_unroll:
         k.apply_opt(Opt(OptOps.UNROLL, len(k.unrollable_dims)-1, 0))
         # if it's small, upcast a second reduce dimension too
         if k.unrollable_dims and s <= 3 and k.full_shape[k.unrollable_dims[-1]] <= 3:

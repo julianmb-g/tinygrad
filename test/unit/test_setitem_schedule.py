@@ -1,5 +1,7 @@
 import unittest
-from tinygrad import Tensor, dtypes, GlobalCounters
+
+from tinygrad import GlobalCounters, Tensor, dtypes
+
 
 class TestSetitemInto(unittest.TestCase):
   def test_setitem_into_unrealized(self):

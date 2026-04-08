@@ -1,14 +1,17 @@
 # uops tests that pass on NULL backend (no copyout needed)
 import unittest
+
 import numpy as np
-from tinygrad.tensor import Tensor
-from tinygrad.helpers import Timing, Context
-from tinygrad.dtype import dtypes, ConstFloat  # noqa: F401
+
+from test.helpers import to_uops_list
 from tinygrad.device import Device
+from tinygrad.dtype import ConstFloat, dtypes  # noqa: F401
+from tinygrad.helpers import Context, Timing
+from tinygrad.tensor import Tensor
 from tinygrad.uop.ops import Ops, UOp, UPat, exec_alu
 from tinygrad.uop.spec import shared_spec
 from tinygrad.uop.symbolic import sym
-from test.helpers import to_uops_list
+
 
 class TestSafeCast(unittest.TestCase):
   def test_cast_folds(self):
@@ -147,9 +150,6 @@ class TestGatedStoreRewrite(unittest.TestCase):
     gated_uops = tuple(uops[uops.index(ifs[0])+1:uops.index(endifs[0])])
     self.assertEqual(len(gated_uops), 2)
     for x in gated_uops: self.assertIs(x.op, Ops.STORE)
-
-@unittest.skipIf(Device.DEFAULT == "METAL", "compiler bug")
-@unittest.skipUnless(Ops.SHR in Device[Device.DEFAULT].renderer.code_for_op, "fast_idiv requires SHR")
 class TestFastIdiv(unittest.TestCase):
   def test_division_power_of_two(self):
     for dt in (dtypes.int32, dtypes.uint32):
@@ -162,8 +162,6 @@ class TestFastIdiv(unittest.TestCase):
       ops = [x.op for x in uops]
       self.assertIn(Ops.SHR, ops, f"For dtype={dt} divison by power of two did not simplify to shift")
       self.assertNotIn(Ops.IDIV, ops, f"For dtype={dt} divison by power of two did not simplify to shift")
-
-  @unittest.skipIf(Device.DEFAULT == "WEBGPU", "WEBGPU doesn't support long")
   def test_fast_idiv_and_mod(self):
     g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
     c = UOp.const(dtypes.uint, 3)
@@ -181,7 +179,6 @@ class TestFastIdiv(unittest.TestCase):
     ops = [x.op for x in uops]
     self.assertIn(Ops.SHR, ops)
     self.assertNotIn(Ops.MOD, ops)
-
   def test_fast_idiv_remove_powers_of_two(self):
     ridx = UOp.range(2**20, 0)
     uops = to_uops_list([ridx//(7*64)], ren=Device[Device.DEFAULT].renderer)
@@ -189,7 +186,6 @@ class TestFastIdiv(unittest.TestCase):
     # this requires shifting out the powers of two before doing fast_idiv
     # (((ridx0>>6)*18725)>>17) instead of (int)((((long)(ridx0)*1198373)>>29))
     self.assertNotIn(Ops.CAST, ops)
-
   @unittest.expectedFailure
   def test_fast_idiv_overflow(self):
     # This will be possible with a slightly different method for fast_idiv
@@ -202,7 +198,6 @@ class TestFastIdiv(unittest.TestCase):
     ops = [x.op for x in uops]
     self.assertIn(Ops.SHR, ops)
     self.assertNotIn(Ops.IDIV, ops)
-
   def test_disable_fast_idiv(self):
     g = UOp(Ops.PARAM, dtypes.uint32.ptr(), (), 0)
     c = UOp.const(dtypes.uint, 3)
@@ -213,9 +208,7 @@ class TestFastIdiv(unittest.TestCase):
     ops = [x.op for x in uops]
     self.assertNotIn(Ops.SHR, ops)
     self.assertIn(Ops.IDIV, ops)
-
 class TestUOpMethod(unittest.TestCase):
-  @unittest.skip("uops lt no longer ordered")
   def test_compare_alu_same_src_different_arg(self):
     a = UOp.const(dtypes.float, 2.0)
     b = UOp.const(dtypes.float, 3.0)
@@ -223,7 +216,6 @@ class TestUOpMethod(unittest.TestCase):
     add = UOp(Ops.ADD, dtypes.float, (a, b))
     mul = UOp(Ops.MUL, dtypes.float, (a, b))
     assert (add < mul) or (mul < add), "add and mul with same src should have an order"
-
   def test_uop_variables(self):
     a = UOp.variable("a", 1, 10)
     uop_var = Tensor(a.bind(1))

@@ -1,16 +1,18 @@
 import unittest
-from tinygrad import Tensor, nn, Device
-from tinygrad.helpers import Context, GlobalCounters, getenv, PCONTIG, DEBUG
-from tinygrad.uop.ops import graph_rewrite, PatternMatcher, UPat, Ops
-from tinygrad.codegen.opt import OptOps, Opt
-from tinygrad.renderer.ptx import PTXRenderer
-from tinygrad.renderer.nir import NIRRenderer
 
-@unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, (NIRRenderer, PTXRenderer)), "broken in LVP and PTX")
+from tinygrad import Tensor, nn
+from tinygrad.codegen.opt import Opt, OptOps
+from tinygrad.helpers import DEBUG, PCONTIG, Context, GlobalCounters, getenv
+from tinygrad.uop.ops import graph_rewrite
+from tinygrad.schedule.indexing import run_rangeify
+from tinygrad.schedule.rangeify import mop_cleanup, pm_mops, pm_syntactic_sugar, pm_remove_bufferize
+from tinygrad.uop.symbolic import symbolic
+
+
 class TestDoubleMatmul(unittest.TestCase):
   def setUp(self):
     with Context(DEBUG=0):
-      self.a, self.b, self.c = [Tensor.randn(16, 16).contiguous().realize() for _ in range(3)]
+      self.a, self.b, self.c = [((Tensor.arange(16*16) % 10) * 0.1).reshape(16, 16).contiguous().realize() for _ in range(3)]
       self.ref = (self.a @ self.b @ self.c).realize()
 
   def _test(self, opts):
@@ -21,7 +23,6 @@ class TestDoubleMatmul(unittest.TestCase):
       err = (out-self.ref).square()
       self.assertLess(err.max().item(), 1e-4)
       self.assertLess(err.mean().item(), 1e-6)
-
   def test_baseline(self): self._test(())
   def test_upcast_0(self): self._test((Opt(OptOps.UPCAST, 0, 4),))
   def test_upcast_1(self): self._test((Opt(OptOps.UPCAST, 1, 4),))
@@ -50,10 +51,9 @@ class TestDoubleMatmul(unittest.TestCase):
     self._test((Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UNROLL, 1, 4)))
   def test_upcast_12_unroll_01(self):
     self._test((Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 2, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UNROLL, 1, 4)))
-
 class TestRangeifyAssign(unittest.TestCase):
   def test_assign_permuted(self):
-    A = Tensor.empty(4, 4, dtype='int')
+    A = Tensor.zeros(4, 4, dtype='int').contiguous().realize()
     B = Tensor.arange(16).reshape(4,4)
     ret = A.permute(1,0).assign(B)
     lst = ret.tolist()
@@ -126,7 +126,6 @@ def fa_bw():
   Tensor.realize(*ret)
   return ret
 
-@unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, (NIRRenderer, PTXRenderer)), "broken in LVP and PTX")
 class TestPcontig(unittest.TestCase):
   def test_flash_attention_bw(self):
     with Context(PCONTIG=max(2, PCONTIG.value), DEBUG=2):
@@ -142,7 +141,6 @@ class TestPcontig(unittest.TestCase):
     mse = sum(mses)
     print(f"mse: {mse}")
     self.assertLessEqual(mse, 1e-6)
-
   def test_flash_attention(self, opts=None):
     with Context(PCONTIG=2, DEBUG=max(2, DEBUG.value)):
       ret = fa().realize() if opts is None else fa().contiguous(arg=opts).realize()
@@ -154,7 +152,6 @@ class TestPcontig(unittest.TestCase):
       mse = ((cmp-ret)**2).sum().item()
     print(f"mse: {mse}")
     self.assertLessEqual(mse, 1e-6)
-
   def test_flash_attention_opt(self):
     opts = ()
     # columns in top matrix
@@ -164,59 +161,45 @@ class TestPcontig(unittest.TestCase):
     # rows in all the matrix
     opts += (Opt(OptOps.UPCAST, 4, 4),)
     self.test_flash_attention(opts)
-
 # contiguous + reduce can support ranges?
 
-@unittest.skip("pm_rangeify no longer exists. test this in a different way")
 class TestRangeifyPM(unittest.TestCase):
-  def setUp(self): self.base = Tensor.empty(10*10).reshape(10, 10).contiguous()
+  def setUp(self): self.base = Tensor.zeros(10*10).reshape(10, 10).contiguous()
   def assert_same(self, a, b):
     def run_pm_rangeify(t:Tensor):
-      from tinygrad.schedule.rangeify import pm_rangeify, RangeifyContext
-      sink = t.uop.sink()
-      pm_realize = PatternMatcher([(UPat(Ops.CONTIGUOUS, name="x"), lambda x: x.replace(op=Ops.REALIZE))])
-      sink = graph_rewrite(sink, pm_realize)
-      return graph_rewrite(sink, pm_rangeify, ctx=RangeifyContext())
+      sink = run_rangeify(t.uop.sink())[0]
+      sink = graph_rewrite(sink, pm_syntactic_sugar+pm_mops+mop_cleanup+pm_remove_bufferize)
+      return graph_rewrite(sink, symbolic)
     self.assertIs(run_pm_rangeify(a.contiguous()), run_pm_rangeify(b.contiguous()))
-
   def test_nothing_match(self):
     a = self.base.pad(((0,0),(0,1)))
     b = self.base.pad(((0,0),(0,1)))
     self.assert_same(a, b)
-
   def test_reshape_match(self):
     a = self.base
     b = self.base.reshape(100).reshape(10, 10)
     self.assert_same(a, b)
-
   def test_permute_reshape_match(self):
     a = self.base
     b = self.base.permute(1,0).reshape(100).reshape(10, 10).permute(1,0)
     self.assert_same(a, b)
-
   def test_padded_permute_match(self):
     a = self.base.pad(((0,0),(0,1)))
     b = self.base.permute(1,0).pad(((0,1),(0,0))).permute(1,0)
     self.assert_same(a, b)
-
-  @unittest.expectedFailure
   def test_padded_reshape_match(self):
     a = self.base.pad(((0,0),(0,1)))
     b = self.base.reshape(100).reshape(10, 10).pad(((0,0),(0,1)))
     self.assert_same(a, b)
-
-  @unittest.expectedFailure
   def test_padded_permute_reshape_match(self):
     a = self.base.pad(((0,0),(0,1)))
     b = self.base.permute(1,0).reshape(100).reshape(10, 10).pad(((0,1),(0,0))).permute(1,0)
     self.assert_same(a, b)
-
   # why is this failing?
   @unittest.expectedFailure
   def test_cross_pad_match(self):
     a = self.base.pad(((0,0),(0,1))).pad(((0,1),(0,0)))
     b = self.base.pad(((0,1),(0,0))).pad(((0,0),(0,1)))
     self.assert_same(a, b)
-
 if __name__ == '__main__':
   unittest.main()

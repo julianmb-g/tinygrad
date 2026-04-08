@@ -1,8 +1,11 @@
 from __future__ import annotations
-import mmap, functools
+
+import functools
+import mmap
+
+from test.mockgpu.am.amgpu import VRAM_SIZE, MockAMGPU
+from test.mockgpu.driver import DirFileDesc, TextFileDesc, VirtDriver, VirtFile, VirtFileDesc
 from tinygrad.runtime.autogen import libc
-from test.mockgpu.driver import VirtDriver, VirtFileDesc, TextFileDesc, DirFileDesc, VirtFile
-from test.mockgpu.am.amgpu import MockAMGPU, VRAM_SIZE
 
 DOORBELL_SIZE = 0x2000
 MMIO_SIZE = 2 << 20

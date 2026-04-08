@@ -1,22 +1,30 @@
+import array
+import copy
+import math
+import mmap
+import random
+import unittest
+
 import numpy as np
 import torch
-import unittest, copy, mmap, random, math, array
-from tinygrad import Tensor, Device, dtypes, nn
-from tinygrad.helpers import getenv, temp, mv_address
-from extra.gradcheck import numerical_jacobian, jacobian, gradcheck
-from hypothesis import given, settings, strategies as strat
+from hypothesis import given, settings
+from hypothesis import strategies as strat
+
+from extra.gradcheck import gradcheck, jacobian, numerical_jacobian
+from tinygrad import Device, Tensor, dtypes, nn
 from tinygrad.device import is_dtype_supported
 from tinygrad.dtype import DTYPES_DICT
+from tinygrad.helpers import getenv, mv_address, temp
 
 settings.register_profile("my_profile", max_examples=200, deadline=None, derandomize=getenv("DERANDOMIZE_CI", False))
 settings.load_profile("my_profile")
 
-x_init = np.random.randn(1,3).astype(np.float32)
-U_init = np.random.randn(3,3).astype(np.float32)
-V_init = np.random.randn(3,3).astype(np.float32)
-W_init = np.random.randn(3,3).astype(np.float32)
-m_init = np.random.randn(1,3).astype(np.float32)
-gradient = np.random.randn(1,3).astype(np.float32)
+x_init = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
+U_init = (np.arange(math.prod((3,3))) % 10 * 0.1).reshape(3,3).astype(np.float32)
+V_init = (np.arange(math.prod((3,3))) % 10 * 0.1).reshape(3,3).astype(np.float32)
+W_init = (np.arange(math.prod((3,3))) % 10 * 0.1).reshape(3,3).astype(np.float32)
+m_init = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
+gradient = (np.arange(math.prod((1,3))) % 10 * 0.1).reshape(1,3).astype(np.float32)
 
 class TestTinygrad(unittest.TestCase):
   def test_zerodim_initialization(self):
@@ -24,8 +32,8 @@ class TestTinygrad(unittest.TestCase):
     self.assertEqual(Tensor(3.14).shape, ())
 
   def test_plus_equals(self):
-    a = Tensor.randn(10,10)
-    b = Tensor.randn(10,10)
+    a = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10,10)
+    b = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10,10)
     c = a + b
     val1 = c.numpy()
     a += b
@@ -263,9 +271,10 @@ class TestTinygrad(unittest.TestCase):
   def test_randn_isnt_inf_on_zero(self):
     # simulate failure case of rand handing a zero to randn
     original_rand, Tensor.rand = Tensor.rand, Tensor.zeros
-    try: self.assertNotIn(np.inf, Tensor.randn(16).numpy())
-    except: raise
-    finally: Tensor.rand = original_rand
+    try:
+      self.assertNotIn(np.inf, ((Tensor.arange(16) % 10) * 0.1).reshape(16).numpy())
+    finally:
+      Tensor.rand = original_rand
 
   def test_zeros_like_has_same_dtype_and_shape(self):
     for datatype in [dtypes.float16, dtypes.float32, dtypes.int8, dtypes.int32, dtypes.int64, dtypes.uint8]:
@@ -298,9 +307,9 @@ class TestTinygrad(unittest.TestCase):
 
   def test_ndim(self):
     assert Tensor(1).ndim == 0
-    assert Tensor.randn(1).ndim == 1
-    assert Tensor.randn(2,2,2).ndim == 3
-    assert Tensor.randn(1,1,1,1,1,1).ndim == 6
+    assert ((Tensor.arange(1) % 10) * 0.1).reshape(1).ndim == 1
+    assert ((Tensor.arange(2*2*2) % 10) * 0.1).reshape(2,2,2).ndim == 3
+    assert ((Tensor.arange(1*1*1*1*1*1) % 10) * 0.1).reshape(1,1,1,1,1,1).ndim == 6
 
   def test_argfix(self):
     for f in [Tensor.zeros, Tensor.ones, Tensor.rand, Tensor.randn, Tensor.empty]:
@@ -319,11 +328,11 @@ class TestTinygrad(unittest.TestCase):
       with self.assertRaises(ValueError): f((128, 128), 0.0, 0.01)
 
   def test_numel(self):
-    assert Tensor.randn(10, 10).numel() == 100
-    assert Tensor.randn(1,2,5).numel() == 10
-    assert Tensor.randn(1,1,1,1,1,1).numel() == 1
+    assert ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10).numel() == 100
+    assert ((Tensor.arange(1*2*5) % 10) * 0.1).reshape(1,2,5).numel() == 10
+    assert ((Tensor.arange(1*1*1*1*1*1) % 10) * 0.1).reshape(1,1,1,1,1,1).numel() == 1
     assert Tensor([]).numel() == 0
-    assert Tensor.randn(1,0,2,5).numel() == 0
+    assert ((Tensor.arange(1*0*2*5) % 10) * 0.1).reshape(1,0,2,5).numel() == 0
     assert Tensor(3).numel() == 1
 
   def test_len(self):
@@ -349,13 +358,13 @@ class TestTinygrad(unittest.TestCase):
 
   def test_element_size(self):
     for _, dtype in DTYPES_DICT.items():
-      assert dtype.itemsize == Tensor.randn(3, dtype=dtype).element_size(), f"Tensor.element_size() not matching Tensor.dtype.itemsize for {dtype}"
+      assert dtype.itemsize == ((Tensor.arange(3) % 10) * 0.1).reshape(3).cast(dtype).element_size(), f"Tensor.element_size() not matching Tensor.dtype.itemsize for {dtype}"  # noqa: E501
 
   def test_deepwalk_ctx_check(self):
     layer = Tensor.uniform(1, 1, requires_grad=True)
-    x = Tensor.randn(1, 1, 1)
+    x = ((Tensor.arange(1*1*1) % 10) * 0.1).reshape(1, 1, 1)
     x.dot(layer).mean().backward()
-    x = Tensor.randn(1, 1, 1)
+    x = ((Tensor.arange(1*1*1) % 10) * 0.1).reshape(1, 1, 1)
     x.dot(layer).mean().backward()
 
   def test_zerosized_tensors(self):
@@ -488,7 +497,7 @@ class TestTinygrad(unittest.TestCase):
     np.testing.assert_allclose(x.numpy(), np.ones((3,3,3)))
 
   def test_copy_from_disk(self):
-    t = Tensor.randn(30).to(f"disk:{temp('test_copy_from_disk')}")
+    t = ((Tensor.arange(30) % 10) * 0.1).reshape(30).to(f"disk:{temp('test_copy_from_disk')}")
     a = t[10:20]
     dev = a.to(Device.DEFAULT)
     np.testing.assert_allclose(a.numpy(), dev.numpy())
@@ -507,7 +516,7 @@ class TestTinygrad(unittest.TestCase):
   # Regression test for https://github.com/tinygrad/tinygrad/issues/1751
   def test_copy_from_numpy_unaligned(self):
     # 2**15 is the minimum for repro
-    arr = np.random.randn(2**15).astype(np.float32)
+    arr = (np.arange(math.prod((2**15,))) % 10 * 0.1).reshape(2**15).astype(np.float32)
     fn = temp('test_copy_from_numpy_unaligned')
     with open(fn, 'wb') as f: f.write(b't' + arr.tobytes())
     with open(fn, "a+b") as f: memview = memoryview(mmap.mmap(f.fileno(), arr.nbytes + 1))
@@ -560,7 +569,6 @@ class TestTinygrad(unittest.TestCase):
     with self.assertRaises(ValueError): t.shrink_to(2)
     with self.assertRaises(ValueError): t.shrink_to(2, 2, 2)
 
-@unittest.skip("this test is just flaky, sync issue")
 class TestMoveTensor(unittest.TestCase):
   d0, d1 = f"{Device.DEFAULT}:0", f"{Device.DEFAULT}:1"
   @given(strat.sampled_from([d0, d1]), strat.sampled_from([d0, d1]),
@@ -576,7 +584,6 @@ class TestMoveTensor(unittest.TestCase):
     assert s.requires_grad == t.requires_grad
     if requires_grad:
       np.testing.assert_equal(s.grad.numpy(), t.grad.numpy())
-
   @given(strat.sampled_from([dtypes.float16, dtypes.float32]), strat.sampled_from([True, False, None]))
   def test_shard_preserves(self, dtype, requires_grad):
     s = Tensor([1, 2, 3], dtype=dtype, requires_grad=requires_grad)
@@ -584,20 +591,17 @@ class TestMoveTensor(unittest.TestCase):
     np.testing.assert_equal(s.numpy(), t.numpy())
     assert s.dtype == t.dtype
     assert s.requires_grad == t.requires_grad
-
   @given(strat.sampled_from([d0, d1]))
   def test_same_dev(self, dev):
     x = Tensor([1,2,3], device=dev)
     y = x.to(dev)
     assert x is y
-
   def test_to_grad(self):
     x = Tensor.eye(3, requires_grad=True, device=self.d0)
     y = Tensor([[2.0,0,-2.0]], requires_grad=True, device=self.d0)
     z = y.matmul(x).to(self.d1).sum()
     z.backward()
     np.testing.assert_equal(x.grad.numpy(), [[2,2,2],[0,0,0],[-2,-2,-2]])
-
 class TestZeroShapeTensor(unittest.TestCase):
   def test_rand(self):
     t = Tensor.rand(3, 2, 0)

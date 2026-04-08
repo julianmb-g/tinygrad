@@ -1,9 +1,12 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
+
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
+
 from tinygrad.runtime.support import c
+from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
+
 dll = c.DLL('ib', 'ibverbs', use_errno=True)
 @c.record
 class union_ibv_gid(c.Struct):
@@ -208,7 +211,7 @@ class struct_ibv_device_attr(c.Struct):
   phys_port_cnt: Annotated[uint8_t, 227]
 uint64_t: TypeAlias = Annotated[int, ctypes.c_uint64]
 uint16_t: TypeAlias = Annotated[int, ctypes.c_uint16]
-class struct__compat_ibv_port_attr(c.Struct): SIZE = 0
+class struct__compat_ibv_port_attr(ctypes.Structure): pass
 @c.record
 class struct_ibv_mw(c.Struct):
   SIZE = 32
@@ -1693,7 +1696,7 @@ IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH = enum_ib_uverbs_advise_mr_advice.define('IB
 IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH_WRITE = enum_ib_uverbs_advise_mr_advice.define('IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH_WRITE', 1)
 IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT = enum_ib_uverbs_advise_mr_advice.define('IB_UVERBS_ADVISE_MR_ADVICE_PREFETCH_NO_FAULT', 2)
 
-class struct_verbs_ex_private(c.Struct): SIZE = 0
+class struct_verbs_ex_private(ctypes.Structure): pass
 @dll.bind
 def ibv_get_device_list(num_devices:c.POINTER[Annotated[int, ctypes.c_int32]]) -> c.POINTER[c.POINTER[struct_ibv_device]]: ...
 @dll.bind

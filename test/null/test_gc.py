@@ -1,11 +1,15 @@
 #!/usr/bin/env python
-import gc, inspect
+import gc
+import inspect
 import unittest
+
 import numpy as np
+
 from tinygrad.device import Buffer
 from tinygrad.engine.realize import run_schedule
-from tinygrad.uop.ops import UOp
 from tinygrad.tensor import Tensor
+from tinygrad.uop.ops import UOp
+
 
 def _allocations_of_type(t):
   ret = 0

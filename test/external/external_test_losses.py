@@ -1,11 +1,13 @@
-from tinygrad import Tensor
-from test.external.mlperf_retinanet.focal_loss import sigmoid_focal_loss as ref_sigmoid_focal_loss
-from test.external.mlperf_unet3d.dice import DiceCELoss
-from examples.mlperf.losses import dice_ce_loss, sigmoid_focal_loss, l1_loss
+import unittest
 
 import numpy as np
 import torch
-import unittest
+
+from examples.mlperf.losses import dice_ce_loss, l1_loss, sigmoid_focal_loss
+from test.external.mlperf_retinanet.focal_loss import sigmoid_focal_loss as ref_sigmoid_focal_loss
+from test.external.mlperf_unet3d.dice import DiceCELoss
+from tinygrad import Tensor
+
 
 class ExternalTestLosses(unittest.TestCase):
   def setUp(self):

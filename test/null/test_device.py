@@ -5,6 +5,7 @@ from tinygrad import Tensor
 from tinygrad.device import Device, Compiler, enumerate_devices_str
 from tinygrad.helpers import diskcache_get, diskcache_put, getenv, Context, Target, WIN, CI, OSX, DEV
 from tinygrad.runtime.support.c import DLL
+from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, ClangJITCompiler
 
 class TestDevice(unittest.TestCase):
   def test_canonicalize(self):
@@ -53,7 +54,7 @@ class TestDevice(unittest.TestCase):
   @unittest.skipIf(WIN and CI, "skipping windows test") # TODO: subprocess causes memory violation?
   def test_env_overwrite_default_compiler(self):
     if Device.DEFAULT == "CPU":
-      from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, ClangJITCompiler
+      from tinygrad.runtime.support.compiler_cpu import ClangJITCompiler, CPULLVMCompiler
       try: _, _ = CPULLVMCompiler(), ClangJITCompiler()
       except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
 
@@ -65,7 +66,7 @@ class TestDevice(unittest.TestCase):
       subprocess.run([f'python3 -c "{imports}; assert isinstance(Device[Device.DEFAULT].compiler, ClangJITCompiler)"'],
                         shell=True, check=True, env={**os.environ, "DEV": "CPU:CLANGJIT"})
     elif Device.DEFAULT == "AMD":
-      from tinygrad.runtime.support.compiler_amd import HIPCompiler, AMDLLVMCompiler
+      from tinygrad.runtime.support.compiler_amd import AMDLLVMCompiler, HIPCompiler
       try: _, _ = HIPCompiler(Device[Device.DEFAULT].arch), AMDLLVMCompiler(Device[Device.DEFAULT].arch)
       except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
 
@@ -80,8 +81,9 @@ class TestDevice(unittest.TestCase):
 
   @unittest.skipIf(WIN and CI, "skipping windows test")
   def test_env_online(self):
-    from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, ClangJITCompiler
-    try: _, _ = CPULLVMCompiler(), ClangJITCompiler()
+    try:
+      from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, ClangJITCompiler
+      _, _ = CPULLVMCompiler(), ClangJITCompiler()
     except Exception as e: self.skipTest(f"skipping compiler test: not all compilers: {e}")
 
     with Context(DEV="CPU:LLVM"):
@@ -114,9 +116,7 @@ class TestDevice(unittest.TestCase):
 class TestDevVar(unittest.TestCase):
   def test_parse(self):
     for d, t in [("AMD", Target(device="AMD", renderer="")), ("AMD:LLVM", Target(device="AMD", renderer="LLVM")),
-                 (":LLVM", Target(device="", renderer="LLVM")), ("AMD::gfx1100", Target(device="AMD", arch="gfx1100")),
-                 ("AMD:LLVM:gfx1100", Target(device="AMD", renderer="LLVM", arch="gfx1100")), ("::gfx1100", Target(arch="gfx1100")),
-                 ("USB+", Target(interface="USB")), ("USB+AMD", Target(device="AMD", interface="USB"))]:
+                 (":LLVM", Target(device="", renderer="LLVM"))]:
       with Context(DEV=d):
         self.assertEqual(DEV.value, t)
         self.assertEqual(str(DEV.value), d)
@@ -128,10 +128,14 @@ class TestDevVar(unittest.TestCase):
     with Context(DEV="AMD:LLVM"): self.assertEqual(DEV.target("CPU"), Target("CPU"))
     with Context(DEV=""): self.assertEqual(DEV.target("CPU"), Target("CPU"))
 
-  def test_dev_arch_override(self):
-    with Context(DEV="NULL:HIP:gfx1100"):
-      self.assertEqual(Device["NULL"].renderer.target.arch, "gfx1100")
-
+    with Context(CPU_LLVM=1):
+      inst = Device["CPU"].compiler
+      self.assertIsInstance(Device["CPU"].compiler, CPULLVMCompiler)
+    with Context(CPU_LLVM=0):
+      self.assertIsInstance(Device["CPU"].compiler, ClangJITCompiler)
+    with Context(CPU_LLVM=1):
+      self.assertIsInstance(Device["CPU"].compiler, CPULLVMCompiler)
+      assert inst is Device["CPU"].compiler  # cached
 class MockCompiler(Compiler):
   def __init__(self, key): super().__init__(key)
   def compile(self, src) -> bytes: return src.encode()

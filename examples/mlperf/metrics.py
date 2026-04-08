@@ -1,6 +1,9 @@
-import re, string
+import re
+import string
 from collections import Counter
+
 from tinygrad import Tensor
+
 
 def levenshtein(a, b):
   n, m = len(a), len(b)
