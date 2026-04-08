@@ -1,9 +1,6 @@
-import gc
-import unittest
-
-from tinygrad import GlobalCounters, Tensor, dtypes
+import gc, unittest
+from tinygrad import Tensor, GlobalCounters, dtypes
 from tinygrad.engine.jit import TinyJit
-
 
 class TestMultiRamUsage(unittest.TestCase):
   def setUp(self):

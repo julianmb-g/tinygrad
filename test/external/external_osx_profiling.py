@@ -1,7 +1,6 @@
-import time
-
+from tinygrad.runtime.ops_cl import CLProgram, CL, CLBuffer
 from tinygrad import dtypes
-from tinygrad.runtime.ops_cl import CL, CLBuffer, CLProgram
+import time
 
 N = 1000000
 a = CLBuffer(N, dtypes.float32)

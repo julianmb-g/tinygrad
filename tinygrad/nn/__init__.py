@@ -1,13 +1,9 @@
 from __future__ import annotations
-
-import functools
-import math
-
-from tinygrad.dtype import dtypes
-from tinygrad.helpers import USE_ATOMICS, flatten, make_tuple, prod
-from tinygrad.nn import datasets, optim, state  # noqa: F401
+import math, functools
 from tinygrad.tensor import Tensor
-
+from tinygrad.dtype import dtypes
+from tinygrad.helpers import prod, make_tuple, flatten, USE_ATOMICS
+from tinygrad.nn import optim, state, datasets  # noqa: F401
 
 class BatchNorm:
   """

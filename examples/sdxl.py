@@ -3,24 +3,22 @@
 # Stability-AI/generative-models | MIT     | https://github.com/Stability-AI/generative-models/blob/fbdc58cab9f4ee2be7a5e1f2e2787ecd9311942f/LICENSE-CODE
 # mlfoundations/open_clip        | MIT     | https://github.com/mlfoundations/open_clip/blob/58e4e39aaabc6040839b0d2a7e8bf20979e4558a/LICENSE
 
-import argparse
-import tempfile
-import time
+from tinygrad import Tensor, TinyJit, dtypes, GlobalCounters
+from tinygrad.nn import Conv2d, GroupNorm
+from tinygrad.nn.state import safe_load, load_state_dict
+from tinygrad.helpers import fetch, trange, colored, Timing, getenv
+from extra.models.clip import Embedder, FrozenClosedClipEmbedder, FrozenOpenClipEmbedder
+from extra.models.unet import UNetModel, Upsample, Downsample, timestep_embedding
+from extra.bench_log import BenchEvent, WallTimeEvent
+from examples.stable_diffusion import ResnetBlock, Mid
+import numpy as np
+
+from typing import Dict, List, Callable, Optional, Any, Set, Tuple, Union, Type
+import argparse, tempfile, time
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type, Union
-
-import numpy as np
 from PIL import Image
 
-from examples.stable_diffusion import Mid, ResnetBlock
-from extra.bench_log import BenchEvent, WallTimeEvent
-from extra.models.clip import Embedder, FrozenClosedClipEmbedder, FrozenOpenClipEmbedder
-from extra.models.unet import Downsample, UNetModel, Upsample, timestep_embedding
-from tinygrad import GlobalCounters, Tensor, TinyJit, dtypes
-from tinygrad.helpers import Timing, colored, fetch, getenv, trange
-from tinygrad.nn import Conv2d, GroupNorm
-from tinygrad.nn.state import load_state_dict, safe_load
 
 # configs:
 # https://github.com/Stability-AI/generative-models/blob/fbdc58cab9f4ee2be7a5e1f2e2787ecd9311942f/configs/inference/sd_xl_base.yaml

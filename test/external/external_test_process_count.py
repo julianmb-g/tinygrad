@@ -1,7 +1,4 @@
-import multiprocessing
-import os
-import sys
-import time
+import os, sys, time, multiprocessing
 
 N = int(os.environ.get("NPROC", str(os.cpu_count())))
 DEVICE = os.environ.get("DEV", "AMD")
@@ -38,7 +35,6 @@ if __name__ == "__main__":
   # launch n proc of proc 1 per 200 ms
   for i in range(N):
     p = multiprocessing.Process(target=proc, args=(i, DEVICE, stop_evt), name=f"tinygrad-proc-{i}")
-    p.daemon = True
     p.start()
     procs.append(p)
     time.sleep(0.1)  # 100 ms between launches

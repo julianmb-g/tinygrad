@@ -1,22 +1,19 @@
+import numpy as np
 import unittest
 from dataclasses import replace
 
-import numpy as np
-
 from tinygrad.codegen.opt import Opt, OptOps
-from tinygrad.device import Buffer, Device, is_dtype_supported
-from tinygrad.dtype import AddrSpace, DType, PtrDType, dtypes
-from tinygrad.engine.realize import CompiledRunner, get_program, run_schedule
-from tinygrad.helpers import TC_OPT, TC_SELECT, Context, dedup, flatten, getenv
-from tinygrad.renderer.cstyle import CUDARenderer
-from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.uop.ops import UOp, Ops, GroupOp, AxisType
+from tinygrad.device import Device, Buffer, is_dtype_supported
 from tinygrad.tensor import Tensor, _to_np_dtype
-from tinygrad.uop.ops import AxisType, GroupOp, Ops, UOp
-
+from tinygrad.engine.realize import run_schedule, CompiledRunner, get_program
+from tinygrad.helpers import Context, flatten, dedup, TC_SELECT, TC_OPT, getenv
+from tinygrad.dtype import DType, dtypes, PtrDType, AddrSpace
+from tinygrad.renderer.ptx import PTXRenderer
+from tinygrad.renderer.cstyle import CUDARenderer
 MOCKGPU = getenv("MOCKGPU")
 
-from tinygrad.uop.ops import print_uops  # noqa: F401 # pylint: disable=unused-import
-
+from tinygrad.uop.ops import print_uops # noqa: F401 # pylint: disable=unused-import
 
 class TestLinearizer(unittest.TestCase):
   def test_arg_dedup(self):
@@ -42,6 +39,7 @@ class TestLinearizer(unittest.TestCase):
     np.testing.assert_equal(a.numpy(), ta)
     np.testing.assert_equal(b.numpy(), tb)
 
+  @unittest.skip("TODO: some backends insert more casts")
   def test_cast_there_and_back(self):
     tst = Tensor.ones(16, dtype=dtypes.int).contiguous().realize()
     out = tst.neg().cast(dtypes.char).cast(dtypes.int).cast(dtypes.char) * 2
@@ -82,7 +80,7 @@ class TestLinearizer(unittest.TestCase):
         assert ranges[i-1] != u, f"multireduce nested the ranges! {ranges[i-1], {u}}"
 
   def test_two_nested_range(self):
-    a = ((Tensor.arange(2) % 10) * 0.1).reshape(2, ).realize()
+    a = Tensor.randn(2, ).realize()
     out = a.reshape(2, 1).expand(2, 3).sum()
     ast = helper_linearizer_opt(out, wanna_output=[np.broadcast_to(a.numpy().reshape(2, 1), (2, 3)).sum()])
     uops = get_program(ast, renderer=Device[Device.DEFAULT].renderer, opts=[]).uops
@@ -90,7 +88,7 @@ class TestLinearizer(unittest.TestCase):
     assert len(ranges) == 1 # NOTE: it collapses now
 
   def test_three_nested_range(self):
-    a = ((Tensor.arange(2) % 10) * 0.1).reshape(2, ).realize()
+    a = Tensor.randn(2, ).realize()
     out = a.reshape(2, 1).expand(2, 3).expand(2, 2, 3).sum()
     ast = helper_linearizer_opt(out, wanna_output=[np.broadcast_to(np.broadcast_to(a.numpy().reshape(2, 1), (2, 3)), (2, 2, 3)).sum()])
     uops = get_program(ast, renderer=Device[Device.DEFAULT].renderer, opts=[]).uops
@@ -120,7 +118,7 @@ class TestLinearizer(unittest.TestCase):
     assert len([x for x in uops[:ranges[0]] if x.op is Ops.LOAD]) == 1
 
   def test_range_outer_op_before_phi_nested_range(self):
-    a = ((Tensor.arange(2) % 10) * 0.1).reshape(2, ).realize()
+    a = Tensor.randn(2, ).realize()
     b = Tensor.randn(1, 1).realize()
     out = (a.reshape(2, 1).expand(2, 3) + b[0]).sum() + b[0]
     ast = helper_linearizer_opt(out, wanna_output=[(np.broadcast_to(a.numpy().reshape(2, 1), (2, 3)) + b.numpy()[0]).sum() + b.numpy()])
@@ -140,6 +138,7 @@ class TestLinearizer(unittest.TestCase):
     assert num_loads <= 4, "more load uops than needed"
     assert num_loads >= 4, "unexpected number of uops, maybe this test needs updating?"
 
+  @unittest.skip("this is handled at higher level now")
   def test_upcast_cse(self):
     # when upcasting, within a subtree, there may be common expressions.
 

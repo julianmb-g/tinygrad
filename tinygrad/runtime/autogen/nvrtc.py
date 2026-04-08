@@ -1,13 +1,10 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
-
 import ctypes
-import sysconfig
 from typing import Annotated, Literal, TypeAlias
-
+from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
 from tinygrad.runtime.support import c
-from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
-
+import sysconfig
 dll = c.DLL('nvrtc', 'nvrtc', [f'/{pre}/cuda/targets/{sysconfig.get_config_vars().get("MULTIARCH", "").rsplit("-", 1)[0]}/lib' for pre in ['opt', 'usr/local']])
 class nvrtcResult(Annotated[int, ctypes.c_uint32], c.Enum): pass
 NVRTC_SUCCESS = nvrtcResult.define('NVRTC_SUCCESS', 0)
@@ -31,7 +28,7 @@ def nvrtcVersion(major:c.POINTER[Annotated[int, ctypes.c_int32]], minor:c.POINTE
 def nvrtcGetNumSupportedArchs(numArchs:c.POINTER[Annotated[int, ctypes.c_int32]]) -> nvrtcResult: ...
 @dll.bind
 def nvrtcGetSupportedArchs(supportedArchs:c.POINTER[Annotated[int, ctypes.c_int32]]) -> nvrtcResult: ...
-class struct__nvrtcProgram(ctypes.Structure): pass
+class struct__nvrtcProgram(c.Struct): SIZE = 0
 nvrtcProgram: TypeAlias = c.POINTER[struct__nvrtcProgram]
 @dll.bind
 def nvrtcCreateProgram(prog:c.POINTER[nvrtcProgram], src:c.POINTER[Annotated[bytes, ctypes.c_char]], name:c.POINTER[Annotated[bytes, ctypes.c_char]], numHeaders:Annotated[int, ctypes.c_int32], headers:c.POINTER[c.POINTER[Annotated[bytes, ctypes.c_char]]], includeNames:c.POINTER[c.POINTER[Annotated[bytes, ctypes.c_char]]]) -> nvrtcResult: ...

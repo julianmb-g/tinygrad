@@ -1,10 +1,8 @@
 import heapq
-from collections import defaultdict
 from typing import Any
-
-from tinygrad.helpers import TUPLE_ORDER, getenv, prod
-from tinygrad.uop.ops import Ops, PatternMatcher, UOp, UPat, multirange_str
-
+from collections import defaultdict
+from tinygrad.uop.ops import PatternMatcher, UOp, Ops, UPat, multirange_str
+from tinygrad.helpers import prod, getenv, TUPLE_ORDER
 
 def linearize(sink:UOp) -> list[UOp]:
   # this is a toposort with priority

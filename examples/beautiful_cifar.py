@@ -1,12 +1,10 @@
 import time
-
 start_tm = time.perf_counter()
 import math
 from typing import Tuple, cast
-
+from tinygrad import Tensor, nn, GlobalCounters, TinyJit, dtypes, Device
+from tinygrad.helpers import partition, trange, getenv, Context
 from extra.lr_scheduler import OneCycleLR
-from tinygrad import Device, GlobalCounters, Tensor, TinyJit, dtypes, nn
-from tinygrad.helpers import Context, getenv, partition, trange
 
 GPUS = [f'{Device.DEFAULT}:{i}' for i in range(getenv("GPUS", 1))]
 

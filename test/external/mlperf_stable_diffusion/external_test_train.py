@@ -1,11 +1,8 @@
-import os
-import unittest
+import unittest, os
 from tempfile import TemporaryDirectory
-
-from examples.mlperf.model_train import train_stable_diffusion
 from tinygrad import Tensor
 from tinygrad.helpers import getenv
-
+from examples.mlperf.model_train import train_stable_diffusion
 
 class TestTrain(unittest.TestCase):
   def test_train_to_ckpt(self):

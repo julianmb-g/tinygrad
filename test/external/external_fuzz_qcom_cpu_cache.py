@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
-import numpy as np
-
 from tinygrad.tensor import Tensor
+import numpy as np
 
 while True:
   arr = np.ones(1000000, dtype=np.uint8)

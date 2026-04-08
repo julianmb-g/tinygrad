@@ -6,15 +6,8 @@
 #   arg=3: lds - local data share
 #   arg=4: scratch - per-lane scratch memory
 from __future__ import annotations
-
-import ctypes
-import functools
-import platform
-import re
-import subprocess
-import tempfile
+import ctypes, functools, re, platform, subprocess, tempfile
 from typing import Callable
-
 
 # Set/restore DAZ+FTZ (denormals-are-zero + flush-to-zero) to match RDNA3 default float mode
 # x86: MXCSR bits DAZ(6)+FTZ(15), ARM64: FPCR bit FZ(24)
@@ -61,17 +54,18 @@ class _MXCSRContext:
 from tinygrad.uop.ops import UOp, Ops, KernelInfo, AxisType
 from tinygrad.dtype import dtypes, AddrSpace
 from tinygrad.device import Buffer, BufferSpec
-from tinygrad.engine.realize import get_runner
-from tinygrad.helpers import DEBUG, PROFILE, Context, colored
-from tinygrad.renderer.amd import decode_inst
-from tinygrad.renderer.amd.dsl import EXEC_LO, SCC, VCC_LO, ttmp
 from tinygrad.runtime.autogen import hsa
-from tinygrad.runtime.autogen.amd.rdna3 import ins as ir3
-from tinygrad.runtime.autogen.amd.rdna4 import ins as ir4
-from tinygrad.runtime.autogen.amd.cdna import ins as irc
+from tinygrad.helpers import Context, DEBUG, PROFILE, colored
+from tinygrad.engine.realize import get_runner
+
+from tinygrad.renderer.amd import decode_inst
 from tinygrad.runtime.autogen.amd.rdna3.str_pcode import PCODE as PCODE_RDNA3
 from tinygrad.runtime.autogen.amd.rdna4.str_pcode import PCODE as PCODE_RDNA4
 from tinygrad.runtime.autogen.amd.cdna.str_pcode import PCODE as PCODE_CDNA
+from tinygrad.runtime.autogen.amd.rdna3 import ins as ir3
+from tinygrad.runtime.autogen.amd.rdna4 import ins as ir4
+from tinygrad.runtime.autogen.amd.cdna import ins as irc
+from tinygrad.renderer.amd.dsl import VCC_LO, EXEC_LO, SCC, ttmp
 from tinygrad.runtime.autogen.amd.common import Fmt, OpType
 from test.mockgpu.amd.pcode import parse_block, _FUNCS, _set_bits, _val_to_bits
 
@@ -85,7 +79,7 @@ MASK32 = 0xFFFFFFFF
 sqtt_traces: list[bytes] = []
 
 # Encoder primitives
-from tinygrad.renderer.amd.sqtt import IMMEDIATE, INST, LAYOUT_HEADER, PACKET_TYPES_RDNA3, VALUINST, WAVEEND, WAVESTART, InstOp, _build_decode_tables
+from tinygrad.renderer.amd.sqtt import _build_decode_tables, PACKET_TYPES_RDNA3, LAYOUT_HEADER, WAVESTART, WAVEEND, INST, IMMEDIATE, VALUINST, InstOp
 
 _NIB_COUNTS: dict = {cls: nc for _, (cls, nc, *_) in _build_decode_tables(PACKET_TYPES_RDNA3)[0].items()}
 
@@ -105,10 +99,9 @@ def _nibbles_to_bytes(nibbles: list[int]) -> bytes:
 
 def _init_sqtt_encoder():
   """Initialize and return SQTT encoder state. Called once per dispatch with tracing enabled."""
-  import re
-
   from tinygrad.runtime.autogen.amd.rdna3.enum import SOPPOp as SOPPOp3
   from tinygrad.runtime.autogen.amd.rdna4.enum import SOPPOp as SOPPOp4
+  import re
 
   _SOPP = (ir3.SOPP, ir4.SOPP, irc.SOPP)
   _SMEM = (ir3.SMEM, ir4.SMEM, irc.SMEM)
@@ -2084,16 +2077,18 @@ def _init_wave(lib: int, wave_start: int, total_threads: int, lx: int, ly: int, 
   else:
     st._write_sgpr(0, args_ptr & MASK32)
     st._write_sgpr(1, (args_ptr >> 32) & MASK32)
-  sgpr_idx = (rsrc2 & hsa.AMD_COMPUTE_PGM_RSRC_TWO_USER_SGPR_COUNT) >> hsa.AMD_COMPUTE_PGM_RSRC_TWO_USER_SGPR_COUNT_SHIFT
-  for enabled, gid in [(hsa.AMD_COMPUTE_PGM_RSRC_TWO_ENABLE_SGPR_WORKGROUP_ID_X, gidx),
-                       (hsa.AMD_COMPUTE_PGM_RSRC_TWO_ENABLE_SGPR_WORKGROUP_ID_Y, gidy),
-                       (hsa.AMD_COMPUTE_PGM_RSRC_TWO_ENABLE_SGPR_WORKGROUP_ID_Z, gidz)]:
-    if rsrc2 & enabled:
-      st._write_sgpr(sgpr_idx, gid)
-      sgpr_idx += 1
   if arch == "rdna4":
+    # workgroup IDs only exist in ttmp registers, not normal SGPRs
     st._write_sgpr(ttmp[7].offset, (gidy & 0xFFFF) | ((gidz & 0xFFFF) << 16))
     st._write_sgpr(ttmp[9].offset, gidx)
+  else:
+    sgpr_idx = (rsrc2 & hsa.AMD_COMPUTE_PGM_RSRC_TWO_USER_SGPR_COUNT) >> hsa.AMD_COMPUTE_PGM_RSRC_TWO_USER_SGPR_COUNT_SHIFT
+    for enabled, gid in [(hsa.AMD_COMPUTE_PGM_RSRC_TWO_ENABLE_SGPR_WORKGROUP_ID_X, gidx),
+                         (hsa.AMD_COMPUTE_PGM_RSRC_TWO_ENABLE_SGPR_WORKGROUP_ID_Y, gidy),
+                         (hsa.AMD_COMPUTE_PGM_RSRC_TWO_ENABLE_SGPR_WORKGROUP_ID_Z, gidz)]:
+      if rsrc2 & enabled:
+        st._write_sgpr(sgpr_idx, gid)
+        sgpr_idx += 1
   for lane in range(n_lanes):
     tid = wave_start + lane
     st._write_vgpr(0, lane, ((tid // (lx * ly)) << 20) | (((tid // lx) % ly) << 10) | (tid % lx))

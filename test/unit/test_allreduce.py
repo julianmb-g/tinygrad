@@ -1,9 +1,7 @@
 import unittest
-
 from tinygrad import Tensor
 from tinygrad.helpers import Context
 from tinygrad.uop.ops import Ops
-
 
 class TestRingAllReduce(unittest.TestCase):
   def test_schedule_ring(self):

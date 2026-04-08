@@ -1,9 +1,7 @@
 #!/usr/bin/env python
 import unittest
-
-from tinygrad import Device
 from tinygrad.tensor import Tensor
-
+from tinygrad import Device
 
 class TestKernelCache(unittest.TestCase):
   def test_kernel_cache_in_action(self):

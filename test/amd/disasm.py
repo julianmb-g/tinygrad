@@ -1,9 +1,7 @@
 # RDNA3/RDNA4/CDNA disassembler
 from __future__ import annotations
-
 import re
 from typing import Callable
-
 from tinygrad.renderer.amd.dsl import Inst, Reg
 
 # Special register mappings for disassembly
@@ -83,83 +81,17 @@ def _num_srcs(inst) -> int:
 # IMPORTS
 # ═══════════════════════════════════════════════════════════════════════════════
 
+from tinygrad.runtime.autogen.amd.rdna3.ins import (VOP1, VOP1_SDST, VOP1_SDST_LIT, VOP1_LIT, VOP2, VOP2_LIT, VOP3, VOP3_SDST, VOP3_SDST_LIT,
+  VOP3_LIT, VOP3SD, VOP3SD_LIT, VOP3P, VOP3P_LIT, VOPC, VOPC_LIT, VOPD, VOPD_LIT, VINTERP, SOP1, SOP1_LIT, SOP2, SOP2_LIT, SOPC, SOPC_LIT,
+  SOPK, SOPK_LIT, SOPP, SMEM, DS, FLAT, GLOBAL, SCRATCH, VOP2Op, VOPDOp, SOPPOp, HWREG, MSG)
+from tinygrad.runtime.autogen.amd.rdna4.ins import (VOP1 as R4_VOP1, VOP1_SDST as R4_VOP1_SDST,
+  VOP1_SDST_LIT as R4_VOP1_SDST_LIT, VOP1_LIT as R4_VOP1_LIT,
+  VOP2 as R4_VOP2, VOP2_LIT as R4_VOP2_LIT, VOP3 as R4_VOP3, VOP3_SDST as R4_VOP3_SDST, VOP3_SDST_LIT as R4_VOP3_SDST_LIT, VOP3_LIT as R4_VOP3_LIT,
+  VOP3SD as R4_VOP3SD, VOP3SD_LIT as R4_VOP3SD_LIT, VOP3P as R4_VOP3P, VOP3P_LIT as R4_VOP3P_LIT, VOPC as R4_VOPC, VOPC_LIT as R4_VOPC_LIT,
+  VOPD as R4_VOPD, VOPD_LIT as R4_VOPD_LIT, VINTERP as R4_VINTERP, SOP1 as R4_SOP1, SOP1_LIT as R4_SOP1_LIT, SOP2 as R4_SOP2, SOP2_LIT as R4_SOP2_LIT,
+  SOPC as R4_SOPC, SOPC_LIT as R4_SOPC_LIT, SOPK as R4_SOPK, SOPK_LIT as R4_SOPK_LIT, SOPP as R4_SOPP, SMEM as R4_SMEM, DS as R4_DS,
+  VOPDOp as R4_VOPDOp, HWREG as HWREG_RDNA4, VFLAT as R4_FLAT, VGLOBAL as R4_GLOBAL, VSCRATCH as R4_SCRATCH)
 from tinygrad.runtime.autogen.amd.cdna.ins import HWREG as HWREG_CDNA
-from tinygrad.runtime.autogen.amd.rdna3.ins import (
-  DS,
-  FLAT,
-  GLOBAL,
-  HWREG,
-  MSG,
-  SCRATCH,
-  SMEM,
-  SOP1,
-  SOP1_LIT,
-  SOP2,
-  SOP2_LIT,
-  SOPC,
-  SOPC_LIT,
-  SOPK,
-  SOPK_LIT,
-  SOPP,
-  VINTERP,
-  VOP1,
-  VOP1_LIT,
-  VOP1_SDST,
-  VOP1_SDST_LIT,
-  VOP2,
-  VOP2_LIT,
-  VOP3,
-  VOP3_LIT,
-  VOP3_SDST,
-  VOP3_SDST_LIT,
-  VOP3P,
-  VOP3P_LIT,
-  VOP3SD,
-  VOP3SD_LIT,
-  VOPC,
-  VOPC_LIT,
-  VOPD,
-  VOPD_LIT,
-  SOPPOp,
-  VOP2Op,
-  VOPDOp,
-)
-from tinygrad.runtime.autogen.amd.rdna4.ins import DS as R4_DS
-from tinygrad.runtime.autogen.amd.rdna4.ins import HWREG as HWREG_RDNA4
-from tinygrad.runtime.autogen.amd.rdna4.ins import SMEM as R4_SMEM
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOP1 as R4_SOP1
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOP1_LIT as R4_SOP1_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOP2 as R4_SOP2
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOP2_LIT as R4_SOP2_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOPC as R4_SOPC
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOPC_LIT as R4_SOPC_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOPK as R4_SOPK
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOPK_LIT as R4_SOPK_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import SOPP as R4_SOPP
-from tinygrad.runtime.autogen.amd.rdna4.ins import VFLAT as R4_FLAT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VGLOBAL as R4_GLOBAL
-from tinygrad.runtime.autogen.amd.rdna4.ins import VINTERP as R4_VINTERP
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP1 as R4_VOP1
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP1_LIT as R4_VOP1_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP1_SDST as R4_VOP1_SDST
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP1_SDST_LIT as R4_VOP1_SDST_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP2 as R4_VOP2
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP2_LIT as R4_VOP2_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3 as R4_VOP3
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3_LIT as R4_VOP3_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3_SDST as R4_VOP3_SDST
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3_SDST_LIT as R4_VOP3_SDST_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3P as R4_VOP3P
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3P_LIT as R4_VOP3P_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3SD as R4_VOP3SD
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3SD_LIT as R4_VOP3SD_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOPC as R4_VOPC
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOPC_LIT as R4_VOPC_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOPD as R4_VOPD
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOPD_LIT as R4_VOPD_LIT
-from tinygrad.runtime.autogen.amd.rdna4.ins import VSCRATCH as R4_SCRATCH
-from tinygrad.runtime.autogen.amd.rdna4.ins import VOPDOp as R4_VOPDOp
-
 
 def _is_cdna(inst: Inst) -> bool: return 'cdna' in inst.__class__.__module__
 def _is_r4(inst: Inst) -> bool: return 'rdna4' in inst.__class__.__module__
@@ -708,39 +640,15 @@ def disasm(inst: Inst) -> str: return DISASM_HANDLERS[type(inst)](inst)
 # CDNA DISASSEMBLER SUPPORT
 # ═══════════════════════════════════════════════════════════════════════════════
 
-from tinygrad.runtime.autogen.amd.cdna.ins import DS as CDNA_DS
-from tinygrad.runtime.autogen.amd.cdna.ins import FLAT as CDNA_FLAT
-from tinygrad.runtime.autogen.amd.cdna.ins import GLOBAL as CDNA_GLOBAL
-from tinygrad.runtime.autogen.amd.cdna.ins import MUBUF as CDNA_MUBUF
-from tinygrad.runtime.autogen.amd.cdna.ins import SCRATCH as CDNA_SCRATCH
-from tinygrad.runtime.autogen.amd.cdna.ins import SMEM as CDNA_SMEM
-from tinygrad.runtime.autogen.amd.cdna.ins import SOP1 as CDNA_SOP1
-from tinygrad.runtime.autogen.amd.cdna.ins import SOP1_LIT as CDNA_SOP1_LIT
-from tinygrad.runtime.autogen.amd.cdna.ins import SOP2 as CDNA_SOP2
-from tinygrad.runtime.autogen.amd.cdna.ins import SOP2_LIT as CDNA_SOP2_LIT
-from tinygrad.runtime.autogen.amd.cdna.ins import SOPC as CDNA_SOPC
-from tinygrad.runtime.autogen.amd.cdna.ins import SOPC_LIT as CDNA_SOPC_LIT
-from tinygrad.runtime.autogen.amd.cdna.ins import SOPK as CDNA_SOPK
-from tinygrad.runtime.autogen.amd.cdna.ins import SOPK_LIT as CDNA_SOPK_LIT
-from tinygrad.runtime.autogen.amd.cdna.ins import SOPP as CDNA_SOPP
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP1 as CDNA_VOP1
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP1_DPP16 as CDNA_VOP1_DPP16
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP1_LIT as CDNA_VOP1_LIT
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP1_SDWA as CDNA_VOP1_SDWA
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP2 as CDNA_VOP2
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP2_DPP16 as CDNA_VOP2_DPP16
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP2_LIT as CDNA_VOP2_LIT
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP2_SDWA as CDNA_VOP2_SDWA
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP3 as CDNA_VOP3
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP3_SDST as CDNA_VOP3_SDST
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP3P as CDNA_VOP3P
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP3P_MFMA as CDNA_VOP3P_MFMA
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP3PX2 as CDNA_VOP3PX2
-from tinygrad.runtime.autogen.amd.cdna.ins import VOP3SD as CDNA_VOP3SD
-from tinygrad.runtime.autogen.amd.cdna.ins import VOPC as CDNA_VOPC
-from tinygrad.runtime.autogen.amd.cdna.ins import VOPC_LIT as CDNA_VOPC_LIT
-from tinygrad.runtime.autogen.amd.cdna.ins import VOPC_SDWA_SDST as CDNA_VOPC_SDWA_SDST
-
+from tinygrad.runtime.autogen.amd.cdna.ins import (VOP1 as CDNA_VOP1, VOP1_LIT as CDNA_VOP1_LIT,
+  VOP1_SDWA as CDNA_VOP1_SDWA, VOP1_DPP16 as CDNA_VOP1_DPP16,
+  VOP2 as CDNA_VOP2, VOP2_LIT as CDNA_VOP2_LIT, VOP2_SDWA as CDNA_VOP2_SDWA, VOP2_DPP16 as CDNA_VOP2_DPP16,
+  VOPC as CDNA_VOPC, VOPC_LIT as CDNA_VOPC_LIT, VOPC_SDWA_SDST as CDNA_VOPC_SDWA_SDST,
+  VOP3 as CDNA_VOP3, VOP3_SDST as CDNA_VOP3_SDST, VOP3SD as CDNA_VOP3SD, VOP3P as CDNA_VOP3P, VOP3P_MFMA as CDNA_VOP3P_MFMA, VOP3PX2 as CDNA_VOP3PX2,
+  SOP1 as CDNA_SOP1, SOP1_LIT as CDNA_SOP1_LIT, SOP2 as CDNA_SOP2, SOP2_LIT as CDNA_SOP2_LIT,
+  SOPC as CDNA_SOPC, SOPC_LIT as CDNA_SOPC_LIT, SOPK as CDNA_SOPK, SOPK_LIT as CDNA_SOPK_LIT,
+  SOPP as CDNA_SOPP, SMEM as CDNA_SMEM, DS as CDNA_DS,
+  FLAT as CDNA_FLAT, GLOBAL as CDNA_GLOBAL, SCRATCH as CDNA_SCRATCH, MUBUF as CDNA_MUBUF)
 
 def _cdna_src(inst, v, neg, abs_=0, n=1):
   s = _lit(inst, v) if v == 255 else _fmt_src(v, n, cdna=True)

@@ -1,10 +1,8 @@
 import random
 from typing import Optional
-
-from test.external.external_test_am import FakeAM, helper_read_entry_components
 from tinygrad.helpers import round_up
 from tinygrad.runtime.support.am.amdev import AMPageTableTraverseContext
-
+from test.external.external_test_am import helper_read_entry_components, FakeAM
 
 class AMPTFuzzer:
   def __init__(self, total_size):

@@ -3,21 +3,17 @@
 #import typeguard.importhook
 #typeguard.importhook.install_import_hook('tinygrad')
 
-import argparse
-import json
-import sys
 from pathlib import Path
 from typing import List, Optional
-
-import tiktoken
-from sentencepiece import SentencePieceProcessor
-from tiktoken.load import load_tiktoken_bpe
-
-from extra.bench_log import BenchEvent, WallTimeEvent
+import argparse, json
+from tinygrad import Tensor, Device, GlobalCounters, nn
+from tinygrad.helpers import Context, Timing, Profiling, DEBUG, JIT, getenv, colored
+from tinygrad.nn.state import safe_load, torch_load, load_state_dict, get_parameters
 from extra.models.llama import Transformer, convert_from_huggingface, fix_bf16
-from tinygrad import Device, GlobalCounters, Tensor, nn
-from tinygrad.helpers import DEBUG, JIT, Context, Profiling, Timing, colored, getenv
-from tinygrad.nn.state import get_parameters, load_state_dict, safe_load, torch_load
+from sentencepiece import SentencePieceProcessor
+import tiktoken, sys
+from tiktoken.load import load_tiktoken_bpe
+from extra.bench_log import BenchEvent, WallTimeEvent
 
 MAX_CONTEXT = getenv("MAX_CONTEXT", 4096)
 

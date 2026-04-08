@@ -1,12 +1,9 @@
 from __future__ import annotations
-
-import ctypes
-import time
 from typing import Any
-
+import ctypes, time
+from tinygrad.runtime.autogen import cuda as orig_cuda
 from test.mockgpu.helpers import _try_dlopen_gpuocelot
 from tinygrad.helpers import mv_address
-from tinygrad.runtime.autogen import cuda as orig_cuda
 
 for attr in dir(orig_cuda):
   if not attr.startswith('__'):

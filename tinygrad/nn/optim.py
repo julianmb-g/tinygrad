@@ -1,16 +1,15 @@
 # sorted in order of increasing complexity
 import itertools
-
-from tinygrad.dtype import dtypes, least_upper_dtype, to_dtype
-from tinygrad.helpers import FUSE_OPTIM, dedup, flatten, getenv, unwrap
+from tinygrad.helpers import dedup, flatten, getenv, unwrap, FUSE_OPTIM
 from tinygrad.tensor import Tensor
-
+from tinygrad.dtype import dtypes, least_upper_dtype, to_dtype
 
 class Optimizer:
   """
   Base class for all optimizers.
   """
   def __init__(self, params: list[Tensor], lr: float, device=None, fused=FUSE_OPTIM):
+    if lr < 0: raise ValueError(f"Invalid learning rate: {lr}")
     # if requires_grad is None, but being put into an optimizer, set it to True
     for x in params:
       if x.requires_grad is None: x.requires_grad_(True)
@@ -85,38 +84,17 @@ def SGD(params: list[Tensor], lr=0.001, momentum=0.0, weight_decay=0.0, nesterov
   return LARS(params, lr, momentum, weight_decay, 0, None, nesterov, classic=classic, pre_wd=True, tcoef=0.0, device=device, fused=fused)
 
 # Muon applies the newton schulz algorithm on gradient. also can include momentum, nesterov, and weight decay
-class Muon(Optimizer):
+def Muon(params: list[Tensor], lr=0.001, momentum=0.95, weight_decay=0.1, ns_steps=5, ns_coefficients=(3.4445, -4.775, 2.0315),
+         nesterov=True, device=None, fused=FUSE_OPTIM):
   """
   SGD with newton-schulz iteration and post momentum weight decay.
 
   - Described: https://kellerjordan.github.io/posts/muon/
   - Paper: https://arxiv.org/pdf/2502.16982
   """
-  def __init__(self, params:list[Tensor], lr=0.001, momentum=0.95, weight_decay=0.1, ns_steps=5, ns_coefficients=(3.4445, -4.775, 2.0315),
-               nesterov=True, device=None, fused=False):
-    super().__init__(params, lr, device, fused)
-    assert not fused, "FUSE_OPTIM not allowed for Muon optimizer"
-    self.momentum, self.wd, self.ns_steps, self.ns_coefficients = momentum, weight_decay, ns_steps, ns_coefficients
-    self.nesterov = nesterov
-    self.b = self._new_optim_param() if self.momentum else []
-
-  def _step(self, params:list[Tensor], grads:list[Tensor]) -> tuple[list[Tensor], list[Tensor]]:
-    ret = []
-    for i, (t, g) in enumerate(zip(params, grads)):
-      if self.momentum:
-        self.b[i].assign(self.momentum * self.b[i] + (1.0 - self.momentum) * g)
-        g = ((1.0 - self.momentum) * g + self.momentum * self.b[i]) if self.nesterov else self.b[i]
-      if self.ns_coefficients:
-        g = g.reshape(g.shape[0], -1).newton_schulz(self.ns_steps, self.ns_coefficients).reshape(g.shape)
-      ratio = max(1.0, t.shape[0] / t.shape[1]) if len(t.shape) >= 2 else 1.0
-      adjusted_lr = self.lr * (ratio ** 0.5)
-
-      up = g * adjusted_lr
-      if self.wd > 0:
-        up = up + t.detach() * self.wd * self.lr
-
-      ret.append(up.cast(t.dtype))
-    return ret, self.b
+  assert not fused, "FUSE_OPTIM not allowed for Muon optimizer"
+  return LARS(params, lr, momentum, weight_decay, ns_steps, ns_coefficients, nesterov,
+              classic=False, pre_wd=False, tcoef=0.0, device=None, fused=fused)
 
 class LARS(Optimizer):
   """
@@ -126,6 +104,7 @@ class LARS(Optimizer):
   """
   def __init__(self, params:list[Tensor], lr=0.001, momentum=0.9, weight_decay=1e-4, ns_steps=0, ns_coefficients=None,
                nesterov=False, classic=True, pre_wd=True, tcoef=0.001, device=None, fused=FUSE_OPTIM):
+    if momentum < 0: raise ValueError(f"Invalid momentum value: {momentum}")
     super().__init__(params, lr, device, fused)
     self.momentum, self.wd, self.ns_steps, self.ns_coefficients  = momentum, weight_decay, ns_steps, ns_coefficients
     self.nesterov, self.classic, self.pre_wd, self.tcoef = nesterov, classic, pre_wd, tcoef
@@ -176,6 +155,7 @@ class LAMB(Optimizer):
   - Paper: https://arxiv.org/abs/1904.00962
   """
   def __init__(self, params: list[Tensor], lr=0.001, b1=0.9, b2=0.999, eps=1e-6, weight_decay=0.0, adam=False, device=None, fused=FUSE_OPTIM):
+    if weight_decay < 0: raise ValueError(f"Invalid weight_decay value: {weight_decay}")
     super().__init__(params, lr, device, fused)
     self.b1, self.b2, self.eps, self.wd, self.adam = b1, b2, eps, weight_decay, adam
     self.b1_t, self.b2_t = (Tensor.ones((1,), dtype=dtypes.float32, device=self.device, requires_grad=False) for _ in [b1, b2])

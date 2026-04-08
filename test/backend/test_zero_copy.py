@@ -1,8 +1,6 @@
-import time
 import unittest
-
-from tinygrad import Tensor
-
+from tinygrad import Tensor, Device
+import time
 
 def time_tensor_numpy(out:Tensor):
   times = []
@@ -15,6 +13,7 @@ def time_tensor_numpy(out:Tensor):
 
 N = 4096
 class TestZeroCopy(unittest.TestCase):
+  @unittest.skipIf(Device.DEFAULT not in {"CPU", "METAL"}, "device isn't zero copy")
   def test_zero_copy_from_default_to_cpu(self):
     demo = Tensor.rand(1).realize()
     t1 = time_tensor_numpy(demo)
@@ -23,5 +22,6 @@ class TestZeroCopy(unittest.TestCase):
     gbps = out.nbytes()*1e-9/max(t2-t1, 1e-10)
     print(f"time(base): {t1*1e3:.2f} ms, time(copy): {t2*1e3:.2f} ms :  copy speed {gbps:.2f} GB/s")
     self.assertGreater(gbps, 600)  # more than 600 GB/s = no copy
+
 if __name__ == '__main__':
   unittest.main(verbosity=2)

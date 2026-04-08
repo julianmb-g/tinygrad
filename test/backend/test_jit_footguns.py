@@ -22,13 +22,10 @@ ERRORS RAISED (lower priority - at least users know):
   nested_jit_fails_on_second_call    MED    could fail on first call instead of second
 """
 import unittest
-
 import numpy as np
-
-from tinygrad import Device, Tensor, TinyJit
+from tinygrad import Tensor, TinyJit, Device
 from tinygrad.engine.jit import JitError
 from tinygrad.helpers import JIT
-
 
 class TestJitFootguns(unittest.TestCase):
 
@@ -201,7 +198,7 @@ class TestJitFootguns(unittest.TestCase):
     @TinyJit
     def f(a): return (a + 1).realize()
 
-    base = ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10).realize()
+    base = Tensor.randn(10, 10).realize()
     with self.assertRaises(JitError):
       for i in range(1, 5):
         f(base[:, i:i+2])  # different offset each time
@@ -211,11 +208,11 @@ class TestJitFootguns(unittest.TestCase):
     @TinyJit
     def f(a, b): return (a + b).realize()
 
-    f(((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10), ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10))  # warmup
-    f(((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10), ((Tensor.arange(10*10) % 10) * 0.1).reshape(10, 10))  # capture
+    f(Tensor.randn(10, 10), Tensor.randn(10, 10))  # warmup
+    f(Tensor.randn(10, 10), Tensor.randn(10, 10))  # capture
 
     with self.assertRaises(JitError):
-      f(((Tensor.arange(20*20) % 10) * 0.1).reshape(20, 20), ((Tensor.arange(20*20) % 10) * 0.1).reshape(20, 20))
+      f(Tensor.randn(20, 20), Tensor.randn(20, 20))
 
   def test_python_constants_frozen(self):
     """Python variables inside JIT use capture-time values."""
@@ -367,7 +364,7 @@ class TestJitCorrectBehavior(unittest.TestCase):
     def f(a, b): return a + b  # no explicit realize
 
     for _ in range(5):
-      a, b = ((Tensor.arange(10) % 10) * 0.1).reshape(10), ((Tensor.arange(10) % 10) * 0.1).reshape(10)
+      a, b = Tensor.randn(10), Tensor.randn(10)
       np.testing.assert_allclose(f(a, b).numpy(), a.numpy() + b.numpy(), atol=1e-5)
 
   def test_kwargs_order_doesnt_matter(self):
@@ -376,7 +373,7 @@ class TestJitCorrectBehavior(unittest.TestCase):
     def f(first, second): return (first / second).realize()
 
     for _ in range(3):
-      a, b = ((Tensor.arange(10) % 10) * 0.1).reshape(10), ((Tensor.arange(10) % 10) * 0.1).reshape(10) + 1
+      a, b = Tensor.randn(10), Tensor.randn(10) + 1
       np.testing.assert_allclose(f(second=b, first=a).numpy(), a.numpy() / b.numpy(), atol=1e-4)
       np.testing.assert_allclose(f(first=a, second=b).numpy(), a.numpy() / b.numpy(), atol=1e-4)
 

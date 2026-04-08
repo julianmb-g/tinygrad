@@ -1,7 +1,5 @@
 import unittest
-
-from tinygrad.uop.ops import BottomUpGate, Ops, PatternMatcher, UOp, UPat, graph_rewrite
-
+from tinygrad.uop.ops import PatternMatcher, UOp, graph_rewrite, Ops, UPat, BottomUpGate
 
 def assert_not_reached(): assert False, "This function should not be reached"
 def gate(): raise BottomUpGate

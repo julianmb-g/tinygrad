@@ -1,16 +1,13 @@
 #!/usr/bin/env python
 import os
 import unittest
-
 import numpy as np
-
 if 'IMAGE' not in os.environ:
   os.environ['IMAGE'] = '2'
 os.environ['CL'] = '1'
 os.environ['OPT'] = '2'
-from tinygrad.nn import Conv2d
 from tinygrad.tensor import Tensor
-
+from tinygrad.nn import Conv2d
 
 class TestImage(unittest.TestCase):
   def test_create_image(self):

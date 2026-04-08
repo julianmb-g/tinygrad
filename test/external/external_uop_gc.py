@@ -1,12 +1,10 @@
 import gc
-
-from test.test_tiny import TestTiny
-from tinygrad import Device, Tensor, UOp, nn
-from tinygrad.engine.realize import get_program, method_cache
+from tinygrad import Tensor, UOp, Device, nn
 from tinygrad.engine.schedule import schedule_cache
-from tinygrad.schedule.indexing import _apply_reshape, apply_movement_op
+from tinygrad.engine.realize import method_cache, get_program
+from tinygrad.schedule.indexing import apply_movement_op, _apply_reshape
 from tinygrad.uop.divandmod import fold_divmod_general
-
+from test.test_tiny import TestTiny
 
 def uops_allocated(): return sum([isinstance(x, UOp) for x in gc.get_objects()])
 def print_uops():

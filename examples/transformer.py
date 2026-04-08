@@ -1,13 +1,11 @@
 #!/usr/bin/env python3
+import numpy as np
 import random
 
-import numpy as np
-
-from extra.models.transformer import Transformer
-from extra.training import evaluate, train
-from tinygrad.nn.optim import Adam
 from tinygrad.nn.state import get_parameters
-
+from tinygrad.nn.optim import Adam
+from extra.training import train, evaluate
+from extra.models.transformer import Transformer
 
 # dataset idea from https://github.com/karpathy/minGPT/blob/master/projects/adder/adder.py
 def make_dataset():

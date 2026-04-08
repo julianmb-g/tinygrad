@@ -1,11 +1,8 @@
 #!/usr/bin/env python
 import pathlib
 import unittest
-
 import numpy as np
-
 from tinygrad.tensor import Tensor
-
 
 class TestVGG7(unittest.TestCase):
   def test_vgg7(self):

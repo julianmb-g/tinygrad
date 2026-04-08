@@ -1,7 +1,5 @@
 import sys
-
 import pytest
-
 
 @pytest.mark.skipif(sys.platform != "linux", reason="uses linux sysfs layout")
 def test_pci_scan_bus_filters_vendor(monkeypatch):

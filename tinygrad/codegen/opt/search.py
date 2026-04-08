@@ -1,43 +1,22 @@
-import atexit
-import functools
-import math
-import multiprocessing
-import signal
-import time
-import traceback
+import functools, math, time, multiprocessing, traceback, signal, atexit
 from dataclasses import replace
-
-from tinygrad.codegen import get_program
-from tinygrad.codegen.opt import KernelOptError, Opt, OptOps
-from tinygrad.codegen.opt.postrange import Scheduler
-from tinygrad.device import Buffer, Compiler, Device
-from tinygrad.engine.realize import CompiledRunner
-from tinygrad.helpers import (
-  CACHELEVEL,
-  DEBUG,
-  IGNORE_BEAM_CACHE,
-  Context,
-  colored,
-  diskcache_get,
-  diskcache_put,
-  flatten,
-  getenv,
-  init_worker_process_group,
-  prod,
-  time_to_str,
-  unwrap,
-)
-from tinygrad.renderer import ProgramSpec
+from tinygrad.uop.ops import sym_infer, AxisType, pyrender
+from tinygrad.device import Device, Buffer, Compiler
+from tinygrad.helpers import prod, flatten, DEBUG, CACHELEVEL, diskcache_get, diskcache_put, getenv, Context, colored, time_to_str, unwrap
+from tinygrad.helpers import IGNORE_BEAM_CACHE
+from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 from tinygrad.tensor import Tensor
-from tinygrad.uop.ops import AxisType, pyrender, sym_infer
+from tinygrad.engine.realize import CompiledRunner
+from tinygrad.codegen import get_program
+from tinygrad.renderer import ProgramSpec
+from tinygrad.codegen.opt.postrange import Scheduler
 
-actions = [Opt(op=OptOps.UPCAST, axis=axis, arg=amt) for amt in [0,2,3,4,5,7,8,16,32,64,128,256] for axis in range(8)]
-actions += [Opt(op=OptOps.UNROLL, axis=axis, arg=amt) for amt in [0,4,7,8,16,32,64,128,256] for axis in range(5)]
-actions += [Opt(op=OptOps.UPCAST, axis=axis, arg=amt) for amt in range(9, 64) for axis in range(8)]
+actions = [Opt(op=OptOps.UPCAST, axis=axis, arg=amt) for amt in [0,2,3,4,5,7] for axis in range(8)]
+actions += [Opt(op=OptOps.UNROLL, axis=axis, arg=amt) for amt in [0,4,7] for axis in range(5)]
 actions += [Opt(op=OptOps.LOCAL, axis=axis, arg=amt) for amt in [2,3,4,8,13,16,29] for axis in range(6)]
 actions += [Opt(op=OptOps.GROUPTOP, axis=axis, arg=amt) for amt in [13,16,28,29,32,49,64,256] for axis in range(3)]
 actions += [Opt(op=OptOps.GROUP, axis=axis, arg=amt) for amt in [0,4,8,16] for axis in range(3)]
-if getenv("BEAM_PADTO", 0): actions += [Opt(op=OptOps.PADTO, axis=axis, arg=amt) for amt in [2,4,8,16,32,64,128,256] for axis in range(8)]
+if getenv("BEAM_PADTO", 0): actions += [Opt(op=OptOps.PADTO, axis=axis, arg=amt) for amt in [32] for axis in range(7)]
 actions += [Opt(op=OptOps.LOCAL, axis=0, arg=32), Opt(op=OptOps.LOCAL, axis=6, arg=2)]
 actions += [Opt(op=OptOps.TC, axis=0, arg=(-1, 0, getenv("TC", 1)))]
 # covers resnet kernels (3 global * 3 reduce)
@@ -64,7 +43,7 @@ def _time_program(p:ProgramSpec, lib:bytes, var_vals:dict[str, int], rawbufs:lis
     global_size, factor = get_test_global_size(p.global_size, max_global_size, var_vals)
     p = replace(p, global_size=global_size)
   try: car = CompiledRunner(replace(p, lib=lib))
-  except (AssertionError, RuntimeError, TimeoutError, TimeoutException): return [math.inf] * cnt
+  except AssertionError: return [math.inf] * cnt
   tms = []
   input_bufs = [rawbufs[i] for i in car.p.globals]
   for _ in range(cnt):
@@ -107,51 +86,16 @@ def _try_compile(x:tuple[int,Scheduler], compiler:Compiler) -> tuple[int, tuple[
 
 # workers should not open devices and should ignore ctrl c and should not launch VIZ
 def _init_worker():
-  init_worker_process_group()
   Context(ALLOW_DEVICE_USAGE=0, VIZ=0, TRACK_MATCH_STATS=0).__enter__()
   signal.signal(signal.SIGINT, signal.SIG_IGN)
 
 def _ensure_buffer_alloc(bufs:list[Buffer]) -> list[Buffer]: return [buf.ensure_allocated() if buf is not None else buf for buf in bufs]
-
-from collections import OrderedDict
-
-class UOpAstHash:
-  def __init__(self, hash_0: int, hash_1: int, hash_2: int, hash_3: int):
-    self.hash_0, self.hash_1, self.hash_2, self.hash_3 = hash_0, hash_1, hash_2, hash_3
-  def __eq__(self, other):
-    if not isinstance(other, UOpAstHash): return False
-    return self.hash_0 == other.hash_0 and self.hash_1 == other.hash_1 and self.hash_2 == other.hash_2 and self.hash_3 == other.hash_3
-  def __hash__(self):
-    return hash((self.hash_0, self.hash_1, self.hash_2, self.hash_3))
-
-class UOpMemoizationCache:
-  def __init__(self, max_capacity: int = 65536):
-    self.max_capacity = max_capacity
-    self.cache: OrderedDict[UOpAstHash, float] = OrderedDict()
-  def get_empirical_cycles(self, ast_hash: UOpAstHash) -> float | None:
-    if ast_hash in self.cache:
-      self.cache.move_to_end(ast_hash)
-      return self.cache[ast_hash]
-    return None
-  def insert(self, ast_hash: UOpAstHash, mcycles: float):
-    self.cache[ast_hash] = mcycles
-    self.cache.move_to_end(ast_hash)
-    if len(self.cache) > self.max_capacity:
-      self.cache.popitem(last=False)
-
-GLOBAL_MEMOIZATION_CACHE = UOpMemoizationCache()
 
 # *** external API ***
 
 # get dictionary of all possible actions
 def get_kernel_actions(s:Scheduler, include_0=True, max_up:int|None=None) -> dict[int, Scheduler]:
   acted, max_up, max_lcl = {0:s} if include_0 else {}, getenv("BEAM_UPCAST_MAX", 256) if max_up is None else max_up, getenv("BEAM_LOCAL_MAX", 1024)
-
-  if hasattr(s.ren, "MAX_VR_COUNT"):
-    from tinygrad.uop.ops import GroupOp, Ops
-    allocated_vr = len([u for u in s.ast.toposort() if u.op in GroupOp.ALU or u.op is Ops.LOAD])
-    max_up = min(max_up, s.ren.MAX_VR_COUNT // max(1, allocated_vr))
-
   kernel_actions = actions.copy()
 
   for i,a in enumerate(kernel_actions):
@@ -176,7 +120,7 @@ def get_kernel_actions(s:Scheduler, include_0=True, max_up:int|None=None) -> dic
 beam_pool, BEAM_DEBUG = None, getenv("BEAM_DEBUG")
 def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True, disable_cache=IGNORE_BEAM_CACHE.value):
   global beam_pool
-  key = {"ast": s.ast.key, "amt": amt, "allow_test_size": allow_test_size, "device": s.ren.device, "suffix": s.ren.suffix}
+  key = {"ast": s.ast.key, "amt": amt, "allow_test_size": allow_test_size, "device": s.ren.target.device, "suffix": s.ren.suffix}
   if not disable_cache and CACHELEVEL >= 1 and (val:=diskcache_get("beam_search", key)) is not None:
     ret = s.copy()
     for o in val[len(s.applied_opts):]: ret.apply_opt(o)
@@ -185,7 +129,7 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
   beam: list[tuple[Scheduler, float]] = [(s, float("inf"))]
   seen_libs = set()
 
-  default_parallel = multiprocessing.cpu_count() if s.ren.device in {"CUDA", "AMD", "NV", "METAL", "HIP"} else 0
+  default_parallel = multiprocessing.cpu_count() if s.ren.target.device in {"CUDA", "AMD", "NV", "METAL", "HIP"} else 0
   if beam_pool is None and (workers := getenv("PARALLEL", default_parallel)):
     beam_pool = multiprocessing.get_context("spawn").Pool(workers, _init_worker, (), getenv("BEAM_MAX_TASKS_PER_CHILD", 16))
     @atexit.register
@@ -197,22 +141,11 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
     print(pyrender(s.ast.replace(arg=None)))
   if DEBUG >= 2: print(f"   0.00s:                from   1 ->   1 actions {s.colored_shape()}")
 
-  baseline_cycles = float("inf")
   try:
     rawbufs = _ensure_buffer_alloc(rawbufs)
     var_vals: dict[str, int] = {k.expr:int(k.vmax+k.vmin)//2 for k in s.ast.variables()}
     exiting, st = False, time.perf_counter()
-    dev = Device[s.ren.device]
-    if s.ren.device == "CORALNPU":
-      b_ret = _try_compile((0, s), compiler=dev.compiler)
-      if b_ret[1] is not None:
-        try:
-          b_tms = _time_program(b_ret[1][0], b_ret[1][1], var_vals, rawbufs, early_stop=1.0, allow_test_size=allow_test_size, clear_l2=hasattr(dev, 'invalidate_caches'), dev_timeout=getenv("BEAM_DEV_TIMEOUT", 1))  # noqa: E501
-          baseline_cycles = min(b_tms)
-          beam[0] = (s, baseline_cycles)
-        except Exception:
-          pass
-
+    dev = Device[s.ren.target.device]
     while not exiting:
       candidates: list[Scheduler] = flatten([get_kernel_actions(si, include_0=False).values() for si,_ in beam])
       timed: list[tuple[Scheduler, float]] = []
@@ -228,14 +161,6 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
           if getenv("BEAM_LOG_SURPASS_MAX"): print(f"too much compute. {this_compute_ops} when least is {least_compute_ops}")
           continue
         seen_libs.add(lib)
-
-        h = hash(p.src) if p.src else hash(lib)
-        ast_hash = UOpAstHash(h & 0xFFFFFFFF, (h >> 32) & 0xFFFFFFFF, 0, 0)
-        cached_tms = GLOBAL_MEMOIZATION_CACHE.get_empirical_cycles(ast_hash)
-        if cached_tms is not None and not disable_cache:
-          timed.append((candidates[i], cached_tms))
-          continue
-
         try: tms = _time_program(p, lib, var_vals, rawbufs, early_stop=beam[0][1]*3 if len(beam) else 1.0,
                                  allow_test_size=allow_test_size, clear_l2=hasattr(dev, 'invalidate_caches'),
                                  dev_timeout=getenv("BEAM_DEV_TIMEOUT", 1))
@@ -243,10 +168,7 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
           if BEAM_DEBUG: print(f"BEAM failed for opts: {candidates[i].applied_opts}\n{e}")
           if isinstance(e, RuntimeError): continue
           raise
-        best_tm = min(tms)
-        if not disable_cache:
-          GLOBAL_MEMOIZATION_CACHE.insert(ast_hash, best_tm)
-        timed.append((candidates[i], best_tm))
+        timed.append((candidates[i], min(tms)))
         if BEAM_DEBUG > 1:
           print(f"{time.perf_counter() - st:7.2f}s: {i:5d} {len(unwrap(p.uops)):5d} uops",
                 f"{time_to_str(compile_et, w=12)} compile/{time_to_str(timed[-1][1], w=12)} run",
@@ -266,11 +188,6 @@ def beam_search(s:Scheduler, rawbufs:list[Buffer], amt:int, allow_test_size=True
   except KeyboardInterrupt as e:
     if beam_pool is not None: beam_pool.terminate()
     raise e
-
-  if s.ren.device == "CORALNPU" and baseline_cycles != float("inf"):
-    optimized_cycles = beam[0][1]
-    if optimized_cycles > baseline_cycles * 1.05:
-      raise RuntimeError(f"Metric Degradation: Optimized cycles ({optimized_cycles}) > 1.05 * Baseline ({baseline_cycles})")
 
   if CACHELEVEL >= 1: diskcache_put("beam_search", key, beam[0][0].applied_opts)
   if BEAM_DEBUG: print(f"BEAM_SEARCH: final tm={time_to_str(beam[0][1], w=0)}, applied_opts={beam[0][0].applied_opts}")

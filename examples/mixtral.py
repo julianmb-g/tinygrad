@@ -1,13 +1,9 @@
-import argparse
-import functools
-import pathlib
-
-from extra.bench_log import BenchEvent, WallTimeEvent
+import functools, argparse, pathlib
+from tinygrad import Tensor, nn, Device, GlobalCounters, Variable
+from tinygrad.helpers import Timing, Profiling, CI, tqdm
+from tinygrad.nn.state import torch_load, get_state_dict
 from extra.models.llama import FeedForward, Transformer
-from tinygrad import Device, GlobalCounters, Tensor, Variable, nn
-from tinygrad.helpers import CI, Profiling, Timing, tqdm
-from tinygrad.nn.state import get_state_dict, torch_load
-
+from extra.bench_log import BenchEvent, WallTimeEvent
 
 class MixtureFeedForward:
   def __init__(self, num_experts:int, dim:int, hidden_dim:int, linear=nn.Linear):

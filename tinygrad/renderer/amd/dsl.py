@@ -144,8 +144,6 @@ class EnumBitField(BitField):
 # ══════════════════════════════════════════════════════════════
 
 import struct
-
-
 def _f32(f: float) -> int: return struct.unpack('I', struct.pack('f', f))[0]
 
 class SrcField(BitField):
@@ -238,11 +236,9 @@ class VDSTYField(BitField):
 # ══════════════════════════════════════════════════════════════
 
 import functools
-
-from tinygrad.runtime.autogen.amd.cdna.operands import OPERANDS as OPERANDS_CDNA
 from tinygrad.runtime.autogen.amd.rdna3.operands import OPERANDS as OPERANDS_RDNA3
 from tinygrad.runtime.autogen.amd.rdna4.operands import OPERANDS as OPERANDS_RDNA4
-
+from tinygrad.runtime.autogen.amd.cdna.operands import OPERANDS as OPERANDS_CDNA
 OPERANDS = {**OPERANDS_CDNA, **OPERANDS_RDNA3, **OPERANDS_RDNA4}
 
 # ══════════════════════════════════════════════════════════════
@@ -310,6 +306,9 @@ class Inst:
       elif name in kwargs: vals[name] = kwargs[name]
       else: vals[name] = next(args_iter, None)
     assert not (remaining := list(args_iter)), f"too many positional args: {remaining}"
+    known_field_names = [name for name,field in self._fields if not isinstance(field, FixedBitField)]
+    for name in kwargs:
+      if name not in known_field_names: raise TypeError(f"{self.__class__.__name__}() got an unexpected keyword argument {name!r}")
     # Extract modifiers from Reg objects and merge into neg/abs/opsel
     neg_bits, abs_bits, opsel_bits = 0, 0, 0
     for name, bit in [('src0', 0), ('src1', 1), ('src2', 2)]:

@@ -1,18 +1,11 @@
-import math
-import os
-import time
-
+import time, math, os
 start = time.perf_counter()
 from pathlib import Path
-
 import numpy as np
-
-from extra.bench_log import BenchEvent, WallTimeEvent
-from tinygrad import Device, GlobalCounters, Tensor, TinyJit, dtypes
-from tinygrad.helpers import Context, getenv, prod
+from tinygrad import Tensor, Device, dtypes, GlobalCounters, TinyJit
 from tinygrad.nn.state import get_parameters, load_state_dict, safe_load
-
-
+from tinygrad.helpers import getenv, Context, prod
+from extra.bench_log import BenchEvent, WallTimeEvent
 def tlog(x): print(f"{x:25s}  @ {time.perf_counter()-start:5.2f}s")
 
 def eval_resnet():
@@ -71,9 +64,9 @@ def eval_resnet():
 
 def eval_unet3d():
   # UNet3D
-  from examples.mlperf.metrics import dice_score
-  from extra.datasets.kits19 import get_val_files, iterate, sliding_window_inference
   from extra.models.unet3d import UNet3D
+  from extra.datasets.kits19 import iterate, sliding_window_inference, get_val_files
+  from examples.mlperf.metrics import dice_score
   mdl = UNet3D()
   mdl.load_from_pretrained()
   s = 0
@@ -89,15 +82,13 @@ def eval_unet3d():
 
 def eval_retinanet():
   # RetinaNet with ResNeXt50_32X4D
-  from contextlib import redirect_stdout
-
-  from pycocotools.coco import COCO
-  from pycocotools.cocoeval import COCOeval
-
   from examples.mlperf.dataloader import batch_load_retinanet
-  from extra.datasets.openimages import BASEDIR, download_dataset, normalize
+  from extra.datasets.openimages import normalize, download_dataset, BASEDIR
   from extra.models.resnet import ResNeXt50_32X4D
   from extra.models.retinanet import RetinaNet
+  from pycocotools.coco import COCO
+  from pycocotools.cocoeval import COCOeval
+  from contextlib import redirect_stdout
   tlog("imports")
 
   mdl = RetinaNet(ResNeXt50_32X4D())
@@ -154,8 +145,8 @@ def eval_rnnt():
   mdl = RNNT()
   mdl.load_from_pretrained()
 
-  from examples.mlperf.metrics import word_error_rate
   from extra.datasets.librispeech import iterate
+  from examples.mlperf.metrics import word_error_rate
 
   LABELS = [" ", "a", "b", "c", "d", "e", "f", "g", "h", "i", "j", "k", "l", "m", "n", "o", "p", "q", "r", "s", "t", "u", "v", "w", "x", "y", "z", "'"]
 
@@ -187,11 +178,10 @@ def eval_bert():
   def run(input_ids, input_mask, segment_ids):
     return mdl(input_ids, input_mask, segment_ids).realize()
 
-  from transformers import BertTokenizer
-
+  from extra.datasets.squad import iterate
   from examples.mlperf.helpers import get_bert_qa_prediction
   from examples.mlperf.metrics import f1_score
-  from extra.datasets.squad import iterate
+  from transformers import BertTokenizer
 
   tokenizer = BertTokenizer(str(Path(__file__).parents[2] / "extra/weights/bert_vocab.txt"))
 
@@ -215,8 +205,8 @@ def eval_bert():
     st = time.perf_counter()
 
 def eval_llama3():
-  from examples.llama3 import MODEL_PARAMS, convert_from_huggingface, load
   from extra.models.llama import Transformer
+  from examples.llama3 import MODEL_PARAMS, load, convert_from_huggingface
   from tinygrad.helpers import tqdm
 
   BASEDIR = Path(getenv("BASEDIR", "/raid/datasets/c4/"))
@@ -282,20 +272,17 @@ def vae_decode(x:Tensor, vae, disable_beam=False) -> Tensor:
   return x
 
 def eval_stable_diffusion():
-  import csv
-  import sys
-
-  import PIL
+  import csv, PIL, sys
   from tqdm import tqdm
-
-  from examples.mlperf.initializers import gelu_erf, init_stable_diffusion
+  from examples.mlperf.initializers import init_stable_diffusion, gelu_erf
   from examples.stable_diffusion import AutoencoderKL
-  from extra.models import clip
-  from extra.models.clip import FrozenOpenClipEmbedder, OpenClipEncoder
-  from extra.models.inception import FidInceptionV3
   from extra.models.unet import UNetModel
-  from tinygrad.helpers import BEAM
   from tinygrad.nn.state import load_state_dict, torch_load
+  from tinygrad.helpers import BEAM
+  from extra.models import clip
+  from extra.models.clip import FrozenOpenClipEmbedder
+  from extra.models.clip import OpenClipEncoder
+  from extra.models.inception import FidInceptionV3
 
   config = {}
   GPUS               = config["GPUS"]                   = [f"{Device.DEFAULT}:{i}" for i in range(getenv("GPUS", 1))]
@@ -369,7 +356,7 @@ def eval_stable_diffusion():
     batch = whole[i: i + bs].to("CPU")
     if (unpadded_bs:=batch.shape[0]) < bs:
       batch = batch.cat(batch[-1:].expand(bs - unpadded_bs, *batch[-1].shape))
-    return batch, unpadded_bs
+    return batch, unpadded_bs 
 
   @Tensor.train(mode=False)
   def eval_unet(eval_inputs:list[dict], unet:UNetModel, cond_stage:FrozenOpenClipEmbedder, first_stage:AutoencoderKL,
@@ -475,7 +462,7 @@ def eval_stable_diffusion():
         progress["end"][stage_idx: stage_idx + 1].assign(Tensor([batch_idx + bs], dtype=dtypes.int)).realize()
         print(f"model: {model}, batch_idx: {batch_idx}, elapsed: {(time.perf_counter() - t1):.2f}")
       del batch
-
+        
       jit.reset()
       Tensor.realize(*[p.to_("CPU") for p in get_parameters(model)])
       print(f"done with model: {model}, elapsed: {(time.perf_counter() - t0):.2f}")
@@ -486,7 +473,7 @@ def eval_stable_diffusion():
     clip_score = progress["clip"].to(GPUS[0]).mean().item()
     for name in disk_tensor_names:
       Path(f"{EVAL_CKPT_DIR}/{name}.bytes").unlink(missing_ok=True)
-
+    
     if EVAL_SAMPLES and BEAM:
       print("BEAM COMPLETE", flush=True) # allows wrapper script to detect BEAM search completion and retry if it failed
       sys.exit() # Don't eval additional models; we don't care about clip/fid scores when running BEAM on eval sample subset

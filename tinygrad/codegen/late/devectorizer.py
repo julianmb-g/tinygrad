@@ -1,6 +1,5 @@
-from typing import cast
-import functools
-import itertools
+from typing import Any, cast
+import functools, itertools
 from collections import defaultdict
 from dataclasses import dataclass
 from tinygrad.dtype import dtypes, ImageDType, DType, AddrSpace, Invalid, PtrDType
@@ -8,7 +7,6 @@ from tinygrad.uop.ops import UOp, Ops, UPat, PatternMatcher, GroupOp, identity_e
 from tinygrad.uop.symbolic import uop_given_valid, parse_valid, invalid_gate
 from tinygrad.helpers import getenv, flatten, AMX, prod
 from tinygrad.renderer import Renderer
-from typing import Any
 
 # ***** image load valid simplification *****
 
@@ -162,7 +160,7 @@ def split_load_store(ctx:Renderer|None, ls:UOp, idx:UOp):
   # determine fold lengths
   lengths = []
   must_divide = True
-  if ctx is not None and ctx.device == "DSP":
+  if ctx is not None and ctx.target.device == "DSP":
     lengths = [128,64,32,16,8,4]
     must_divide = False
   elif buf.dtype.base not in (dtypes.float, dtypes.half, *dtypes.fp8s) and not isinstance(buf.dtype, ImageDType):

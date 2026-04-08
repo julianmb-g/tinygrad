@@ -1,15 +1,7 @@
-import io
-import os
-import pathlib
-import tarfile
-import tempfile
-import unittest
-
+import unittest, tarfile, io, os, pathlib, tempfile
 import numpy as np
-
 from tinygrad import Tensor
 from tinygrad.nn.state import tar_extract
-
 
 class TestTarExtractFile(unittest.TestCase):
   def setUp(self):

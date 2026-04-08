@@ -1,13 +1,10 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
-
 import ctypes
-import os
 from typing import Annotated, Literal, TypeAlias
-
+from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
 from tinygrad.runtime.support import c
-from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
-
+import os
 dll = c.DLL('hsa', [os.getenv('ROCM_PATH', '/opt/rocm')+'/lib/libhsa-runtime64.so', 'hsa-runtime64'])
 class enum_SQ_RSRC_BUF_TYPE(Annotated[int, ctypes.c_uint32], c.Enum): pass
 SQ_RSRC_BUF = enum_SQ_RSRC_BUF_TYPE.define('SQ_RSRC_BUF', 0)
@@ -2108,7 +2105,7 @@ class struct_amd_runtime_loader_debug_info_s(c.Struct):
   kernel_name: Annotated[c.POINTER[Annotated[bytes, ctypes.c_char]], 16]
   owning_segment: Annotated[ctypes.c_void_p, 24]
 amd_runtime_loader_debug_info_t: TypeAlias = struct_amd_runtime_loader_debug_info_s
-class struct_BrigModuleHeader(ctypes.Structure): pass
+class struct_BrigModuleHeader(c.Struct): SIZE = 0
 BrigModule_t: TypeAlias = c.POINTER[struct_BrigModuleHeader]
 class _anonenum1(Annotated[int, ctypes.c_uint32], c.Enum): pass
 HSA_EXT_STATUS_ERROR_INVALID_PROGRAM = _anonenum1.define('HSA_EXT_STATUS_ERROR_INVALID_PROGRAM', 8192)

@@ -1,8 +1,7 @@
-from tinygrad.dtype import AddrSpace, DType, PtrDType, dtypes, truncate
-from tinygrad.helpers import strip_parens
+from tinygrad.dtype import DType, PtrDType, dtypes, truncate, AddrSpace
+from tinygrad.uop.ops import UOp, Ops, PatternMatcher, UPat
 from tinygrad.renderer.cstyle import CStyleLanguage, base_rewrite, extra_pm
-from tinygrad.uop.ops import Ops, PatternMatcher, UOp, UPat
-
+from tinygrad.helpers import strip_parens
 
 def _mask(dt:DType): return 0xFF if dt.itemsize == 1 else 0xFFFF
 
@@ -54,7 +53,6 @@ wgsl_matcher = PatternMatcher([
   ]) + extra_pm
 
 class WGSLRenderer(CStyleLanguage):
-  device = "WEBGPU"
   global_max = (65535, 65535, 65535)
   local_max = (256, 256, 64)
   code_for_workitem = {"g": lambda x: f"i32(gindex.{'xyz'[int(x)]})", "l": lambda x: f"i32(lindex.{'xyz'[int(x)]})"}

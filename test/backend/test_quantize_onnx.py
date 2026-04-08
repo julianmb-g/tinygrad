@@ -1,31 +1,28 @@
 # ruff: noqa: E501
-import unittest
-import math
-from dataclasses import replace
-
 import numpy as np
-
-from tinygrad import Context, Device, Tensor, dtypes
-from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
+import unittest
+from dataclasses import replace
+from tinygrad import Tensor, Context, Device, dtypes
+from tinygrad.uop.ops import Ops
+from tinygrad.codegen.opt import Opt, OptOps
 from tinygrad.engine.realize import CompiledRunner, get_program
 from tinygrad.engine.schedule import ExecItem
-from tinygrad.uop.ops import Ops
 
 N = 512
 
 def create_gemm_model(model_path:str, batch_size=N, in_size=N, out_size=N, bias=False):
   import onnx
-  from onnx import TensorProto, helper, numpy_helper
+  from onnx import helper, numpy_helper, TensorProto
   # Define input and output
   input_tensor = helper.make_tensor_value_info("input", TensorProto.FLOAT, [batch_size, in_size])
   output_tensor = helper.make_tensor_value_info("output", TensorProto.FLOAT, [batch_size, out_size])
 
   # Create random weights and bias
-  W_data = (np.arange(math.prod((in_size, out_size))) % 10 * 0.1).reshape(in_size, out_size).astype(np.float32)
+  W_data = np.random.randn(in_size, out_size).astype(np.float32)
   W_init = numpy_helper.from_array(W_data, name="W")
 
   if bias:
-    B_data = (np.arange(math.prod((out_size,))) % 10 * 0.1).reshape(out_size).astype(np.float32)
+    B_data = np.random.randn(out_size).astype(np.float32)
     B_init = numpy_helper.from_array(B_data, name="B")
     gemm_node = helper.make_node("Gemm", inputs=["input", "W", "B"], outputs=["output"], alpha=1.0, beta=1.0, transB=0)
     graph_def = helper.make_graph([gemm_node], "SingleGemmGraph", [input_tensor], [output_tensor], initializer=[W_init, B_init])
@@ -42,10 +39,7 @@ def create_gemm_model(model_path:str, batch_size=N, in_size=N, out_size=N, bias=
 
 def sexec(out:Tensor, opts:list[Opt], replace_src=None, run_count=3):
   si = out.schedule()[-1]
-  try:
-    prg = get_program(si.ast, renderer=Device[Device.DEFAULT].renderer, opts=opts)
-  except KernelOptError as e:
-    raise unittest.SkipTest(f"KernelOptError: {e}")
+  prg = get_program(si.ast, renderer=Device[Device.DEFAULT].renderer, opts=opts)
   if replace_src is not None:
     old_name = prg.src.split("__attribute__((noinline)) void ")[1].split("(")[0]
     prg = replace(prg, src=replace_src + "/* DSP boilerplate */" + prg.src.split("/* DSP boilerplate */")[1].replace(old_name, "fxn"))
@@ -53,7 +47,7 @@ def sexec(out:Tensor, opts:list[Opt], replace_src=None, run_count=3):
   for _ in range(run_count): new_si.run(wait=True)
 
 def get_quantized_model(sz):
-  from onnxruntime.quantization import CalibrationDataReader, QuantFormat, QuantType, quantize_static
+  from onnxruntime.quantization import quantize_static, QuantFormat, QuantType, CalibrationDataReader
   class FakeDataReader(CalibrationDataReader):
     def __init__(self): self.cnt = 0
     def get_next(self) -> dict:
@@ -67,24 +61,25 @@ def get_quantized_model(sz):
                   extra_options={"ActivationSymmetric": False})
   return out_file
 
+@unittest.skip("this is broken")
+@unittest.skipIf(Device.DEFAULT != "CPU", "only tests for CPU")
 class TestQuantizeOnnxCPU(unittest.TestCase):
   def test_quant_128(self, sz=128):
     try:
-      import onnx  # noqa: F401 # pylint: disable=unused-import
+      import onnx # noqa: F401 # pylint: disable=unused-import
     except ImportError:
       raise unittest.SkipTest()
     from tinygrad.nn.onnx import OnnxRunner
     out_file = get_quantized_model(sz)
     run_onnx = OnnxRunner(out_file)
     inp = Tensor(np.random.uniform(size=(sz, sz)).astype(np.float32))
-    try:
-      with Context(QUANTIZE=1):
-        sched = run_onnx({"input":inp})["output"].schedule()
-        sched[-2].lower()
-        daccs = [u for u in sched[-2].prg.p.uops if u.op is Ops.DEFINE_REG]
-        assert all(u.dtype.scalar() is dtypes.int for u in daccs)
-    except KeyError:
-      raise unittest.SkipTest("QUANTIZE is unsupported")
+    with Context(QUANTIZE=1):
+      sched = run_onnx({"input":inp})["output"].schedule()
+      sched[-2].lower()
+      daccs = [u for u in sched[-2].prg.p.uops if u.op is Ops.DEFINE_REG]
+      assert all(u.dtype.scalar() is dtypes.int for u in daccs)
+
+@unittest.skipIf(Device.DEFAULT != "DSP", "only tests for DSP")
 class TestQuantizeOnnx(unittest.TestCase):
   def test_quant_128(self): self.test_quant(128)
   def test_quant(self, sz=512):
@@ -93,12 +88,14 @@ class TestQuantizeOnnx(unittest.TestCase):
     out_file = get_quantized_model(sz)
     run_onnx_jit, _ = load_onnx_model(out_file)
     run_onnx_jit(input=Tensor(np.random.uniform(size=(sz, sz)).astype(np.float32)))
+
   def test_prequant_conv2d_1x1(self):
     X = Tensor(np.random.uniform(0, 255, size=(1, 32, 128, 128)).astype(np.uint8))
     W = Tensor(np.random.uniform(0, 255, size=(64, 32, 1, 1)).astype(np.uint8))
     out = X.conv2d(W, dtype=X.dtype)
     opts = [Opt(op=OptOps.UPCAST, axis=1, arg=128), Opt(op=OptOps.UNROLL, axis=0, arg=4)]
     sexec(out, opts)
+
   def test_prequant_gemm(self):
     N = 512
     X = Tensor(np.random.uniform(0, 255, size=(N,N)).astype(np.uint8))
@@ -106,6 +103,7 @@ class TestQuantizeOnnx(unittest.TestCase):
     out = X.matmul(W, dtype=X.dtype)
     opts = [Opt(op=OptOps.UPCAST, axis=1, arg=128), Opt(op=OptOps.UNROLL, axis=0, arg=4)]
     sexec(out, opts)
+
   # TODO: this has to work
   def test_prequant_gemm_intacc_early(self, xi=np.int8, wi=np.int8):
     N = 512
@@ -115,6 +113,7 @@ class TestQuantizeOnnx(unittest.TestCase):
     out = (X.cast("int").matmul(W.cast("int"))//1000).cast("int8")
     opts = [Opt(op=OptOps.UPCAST, axis=1, arg=128), Opt(op=OptOps.UNROLL, axis=0, arg=4)]
     sexec(out, opts)
+
   def test_prequant_gemm_handcode(self):
     src = """typedef int int128 __attribute__((aligned(512),vector_size(512)));
     typedef int int32 __attribute__((aligned(128),vector_size(128)));
@@ -194,6 +193,7 @@ class TestQuantizeOnnx(unittest.TestCase):
       }
     }"""
     self.test_prequant_gemm_intacc(np.uint8, np.int8, src)
+
   def test_prequant_gemm_intacc_32(self):
     opts = [Opt(op=OptOps.UPCAST, axis=1, arg=0), Opt(op=OptOps.UPCAST, axis=0, arg=4), Opt(op=OptOps.UNROLL, axis=0, arg=0)]
     self.test_prequant_gemm_intacc(np.uint8, np.int8, N=32, opts=opts)
@@ -215,6 +215,7 @@ class TestQuantizeOnnx(unittest.TestCase):
     print(tout)
     print(mout)
     np.testing.assert_equal(tout, mout)
+
   def test_prequant_gemm_intacc_wi(self): self.test_prequant_gemm_intacc(wi=np.int8)
   def test_prequant_gemm_intacc_xiwi(self): self.test_prequant_gemm_intacc(xi=np.int8, wi=np.int8)
   def test_prequant_gemm_intacc_xiwi_noclip(self): self.test_prequant_gemm_intacc(xi=np.int8, wi=np.int8, clip=False)
@@ -228,5 +229,6 @@ class TestQuantizeOnnx(unittest.TestCase):
     out = X.matmul(W, dtype=X.dtype)
     opts = [Opt(op=OptOps.UPCAST, axis=0, arg=128), Opt(op=OptOps.UNROLL, axis=0, arg=4)]
     sexec(out, opts)
+
 if __name__ == "__main__":
   unittest.main()

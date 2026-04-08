@@ -1,14 +1,7 @@
-import json
-import math
-import os
-import socketserver
-import threading
-import unittest
-
+import json, math, os, socketserver, threading, unittest
 import numpy as np
-
-from extra.tinyfs.fetch_file import _python_hash_1mb, hash_file
 from tinygrad import Tensor, dtypes
+from extra.tinyfs.fetch_file import hash_file, _python_hash_1mb
 
 _chunks: dict[bytes, bytes] = {}
 

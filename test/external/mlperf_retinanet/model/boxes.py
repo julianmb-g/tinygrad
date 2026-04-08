@@ -1,10 +1,8 @@
 # Copied from https://github.com/mlcommons/training/blob/637c82f9e699cd6caf108f92efb2c1d446b630e0/single_stage_detector/ssd/model/boxes.py
 
-from typing import Tuple
-
 import torch
 from torch import Tensor
-
+from typing import Tuple
 
 def _upcast(t: Tensor) -> Tensor:
     # Protects from numerical overflows in multiplications by upcasting to the equivalent higher type

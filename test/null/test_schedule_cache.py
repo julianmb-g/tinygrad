@@ -1,9 +1,7 @@
 import unittest
-
-from tinygrad import Context, Tensor, Variable
-from tinygrad.engine.schedule import schedule_cache
+from tinygrad import Tensor, Variable, Context
 from tinygrad.helpers import cpu_events
-
+from tinygrad.engine.schedule import schedule_cache
 
 def schedule_one():
   Tensor([1]).schedule()

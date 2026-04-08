@@ -1,24 +1,12 @@
 # pylint: disable=possibly-unused-variable
-import dataclasses
-import enum
-import functools
-import io
-import math
-import os
-import pathlib
-import struct
-import sys
-import types
-import warnings
-from typing import Any, Generator, Literal, NamedTuple, Sequence, cast
-
-from tinygrad.device import Device, is_dtype_supported
-from tinygrad.dtype import DTYPES_DICT, ConstType, DType, _from_np_dtype, dtypes, least_upper_dtype, truncate
-from tinygrad.helpers import all_same, argsort, flatten, get_single_element, getenv, is_numpy_ndarray, make_tuple, polyN, prod
+from typing import Any, Sequence, cast, Literal, NamedTuple, Generator
+import dataclasses, functools, io, math, types, warnings, pathlib, sys, os, struct, enum
 from tinygrad.nn.state import TensorIO
-from tinygrad.tensor import ReductionStr, Tensor, _broadcast_shape
+from tinygrad.tensor import Tensor, _broadcast_shape, ReductionStr
+from tinygrad.helpers import getenv, all_same, prod, flatten, make_tuple, argsort, is_numpy_ndarray, get_single_element, polyN
+from tinygrad.dtype import DType, ConstType, dtypes, _from_np_dtype, truncate, least_upper_dtype, DTYPES_DICT
+from tinygrad.device import is_dtype_supported, Device
 from tinygrad.uop.ops import sint
-
 
 # ***** protobuf definitions ******
 class WireType(enum.IntEnum):

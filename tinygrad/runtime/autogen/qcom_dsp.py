@@ -1,12 +1,9 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
-
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-
+from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
 from tinygrad.runtime.support import c
-from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
-
 ion_user_handle_t: TypeAlias = Annotated[int, ctypes.c_int32]
 class enum_ion_heap_type(Annotated[int, ctypes.c_uint32], c.Enum): pass
 ION_HEAP_TYPE_SYSTEM = enum_ion_heap_type.define('ION_HEAP_TYPE_SYSTEM', 0)

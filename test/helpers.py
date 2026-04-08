@@ -1,33 +1,24 @@
-import functools
-import os
-import struct
-import time
-import unittest
+import os, time, struct, functools, unittest
 from typing import Any, Callable
-
 import numpy as np
-
-from tinygrad import Device, Tensor, dtypes
+from tinygrad import Tensor, dtypes, Device
+from tinygrad.uop.ops import UOp, Ops, KernelInfo
+from tinygrad.tensor import _to_np_dtype
+from tinygrad.engine.realize import Runner, get_program
+from tinygrad.dtype import DType
+from tinygrad.nn.state import get_parameters
+from tinygrad.helpers import T, CI, Target
+from tinygrad.renderer import Renderer
 from tinygrad.codegen import full_rewrite_to_sink, line_rewrite, pm_linearize_cleanups
 from tinygrad.codegen.late.linearizer import linearize
-from tinygrad.dtype import DType
-from tinygrad.engine.realize import Runner, get_program
-from tinygrad.helpers import CI, T
-from tinygrad.nn.state import get_parameters
-from tinygrad.renderer import Renderer
-from tinygrad.tensor import _to_np_dtype
-from tinygrad.uop.ops import KernelInfo, Ops, UOp
-
 
 # decorator to skip slow tests by default, run with RUN_SLOW=1 to include them
-def slow(fn):
-  return unittest.skipUnless(os.getenv("RUN_SLOW", "0") == "1", "slow test requires RUN_SLOW=1")(fn)
-from tinygrad.runtime.ops_python import PythonCompiler, PythonProgram, PythonRenderer
-
+slow = unittest.skipUnless(os.getenv("RUN_SLOW"), "slow test, set RUN_SLOW=1 to run")
+from tinygrad.runtime.ops_python import PythonProgram, PythonRenderer, PythonCompiler
 
 def get_uops(sink:UOp, ren:Renderer|None=None) -> list[UOp]:
   """Extract linearized UOps from a sink. Test helper that only does linearization (no render)."""
-  if ren is None: ren = Renderer()
+  if ren is None: ren = Renderer(Target())
   if sink.arg is None: sink = sink.replace(arg=KernelInfo())
   full_sink = full_rewrite_to_sink(sink, ren, optimize=sink.tag is None)
   return line_rewrite(linearize(full_sink), pm_linearize_cleanups)
@@ -75,7 +66,7 @@ def eval_uop(uop:UOp, inputs:list[tuple[DType, list[Any]]]|None=None):
     bufs.append(buf:=allocator.alloc(len(data) * buf_dt.itemsize))
     allocator._copyin(buf, memoryview(struct.pack(str(len(data)) + (buf_dt.fmt or ""), *data)))
   g = UOp(Ops.PARAM, uop.dtype.ptr(), arg=0, src=())
-  prg = get_program(UOp.store(g.index(UOp.const(dtypes.int, 0)), uop).sink(arg=KernelInfo()), PythonRenderer())
+  prg = get_program(UOp.store(g.index(UOp.const(dtypes.int, 0)), uop).sink(arg=KernelInfo()), PythonRenderer(Target("PYTHON")))
   prog = PythonProgram("run", PythonCompiler().compile(prg.src))
   prog(out_buf:=allocator.alloc(uop.dtype.itemsize), *bufs)
   return out_buf.cast(uop.dtype.fmt or "").tolist()[0]
@@ -96,6 +87,6 @@ def needs_second_gpu(fn):
   def wrapper(self, *args, **kwargs):
     # check if there's a second GPU, if not, skip multi tests
     try: Tensor.zeros(10, device=f"{Device.DEFAULT}:1").contiguous().realize()
-    except (RuntimeError, IndexError): raise unittest.SkipTest("requires second gpu")
+    except Exception as e: self.skipTest(f"second device not available: {e}")
     return fn(self, *args, **kwargs)
   return wrapper

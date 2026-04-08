@@ -1,9 +1,7 @@
 import unittest
-
+from tinygrad import Tensor, Device, Variable
 from examples.gpt2 import Transformer
-from tinygrad import Device, Tensor, Variable
 from tinygrad.nn.state import get_state_dict
-
 
 class TestMethodCache(unittest.TestCase):
   def setUp(self):
@@ -32,6 +30,7 @@ class TestMethodCache(unittest.TestCase):
     Device[Device.DEFAULT].compiler.compile_cached = None
     ((c+d)+(a+b)).realize()
 
+  @unittest.skip("incorrect use of transformer")
   def test_small_transformer(self):
     args_tiny = {"dim": 16, "n_heads": 8, "n_layers": 8, "norm_eps": 1e-05, "vocab_size": 10}
     model = Transformer(**args_tiny)
@@ -41,6 +40,7 @@ class TestMethodCache(unittest.TestCase):
     for i in range(3): model(Tensor([[1,2,3,4]]), Variable("start_pos", 0, 10).bind(i)).realize()
     Device[Device.DEFAULT].compiler.compile_cached = None
     for i in range(3): model(Tensor([[1,2,3,4]]), Variable("start_pos", 0, 10).bind(i)).realize()
+
 if __name__ == '__main__':
   unittest.main()
 

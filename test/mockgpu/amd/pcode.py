@@ -1,6 +1,5 @@
 # Tokenizer-based expression parser for AMD pcode
 from typing import Any, Callable
-
 from tinygrad.dtype import dtypes
 from tinygrad.uop.ops import Ops, UOp
 from tinygrad.uop.decompositions import f2f

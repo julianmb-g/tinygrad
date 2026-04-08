@@ -1,13 +1,11 @@
-import math
-import unicodedata
 from collections import OrderedDict
+import unicodedata
 from typing import Optional
-
+import math
 import numpy as np
-
-from tinygrad.helpers import getenv
 from tinygrad.nn import state
 from tinygrad.tensor import Tensor, dtypes
+from tinygrad.helpers import getenv
 
 #
 # checkpointing utils
@@ -210,8 +208,8 @@ def get_mlperf_bert_config():
   return ret
 
 def get_mlperf_bert_model():
-  from examples.mlperf.initializers import EmbeddingBert, LayerNormBert, LinearBert
   from extra.models import bert
+  from examples.mlperf.initializers import LinearBert, EmbeddingBert, LayerNormBert
 
   bert.Linear = LinearBert
   bert.Embedding = EmbeddingBert

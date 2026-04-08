@@ -1,10 +1,8 @@
-import functools
-import math
 from typing import Callable
-
-from tinygrad.dtype import dtypes, DType, truncate, promo_lattice
+import math, functools
+from tinygrad.dtype import dtypes, DType, promo_lattice, truncate
 from tinygrad.device import is_dtype_supported
-from tinygrad.helpers import flatten, polyN, EMULATED_DTYPES
+from tinygrad.helpers import flatten, polyN, Target, EMULATED_DTYPES
 from tinygrad.uop import GroupOp
 from tinygrad.uop.ops import UOp, UPat, Ops, PatternMatcher, graph_rewrite
 
@@ -259,17 +257,6 @@ def xlog2(d:UOp) -> UOp:
   return d.reciprocal().ne(-math.inf).where(r, r.const_like(-math.inf))
 
 def xpow(base:UOp, exponent:UOp) -> UOp:
-  if dtypes.is_int(base.dtype) and dtypes.is_int(exponent.dtype):
-    orig_base = base
-    exp_abs = (exponent < 0).where(-exponent, exponent)
-    res = base.const_like(1)
-    mask = (1 << (base.dtype.itemsize * 8)) - 1
-    for i in range(31):
-      res = ((exp_abs >> i).bitwise_and(1).eq(1)).where((res * base).bitwise_and(mask), res)
-      base = (base * base).bitwise_and(mask)
-    neg_exp_res = (orig_base.eq(1) | orig_base.eq(-1)).where(res, orig_base.const_like(0))
-    return (exponent < 0).where(neg_exp_res, res)
-
   # start with b ** e = exp2(e * log2(b))
   ret = (base < 0).where(-base, base).log2().mul(exponent).exp2()
   # negative base: nan for non-integer exponent, negate for odd integer exponent
@@ -277,10 +264,7 @@ def xpow(base:UOp, exponent:UOp) -> UOp:
   is_odd = (exponent < 0).where(-exponent, exponent).cast(dtypes.int32).mod(2).cast(dtypes.bool)
   neg_base = non_int.where(ret.const_like(math.nan), is_odd.where(-ret, ret))
   # fix 0 ** 0 = 1
-  ret = (base.eq(0) & exponent.eq(0)).where(ret.const_like(1), (base < 0).where(neg_base, ret))
-  ret = exponent.eq(1.0).where(base, ret)
-  ret = exponent.eq(0.0).where(ret.const_like(1), ret)
-  return ret
+  return (base.eq(0) & exponent.eq(0)).where(ret.const_like(1), (base < 0).where(neg_base, ret))
 
 # *** integer division ***
 
@@ -295,9 +279,9 @@ def magicgu(vmax:int, d:int) -> tuple[int,int]:
       return m, s
   assert False
 
-def fast_idiv(device: str, x: UOp, d: int, dont_cast=False) -> UOp|None:
+def fast_idiv(target: Target, x: UOp, d: int, dont_cast=False) -> UOp|None:
   # NOTE: disable for METAL due to compiler bug. keccak with -O0 works but not with optimization
-  if device.startswith("METAL"): return None
+  if target.device.startswith("METAL"): return None
   # If d is a power of two this is not valid for signed ints!
   is_unsigned = x.vmin>=0 or x.dtype in dtypes.uints
   assert d>0, "Sign should have been taken out of divisor"
@@ -307,10 +291,10 @@ def fast_idiv(device: str, x: UOp, d: int, dont_cast=False) -> UOp|None:
     return ((x*m) >> s) if is_unsigned else ((x*m) >> s) + (x<0).where(x.ufix(1), 0)
   # before we try casting to a larger dtype (slow), we see if there are powers of two in d we can shift to make x smaller
   if (largest_factor_of_two_in_d := (d & -d)) > 1:
-    if (ret:=fast_idiv(device, x//largest_factor_of_two_in_d, d//largest_factor_of_two_in_d, dont_cast=True)) is not None: return ret
+    if (ret:=fast_idiv(target, x//largest_factor_of_two_in_d, d//largest_factor_of_two_in_d, dont_cast=True)) is not None: return ret
   if dont_cast: return None
   # promo_lattice needs to return an unsigned type if the type is unsigned
-  if dtypes.is_int(next_dtype := promo_lattice[x.dtype.scalar()][-1]) and is_dtype_supported(next_dtype, device):
+  if dtypes.is_int(next_dtype := promo_lattice[x.dtype.scalar()][-1]) and is_dtype_supported(next_dtype, target):
     if m*vmin >= next_dtype.min and m*vmax <= next_dtype.max:
       return ((x.cast(next_dtype)*m) >> s).cast(x.dtype) if is_unsigned else ((x.cast(next_dtype)*m) >> s).cast(x.dtype) + (x<0).where(x.ufix(1), 0)
   return None
@@ -456,7 +440,7 @@ def get_transcendental_patterns(ops:tuple[Ops, ...], force_transcendental:bool) 
 
 powers_of_two: dict[int, int] = {2**i:i for i in range(64)}
 @functools.cache
-def get_late_rewrite_patterns(ops:tuple[Ops, ...], device:str, disable_fast_idiv:bool) -> PatternMatcher:
+def get_late_rewrite_patterns(ops:tuple[Ops, ...], disable_fast_idiv:bool) -> PatternMatcher:
   pat: list[tuple[UPat, Callable]] = []
   # no real hardware supports THREEFRY, but NullRenderer does
   if Ops.THREEFRY not in ops: pat.append((UPat(Ops.THREEFRY, dtype=dtypes.uint64, src=(UPat.var("x"), UPat.var("key"))), threefry2x32))
@@ -547,8 +531,8 @@ pm_float_decomp = PatternMatcher([
    f2f_store(st, idx, val, *ctx) if val.dtype.scalar() == ctx[1] and (idx:=idx.src[0] if idx.op == Ops.CAST else idx).tag == ctx[0] else None),
 ])
 
-def do_dtype_decomps(sink:UOp, ctx:tuple[set[DType], str, str]) -> UOp:
-  def _should_emulate(dt): return dt in EMULATED_DTYPES.tolist(dtypes) or not is_dtype_supported(dt, ctx[1], ctx[2])
+def do_dtype_decomps(sink:UOp, ctx:tuple[set[DType], Target]) -> UOp:
+  def _should_emulate(dt): return dt in EMULATED_DTYPES.tolist(dtypes) or not is_dtype_supported(dt, ctx[1])
   for fr in sorted(filter(_should_emulate, ctx[0])):
     if fr in dtypes.floats:
       to = dtypes.half if not _should_emulate(dtypes.half) and fr in dtypes.fp8s else dtypes.float

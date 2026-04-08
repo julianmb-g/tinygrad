@@ -1,19 +1,10 @@
-import ctypes
-import decimal
-import functools
-import pathlib
-import platform
-import struct
-import subprocess
-import tempfile
-
+import subprocess, pathlib, struct, ctypes, tempfile, functools, decimal, platform
+from tinygrad.helpers import prod, to_mv, round_up, cache_dir, PROFILE, ProfileRangeEvent, cpu_profile, unwrap, suppress_finalizing
 import tinygrad.runtime.support.objc as objc
 from tinygrad.device import Compiled, Compiler, CompileError, LRUAllocator, ProfileDeviceEvent
 from tinygrad.renderer.cstyle import MetalRenderer
 from tinygrad.runtime.autogen import metal
 from tinygrad.runtime.support.c import DLL
-from tinygrad.helpers import prod, round_up, unwrap
-from tinygrad.helpers import PROFILE, ProfileRangeEvent, to_mv, suppress_finalizing, cpu_profile, cache_dir
 
 # 13 is requestType that metal uses to compile source code into MTLB, there aren't any docs or symbols.
 REQUEST_TYPE_COMPILE = 13
@@ -46,13 +37,21 @@ class MetalDevice(Compiled):
     self.timeline_signal = self.sysdevice.newSharedEvent()
     self.timeline_value = 0
 
+    # probe GPU family: Apple9=M3/M4, Apple8=M2, Apple7=M1, etc. values are 1000+N.
+    self.gpu_family = 0
+    for i in range(15, 0, -1):
+      if self.sysdevice.supportsFamily(1000 + i):
+        self.gpu_family = i
+        break
+
     Compiled.profile_events += [ProfileDeviceEvent(device)]
 
     from tinygrad.runtime.graph.metal import MetalGraph
     # NOTE: GitHub CI macOS runners use paravirtualized metal which is broken with graph.
     # This can be reproduced locally with any virtualization software (like utm) that can create macOS VMs with apple's own virtualization framework.
     super().__init__(device, MetalAllocator(self), [MetalRenderer],
-      functools.partial(MetalProgram, self), MetalGraph if 'virtual' not in from_ns_str(self.sysdevice.name()).lower() else None)
+      functools.partial(MetalProgram, self), MetalGraph if 'virtual' not in from_ns_str(self.sysdevice.name()).lower() else None,
+      arch=platform.machine())
 
   def synchronize(self):
     for cbuf in self.mtl_buffers_in_flight:
@@ -90,7 +89,7 @@ class MetalCompiler(Compiler):
 
     # no changes for compute in 2.0 - 2.4 specs, use 2.0 as default for old versions.
     macos_major = int(platform.mac_ver()[0].split('.')[0])
-    metal_version = "metal3.1" if macos_major >= 14 else "metal3.0" if macos_major >= 13 else "macos-metal2.0"
+    metal_version = "metal4.0" if macos_major >= 26 else "metal3.1" if macos_major >= 14 else "metal3.0" if macos_major >= 13 else "macos-metal2.0"
 
     # llvm will create modules.timestamp in cache path and cache compilation of metal stdlib (250ms => 8ms compilation time)
     # note that llvm won't necessarily create anything else here as apple has prebuilt versions of many standard libraries

@@ -1,12 +1,9 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
-
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-
+from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
 from tinygrad.runtime.support import c
-from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
-
 dll = c.DLL('libc', 'c', use_errno=True)
 off_t: TypeAlias = Annotated[int, ctypes.c_int64]
 mode_t: TypeAlias = Annotated[int, ctypes.c_uint32]
@@ -76,7 +73,7 @@ class struct___locale_struct(c.Struct):
   __ctype_tolower: Annotated[c.POINTER[Annotated[int, ctypes.c_int32]], 112]
   __ctype_toupper: Annotated[c.POINTER[Annotated[int, ctypes.c_int32]], 120]
   __names: Annotated[c.Array[c.POINTER[Annotated[bytes, ctypes.c_char]], Literal[13]], 128]
-class struct___locale_data(ctypes.Structure): pass
+class struct___locale_data(c.Struct): SIZE = 0
 locale_t: TypeAlias = c.POINTER[struct___locale_struct]
 @dll.bind
 def strcoll_l(__s1:c.POINTER[Annotated[bytes, ctypes.c_char]], __s2:c.POINTER[Annotated[bytes, ctypes.c_char]], __l:locale_t) -> Annotated[int, ctypes.c_int32]: ...

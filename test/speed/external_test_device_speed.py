@@ -1,8 +1,6 @@
 import unittest
-
 from tinygrad import Device
-from tinygrad.helpers import Profiling, Timing
-
+from tinygrad.helpers import Timing, Profiling
 
 class TestDeviceSpeed(unittest.TestCase):
   @classmethod

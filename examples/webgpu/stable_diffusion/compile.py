@@ -1,18 +1,15 @@
-import argparse
 import os
-from typing import Any, List, NamedTuple
-
-import numpy as np
-import requests
-
+from extra.export_model import compile_net, jit_model, dtype_to_js_type
+from extra.f16_decompress import u32_to_f16
 from examples.stable_diffusion import StableDiffusion
 from tinygrad.nn.state import get_state_dict, safe_save, safe_load_metadata, torch_load, load_state_dict
 from tinygrad.tensor import Tensor
 from tinygrad import dtypes
 from tinygrad.helpers import DEV, fetch
-from extra.f16_decompress import u32_to_f16
-from extra.export_model import jit_model, compile_net
-from tinygrad.renderer.wgsl import dtype_to_js_type
+from typing import NamedTuple, Any, List
+import requests
+import argparse
+import numpy as np
 
 def convert_f32_to_f16(input_file, output_file):
   with open(input_file, 'rb') as f:

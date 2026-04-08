@@ -1,13 +1,12 @@
-import time
-import unittest
-import math
+import unittest, time
 
-from extra.models import bert
-from tinygrad import Device, GlobalCounters, Tensor, TinyJit
-from tinygrad.engine.realize import run_schedule
-from tinygrad.helpers import Context, getenv
+from tinygrad import Tensor, TinyJit, GlobalCounters, Device
+from tinygrad.helpers import getenv, Context
 from tinygrad.nn.optim import LAMB
 from tinygrad.nn.state import get_parameters
+from tinygrad.engine.realize import run_schedule
+
+from extra.models import bert
 
 bs = getenv("BS", 16)
 seq_len = getenv("SEQ_LEN", 512)
@@ -60,7 +59,7 @@ class BenchmarkBertTrain(unittest.TestCase):
     best_tm = None
     flops, mem_used, mem, kernels = None, None, None, None
     for _ in range(CNT):
-      with Context(TRACK_MATCH_STATS=0): inputs = [((Tensor.arange(math.prod(shape)) % 10) * 0.1).reshape(*shape).realize() for shape in input_shapes]
+      with Context(TRACK_MATCH_STATS=0): inputs = [Tensor.randn(*shape, requires_grad=False).realize() for shape in input_shapes]
       GlobalCounters.reset()
 
       st = time.perf_counter()

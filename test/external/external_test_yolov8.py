@@ -1,16 +1,12 @@
-import io
-import unittest
-
-import cv2
 import numpy as np
+from examples.yolov8 import YOLOv8, get_variant_multiples, preprocess, label_predictions, postprocess
+from tinygrad import Tensor
+import unittest
+import io, cv2
 import onnxruntime as ort
 import ultralytics
-
-from examples.yolov8 import YOLOv8, get_variant_multiples, label_predictions, postprocess, preprocess
-from tinygrad import Tensor
+from tinygrad.nn.state import safe_load, load_state_dict
 from tinygrad.helpers import fetch
-from tinygrad.nn.state import load_state_dict, safe_load
-
 
 class TestYOLOv8(unittest.TestCase):
   def test_all_load_weights(self):

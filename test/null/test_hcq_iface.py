@@ -1,12 +1,8 @@
-import array
-import time
-import unittest
-
-from test.mockgpu.usb import MockUSB
+import unittest, array, time
 from tinygrad.helpers import mv_address
 from tinygrad.runtime.support.hcq import MMIOInterface
 from tinygrad.runtime.support.usb import USBMMIOInterface
-
+from test.mockgpu.usb import MockUSB
 
 class TestHCQIface(unittest.TestCase):
   def setUp(self):

@@ -1,17 +1,14 @@
-import json
-import sys
-import time
-from collections import defaultdict
+from tinygrad.nn import Conv2d, BatchNorm2d
+from tinygrad.tensor import Tensor
+import numpy as np
 from itertools import chain
 from pathlib import Path
-
 import cv2
-import numpy as np
-
+from collections import defaultdict
+import time, sys
 from tinygrad.helpers import fetch
-from tinygrad.nn import BatchNorm2d, Conv2d
-from tinygrad.nn.state import load_state_dict, safe_load
-from tinygrad.tensor import Tensor
+from tinygrad.nn.state import safe_load, load_state_dict
+import json
 
 #Model architecture from https://github.com/ultralytics/ultralytics/issues/189
 #The upsampling class has been taken from this pull request https://github.com/tinygrad/tinygrad/pull/784 by dc-dc-dc. Now 2(?) models use upsampling. (retinet and this)

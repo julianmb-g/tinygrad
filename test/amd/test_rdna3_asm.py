@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 import unittest
-
-from test.amd.disasm import disasm
-from test.amd.helpers import llvm_assemble
 from tinygrad.runtime.autogen.amd.rdna3.ins import *
-
+from test.amd.helpers import llvm_assemble
+from test.amd.disasm import disasm
 
 def _asm(asm: str) -> bytes: return llvm_assemble([asm], 'gfx1100', '+real-true16,+wavefrontsize32')[0]
 

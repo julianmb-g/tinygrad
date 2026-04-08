@@ -1,11 +1,9 @@
 import unittest
-
-from test.helpers import to_uops_list
-from tinygrad import Variable, dtypes
+from tinygrad import dtypes, Variable
 from tinygrad.dtype import AddrSpace
 from tinygrad.helpers import Context
-from tinygrad.uop.ops import AxisType, Ops, UOp
-
+from tinygrad.uop.ops import Ops, UOp, AxisType
+from test.helpers import to_uops_list
 
 class TestValidateOOB(unittest.TestCase):
   """Test z3 validation of index bounds for different ALU ops and patterns."""
@@ -143,7 +141,7 @@ class TestValidateOOB(unittest.TestCase):
         to_uops_list([buf_int.index(gidx.valid(ld_bool), ptr=True).load()])  # gidx 0..15, buf_int size 8
 
   # skipped tests (moved from test_uop_graph.py)
-  @unittest.skip("broken OOB")
+  @unittest.skip("if not allowed in graph")
   def test_in_bounds_access_gated_local(self):
     with Context(CHECK_OOB=1):
       # Define buffers
@@ -167,7 +165,8 @@ class TestValidateOOB(unittest.TestCase):
       # Store to global memory
       global_store = UOp(Ops.STORE, dtypes.void, (gbuf.index(gidx), local_load))
       to_uops_list([global_store])
-  @unittest.skip("broken OOB")
+
+  @unittest.skip("Bool load is not supported yet")
   def test_load_mask(self):
     with Context(CHECK_OOB=1):
       glbl0 = UOp(Ops.PARAM, dtypes.int.ptr(16), (), 0)
@@ -175,5 +174,6 @@ class TestValidateOOB(unittest.TestCase):
       ridx = UOp.range(20, 0)
       ld0 = UOp(Ops.LOAD, dtypes.int, (glbl0.index(UOp.const(ridx, ridx<16&mask), ptr=True)))
       to_uops_list([ld0])
+
 if __name__ == "__main__":
   unittest.main()

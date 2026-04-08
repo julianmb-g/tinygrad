@@ -1,12 +1,12 @@
 import ctypes
 from typing import Any, cast
-
 import tinygrad.runtime.autogen.cuda as cuda
+from tinygrad.helpers import dedup
+from tinygrad.runtime.support.c import init_c_var
 from tinygrad.device import Buffer, Device
 from tinygrad.runtime.ops_cuda import CUDADevice, check, encode_args, cu_time_execution
 from tinygrad.engine.realize import BufferXfer, CompiledRunner
 from tinygrad.engine.jit import MultiGraphRunner, GraphException
-from tinygrad.helpers import dedup, init_c_var
 
 class CUDAGraph(MultiGraphRunner):
   def __init__(self, *args, **kwargs):

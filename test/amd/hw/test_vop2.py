@@ -5,9 +5,7 @@ Includes: v_add_f32, v_mul_f32, v_and_b32, v_or_b32, v_xor_b32,
           v_add_nc_u32, v_cndmask_b32, v_add_f16, v_mul_f16
 """
 import unittest
-
 from test.amd.hw.helpers import *
-
 
 class TestBasicArithmetic(unittest.TestCase):
   """Tests for basic arithmetic VOP2 instructions."""

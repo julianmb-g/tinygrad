@@ -2,10 +2,9 @@
 # cd extra/disassemblers/ && git clone --recursive github.com:geohot/cuda_ioctl_sniffer.git
 # LD_PRELOAD=$PWD/extra/disassemblers/cuda_ioctl_sniffer/out/sniff.so DEV=CL python3 test/external/external_multi_gpu.py
 import numpy as np
-
-from tinygrad.device import Device
-from tinygrad.helpers import Timing, colored, getenv
 from tinygrad.tensor import Tensor
+from tinygrad.helpers import colored, Timing, getenv
+from tinygrad.device import Device
 
 d0, d1 = f'{Device.DEFAULT}:0', f'{Device.DEFAULT}:1'
 

@@ -1,10 +1,7 @@
 import unittest
-
 import numpy as np
-
 from tinygrad import Tensor
 from tinygrad.dtype import dtypes
-
 
 class TestTensorGradient(unittest.TestCase):
   def test_example(self):
@@ -37,6 +34,7 @@ class TestTensorGradient(unittest.TestCase):
   def test_non_scalar_output(self):
     x = Tensor([1.0, 2.0, 3.0])
     z = x * x
+    with self.assertRaises(AssertionError): z.gradient(x)
     dz = Tensor([1.0, 1.0, 1.0])
     dx = z.gradient(x, gradient=dz)[0]
     self.assertListEqual(dx.tolist(), [2.0, 4.0, 6.0])
@@ -75,17 +73,18 @@ class TestTensorGradient(unittest.TestCase):
     g1[2] = Tensor(1.0)
     g2 = Tensor.zeros(5, 4).contiguous()
     g2[0] = g1
-    x = ((Tensor.arange(4*4) % 10) * 0.1).reshape(4, 4)
+    x = Tensor.randn(4, 4)
     np.testing.assert_allclose(x.pad(((1,0),(0,0))).gradient(x, gradient=g2)[0].numpy(), np.zeros((4, 4)))
 
 class TestViewGradient(unittest.TestCase):
   def test_expand(self):
-    x = ((Tensor.arange(5*2) % 10) * 0.1).reshape(5,2)
+    x = Tensor.randn(5,2)
     a = Tensor([3.], requires_grad=True)
     aex = a.expand(10)
     (aex.reshape(5,2) * x).sum().backward()
     np.testing.assert_allclose(aex.grad.numpy(), x.reshape(10).numpy())
-    np.testing.assert_allclose(aex.grad.numpy(), a.grad.expand(10).numpy())
+    with self.assertRaises(AssertionError):
+      np.testing.assert_allclose(aex.grad.numpy(), a.grad.expand(10).numpy())
 
 if __name__ == '__main__':
   unittest.main()

@@ -1,7 +1,6 @@
 # Instruction format detection and decoding
 from __future__ import annotations
-
-from tinygrad.renderer.amd.dsl import EnumBitField, FixedBitField, Inst
+from tinygrad.renderer.amd.dsl import Inst, FixedBitField, EnumBitField
 
 # SDWA/DPP variant detection: src0 field (bits 0-8) encodes the variant
 # 0xf9 (249) = SDWA, 0xfa (250) = DPP16 for CDNA (GFX9)
@@ -33,86 +32,20 @@ _FORMATS: dict[str, list[type[Inst]]] | None = None
 def _load_formats() -> dict[str, list[type[Inst]]]:
   global _FORMATS
   if _FORMATS is not None: return _FORMATS
-  from tinygrad.runtime.autogen.amd.cdna.ins import DS as C_DS
-  from tinygrad.runtime.autogen.amd.cdna.ins import FLAT as C_FLAT
-  from tinygrad.runtime.autogen.amd.cdna.ins import GLOBAL as C_GLOBAL
-  from tinygrad.runtime.autogen.amd.cdna.ins import MUBUF as C_MUBUF
-  from tinygrad.runtime.autogen.amd.cdna.ins import SCRATCH as C_SCRATCH
-  from tinygrad.runtime.autogen.amd.cdna.ins import SMEM as C_SMEM
-  from tinygrad.runtime.autogen.amd.cdna.ins import SOP1 as C_SOP1
-  from tinygrad.runtime.autogen.amd.cdna.ins import SOP2 as C_SOP2
-  from tinygrad.runtime.autogen.amd.cdna.ins import SOPC as C_SOPC
-  from tinygrad.runtime.autogen.amd.cdna.ins import SOPK as C_SOPK
-  from tinygrad.runtime.autogen.amd.cdna.ins import SOPK_LIT as C_SOPK_LIT
-  from tinygrad.runtime.autogen.amd.cdna.ins import SOPP as C_SOPP
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP1 as C_VOP1
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP1_DPP16 as C_VOP1_DPP16
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP1_SDWA as C_VOP1_SDWA
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP2 as C_VOP2
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP2_DPP16 as C_VOP2_DPP16
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP2_LIT as C_VOP2_LIT
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP2_SDWA as C_VOP2_SDWA
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP3 as C_VOP3
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP3_SDST as C_VOP3_SDST
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP3P as C_VOP3P
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP3P_MFMA as C_VOP3P_MFMA
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP3PX2 as C_VOP3PX2
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOP3SD as C_VOP3SD
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOPC as C_VOPC
-  from tinygrad.runtime.autogen.amd.cdna.ins import VOPC_SDWA_SDST as C_VOPC_SDWA_SDST
-  from tinygrad.runtime.autogen.amd.rdna3.ins import (
-    DS,
-    FLAT,
-    GLOBAL,
-    SCRATCH,
-    SMEM,
-    SOP1,
-    SOP1_LIT,
-    SOP2,
-    SOP2_LIT,
-    SOPC,
-    SOPK,
-    SOPK_LIT,
-    SOPP,
-    VINTERP,
-    VOP1,
-    VOP1_LIT,
-    VOP1_SDST,
-    VOP2,
-    VOP2_LIT,
-    VOP3,
-    VOP3_SDST,
-    VOP3P,
-    VOP3SD,
-    VOPC,
-    VOPD,
-  )
-  from tinygrad.runtime.autogen.amd.rdna4.ins import DS as R4_DS
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SMEM as R4_SMEM
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOP1 as R4_SOP1
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOP1_LIT as R4_SOP1_LIT
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOP2 as R4_SOP2
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOP2_LIT as R4_SOP2_LIT
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOPC as R4_SOPC
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOPC_LIT as R4_SOPC_LIT
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOPK as R4_SOPK
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOPK_LIT as R4_SOPK_LIT
-  from tinygrad.runtime.autogen.amd.rdna4.ins import SOPP as R4_SOPP
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VFLAT as R4_FLAT
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VGLOBAL as R4_GLOBAL
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VINTERP as R4_VINTERP
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP1 as R4_VOP1
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP1_LIT as R4_VOP1_LIT
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP1_SDST as R4_VOP1_SDST
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP2 as R4_VOP2
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP2_LIT as R4_VOP2_LIT
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3 as R4_VOP3
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3_SDST as R4_VOP3_SDST
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3P as R4_VOP3P
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOP3SD as R4_VOP3SD
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOPC as R4_VOPC
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VOPD as R4_VOPD
-  from tinygrad.runtime.autogen.amd.rdna4.ins import VSCRATCH as R4_SCRATCH
+  from tinygrad.runtime.autogen.amd.rdna3.ins import (VOP1, VOP1_SDST, VOP1_LIT, VOP2, VOP2_LIT, VOP3, VOP3_SDST, VOP3SD, VOP3P, VOPC, VOPD,
+    VINTERP, SOP1, SOP1_LIT, SOP2, SOP2_LIT, SOPC, SOPK, SOPK_LIT, SOPP, SMEM, DS, FLAT, GLOBAL, SCRATCH)
+  from tinygrad.runtime.autogen.amd.rdna4.ins import (VOP1 as R4_VOP1, VOP1_SDST as R4_VOP1_SDST, VOP1_LIT as R4_VOP1_LIT,
+    VOP2 as R4_VOP2, VOP2_LIT as R4_VOP2_LIT, VOP3 as R4_VOP3, VOP3_SDST as R4_VOP3_SDST, VOP3SD as R4_VOP3SD, VOP3P as R4_VOP3P,
+    VOPC as R4_VOPC, VOPD as R4_VOPD, VINTERP as R4_VINTERP, SOP1 as R4_SOP1, SOP1_LIT as R4_SOP1_LIT,
+    SOP2 as R4_SOP2, SOP2_LIT as R4_SOP2_LIT, SOPC as R4_SOPC, SOPC_LIT as R4_SOPC_LIT,
+    SOPK as R4_SOPK, SOPK_LIT as R4_SOPK_LIT, SOPP as R4_SOPP,
+    SMEM as R4_SMEM, DS as R4_DS, VFLAT as R4_FLAT, VGLOBAL as R4_GLOBAL, VSCRATCH as R4_SCRATCH)
+  from tinygrad.runtime.autogen.amd.cdna.ins import (VOP1 as C_VOP1, VOP1_SDWA as C_VOP1_SDWA, VOP1_DPP16 as C_VOP1_DPP16,
+    VOP2 as C_VOP2, VOP2_LIT as C_VOP2_LIT, VOP2_SDWA as C_VOP2_SDWA, VOP2_DPP16 as C_VOP2_DPP16,
+    VOPC as C_VOPC, VOPC_SDWA_SDST as C_VOPC_SDWA_SDST,
+    VOP3 as C_VOP3, VOP3_SDST as C_VOP3_SDST, VOP3SD as C_VOP3SD, VOP3P as C_VOP3P, VOP3P_MFMA as C_VOP3P_MFMA, VOP3PX2 as C_VOP3PX2,
+    SOP1 as C_SOP1, SOP2 as C_SOP2, SOPC as C_SOPC, SOPK as C_SOPK, SOPK_LIT as C_SOPK_LIT, SOPP as C_SOPP, SMEM as C_SMEM, DS as C_DS,
+    FLAT as C_FLAT, GLOBAL as C_GLOBAL, SCRATCH as C_SCRATCH, MUBUF as C_MUBUF)
   # Order matters: more specific encodings first, catch-alls (SOP2, VOP2) last
   # Order: base before _LIT (base matches regular ops, _LIT catches lit-only ops excluded from base)
   _FORMATS = {

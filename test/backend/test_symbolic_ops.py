@@ -1,12 +1,9 @@
 import unittest
-
-import numpy as np
-
-from examples.gpt2 import Attention
-from tinygrad import GlobalCounters, Tensor, Variable
-from tinygrad.dtype import dtypes
+from tinygrad import Tensor, Variable, GlobalCounters
 from tinygrad.uop.ops import sym_infer
-
+from tinygrad.dtype import dtypes
+from examples.gpt2 import Attention
+import numpy as np
 
 class TestSymbolicOps(unittest.TestCase):
   def test_plus1(self):
@@ -344,8 +341,8 @@ class TestSymbolicOps(unittest.TestCase):
     # val=79 triggers the edge case where old ceildiv simplifies incorrectly: old gives floor=12, correct ceildiv=13
     v = Variable('v', 11, 100)
     val = 79
-    x_full = ((Tensor.arange(1*8*100) % 10) * 0.1).reshape(1, 8, 100)
-    weight = ((Tensor.arange(16*8*12) % 10) * 0.1).reshape(16, 8, 12)
+    x_full = Tensor.randn(1, 8, 100)
+    weight = Tensor.randn(16, 8, 12)
 
     # symbolic version
     result = x_full[:, :, :v.bind(val)].conv2d(weight=weight, groups=1, stride=6, dilation=1, padding=(3, 3))

@@ -1,6 +1,5 @@
-from tinygrad.nn.state import tar_extract
 from tinygrad.tensor import Tensor
-
+from tinygrad.nn.state import tar_extract
 
 def mnist(device=None, fashion=False):
   base_url = "http://fashion-mnist.s3-website.eu-central-1.amazonaws.com/" if fashion else "https://storage.googleapis.com/cvdf-datasets/mnist/"

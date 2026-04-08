@@ -1,17 +1,11 @@
-import argparse
-import json
-import os
-import random
-import time
 from pathlib import Path
 from typing import List
-
+import json, argparse, random, time, os
+from extra.models.llama import Transformer, convert_from_huggingface, convert_from_gguf, fix_bf16
+from tinygrad.nn.state import safe_load, torch_load, load_state_dict, get_parameters, gguf_load
+from tinygrad import Tensor, dtypes, nn, Context, Device, GlobalCounters
+from tinygrad.helpers import Profiling, Timing, DEBUG, colored, fetch, tqdm
 from extra.bench_log import BenchEvent, WallTimeEvent
-from extra.models.llama import Transformer, convert_from_gguf, convert_from_huggingface, fix_bf16
-from tinygrad import Context, Device, GlobalCounters, Tensor, dtypes, nn
-from tinygrad.helpers import DEBUG, Profiling, Timing, colored, fetch, tqdm
-from tinygrad.nn.state import get_parameters, gguf_load, load_state_dict, safe_load, torch_load
-
 
 class Tokenizer:
   pat_str = r"(?i:'s|'t|'re|'ve|'m|'ll|'d)|[^\r\n\p{L}\p{N}]?\p{L}+|\p{N}{1,3}| ?[^\s\p{L}\p{N}]+[\r\n]*|\s*[\r\n]+|\s+(?!\S)|\s+"
@@ -80,11 +74,7 @@ class Int8Linear:
     self.scale = Tensor.ones(out_features, dtype=dtypes.half)
 
   def __call__(self, x):
-    x_scale = x.abs().max(axis=-1, keepdim=True) / 127.0
-    x_scale = x_scale.maximum(1e-5)
-    x_int8 = (x / x_scale).round().cast(dtypes.int8)
-    out_int32 = x_int8.cast(dtypes.int32).dot(self.weight.cast(dtypes.int32).T)
-    return out_int32.cast(self.scale.dtype) * (x_scale * self.scale)
+    return x.dot(self.weight.cast(self.scale.dtype).T*self.scale)
 
   @staticmethod
   def quantize(tensors, device, scale_dtype=dtypes.float16, quantize_embeds=False):
@@ -337,7 +327,7 @@ if __name__ == "__main__":
   param_bytes = sum(x.uop.size * x.dtype.itemsize for x in get_parameters(model))
 
   if not args.no_api and not args.benchmark:
-    from bottle import Bottle, HTTPResponse, abort, request, response, static_file
+    from bottle import Bottle, request, response, HTTPResponse, abort, static_file
     app = Bottle()
 
     cors_headers = {

@@ -1,12 +1,8 @@
 import os
-
 if "DEV" not in os.environ: os.environ["DEV"] = "AMD"
 
-import time
-import unittest
-
+import unittest, time
 from tinygrad import Device
-
 
 class TestOpen(unittest.TestCase):
   def generate_test_open(n):

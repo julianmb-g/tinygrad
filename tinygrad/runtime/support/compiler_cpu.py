@@ -1,13 +1,8 @@
-import ctypes
-import platform
-import subprocess
-import sys
-
+import ctypes, platform, sys, subprocess
 from tinygrad.device import Compiler
-from tinygrad.helpers import DEBUG, OSX, capstone_flatdump, getenv, unwrap
-from tinygrad.runtime.autogen import llvm
+from tinygrad.helpers import OSX, getenv, capstone_flatdump, DEBUG, unwrap
 from tinygrad.runtime.support.elf import jit_loader
-
+from tinygrad.runtime.autogen import llvm
 
 class ClangJITCompiler(Compiler):
   def __init__(self, cachekey="compile_clang_jit"): super().__init__(cachekey)

@@ -1,7 +1,5 @@
-import pickle
-import sys
-
-from extra.bench_log import BenchEvent, WallTimeEvent
+import sys, pickle
+from extra.bench_log import WallTimeEvent, BenchEvent
 from tinygrad.helpers import getenv
 
 PKL = sys.argv[1] if len(sys.argv) > 1 else "/tmp/openpilot.pkl"

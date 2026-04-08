@@ -1,7 +1,4 @@
-import re
-import unittest
-import zipfile
-
+import unittest, zipfile, re
 from tinygrad import Tensor
 from tinygrad.helpers import fetch, tqdm
 

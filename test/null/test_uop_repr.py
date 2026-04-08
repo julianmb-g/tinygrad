@@ -1,7 +1,5 @@
 import unittest
-
 from tinygrad import UOp, dtypes
-
 
 class TestUOpRepr(unittest.TestCase):
   def test_simple_const(self):

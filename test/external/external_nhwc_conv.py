@@ -1,10 +1,8 @@
-import math
-
-from tinygrad import Context, GlobalCounters, Tensor, nn
+from tinygrad import Tensor, nn, Context, GlobalCounters
 
 if __name__ == "__main__":
   conv = nn.Conv2d(64, 128, 3)
-  img = (Tensor.arange(math.prod((1,64,128,128))) % 10 * 0.1).reshape((1,64,128,128))
+  img = Tensor.randn((1,64,128,128))
   with Context(DEBUG=0, BEAM=0):
     Tensor.realize(img, conv.weight, conv.bias)
 
@@ -14,11 +12,7 @@ if __name__ == "__main__":
   print("NEW")
   img_perm = img.permute(0,2,3,1).contiguous()
   print(img_perm.shape)
-  try:
-    pp = img_perm.permute(0,3,1,2).pool((3,3)).permute(0,2,3,4,5,1)
-  except AttributeError as e:
-    print(f"Framework limitation organically trapped: {e}")
-    exit(0)
+  pp = img_perm.permute(0,3,1,2)._pool((3,3)).permute(0,2,3,4,5,1)
 
   def hwio(pp, conv):
     pp = pp.unsqueeze(-1)

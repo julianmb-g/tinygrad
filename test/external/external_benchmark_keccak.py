@@ -11,7 +11,7 @@ if __name__ == "__main__":
   @TinyJit
   def hasher(data: Tensor): return data.keccak(HASHFN)
 
-  t = ((Tensor.arange(BS*BLOCKSIZE) % 10) * 0.1).reshape(BS, BLOCKSIZE).cast(dtypes.uint8).realize()
+  t = Tensor.randn(BS, BLOCKSIZE, dtype=dtypes.uint8).realize()
   ds_mib = t.nbytes() / 1024**2
 
   print(f"--- benchmarking (hash: {HASHFN}, data size: {ds_mib} MiB, block size: {BLOCKSIZE} B, batch size: {BS})")

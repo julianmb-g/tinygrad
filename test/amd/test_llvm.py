@@ -8,14 +8,11 @@ Only compute-relevant instruction formats are tested. Graphics-only formats not 
   - VIMAGE/VSAMPLE: image sampling instructions (RDNA4)
   - VBUFFER: buffer instructions (RDNA4)
 """
-import functools
-import re
-import unittest
-
-from test.amd.disasm import disasm
-from test.amd.helpers import get_mattr, get_target, llvm_assemble, llvm_filter_valid_asm
+import unittest, re, functools
 from tinygrad.helpers import fetch
+from test.amd.disasm import disasm
 from tinygrad.renderer.amd import decode_inst, detect_format
+from test.amd.helpers import llvm_assemble, llvm_filter_valid_asm, get_target, get_mattr
 
 LLVM_BASE = "https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-21.1.0/llvm/test/MC/AMDGPU"
 

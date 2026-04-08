@@ -4,12 +4,9 @@
 These tests intentionally cause GPU faults to verify error handling.
 Run with: DEV=AMD python -m pytest test/external/external_test_gpu_crash.py -v
 """
-import importlib
-import re
-import unittest
-
+import unittest, re, importlib
 from tinygrad.device import Device
-from tinygrad.renderer.amd.dsl import NULL, Inst, s, v
+from tinygrad.renderer.amd.dsl import s, v, Inst, NULL
 
 RDNA3_CDNA3_MAP = {"v_mov_b32_e32": "v_mov_b32_e32", "s_mov_b32": "s_mov_b32", "s_waitcnt": "s_waitcnt", "s_endpgm": "s_endpgm",
                    "global_load_b32": "global_load_dword", "global_store_b32": "global_store_dword",
@@ -23,6 +20,7 @@ def assemble(code:str, name:str="test", is_cdna:bool=False) -> str:
   return f".text\n.globl {name}\n.p2align 8\n.type {name},@function\n{name}:\n{code}\n.rodata\n.p2align 6\n.amdhsa_kernel {name}\n" + \
          "\n".join(f".amdhsa_{k} {v}" for k,v in kd.items()) + "\n.end_amdhsa_kernel"
 
+@unittest.skipIf(Device.DEFAULT != "AMD", "AMD required")
 class TestGPUCrash(unittest.TestCase):
   @classmethod
   def setUpClass(cls):
@@ -47,9 +45,11 @@ class TestGPUCrash(unittest.TestCase):
     from tinygrad.runtime.ops_amd import AMDProgram
     prg = AMDProgram(self.dev, "test", self.compiler.compile(assemble(code, is_cdna=self.is_cdna)))
     prg(self.dev.allocator.alloc(64), global_size=(1,1,1), local_size=(1,1,1), wait=True)
+
   def _run_insts(self, insts: list[Inst]):
     from test.amd.disasm import disasm
     self._run("\n".join(disasm(i) for i in insts))
+
   def _assert_gpu_fault(self, func):
     """Assert that func raises a RuntimeError indicating a GPU fault (not a setup error)."""
     with self.assertRaises(RuntimeError) as cm:
@@ -60,6 +60,8 @@ class TestGPUCrash(unittest.TestCase):
       re.search(r'fault|hang|timeout|illegal|memviol', err_msg),
       f"Expected GPU fault error, got: {cm.exception}"
     )
+
+
 class TestOutOfBoundsMemoryAccess(TestGPUCrash):
   """Tests for out-of-bounds memory accesses."""
 
