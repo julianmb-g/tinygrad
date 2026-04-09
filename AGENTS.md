@@ -208,3 +208,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Python time.sleep Teardown Mocking Fraud**: In E2E runners, using `time.sleep()` (e.g. `time.sleep(100.0)`) instead of natively routing an authentic cross-compiled AST payload actively evades overarching IPC teardown limits and constitutes testing fraud.
 - **Test Pipeline Verification Strictness**: QA must independently verify test voids via harness.yaml.
 * **Prototype Tagging on TestCase Methods**: When applying `@pytest.mark.prototype` to scaffolding test suites, applying it only to the `unittest.TestCase` class is insufficient and can fail to filter out Detonating Stubs during Strict Baseline runs. The `@pytest.mark.prototype` decorator MUST be explicitly added to the test methods themselves to ensure they are properly filtered out by `pytest -m 'not prototype'`.
+
+* **QA Orchestrator Timeout Management**: When executing test commands in parallel across submodules, ensure robust timeouts are used at the orchestrator layer and that runaway runners (like bazel or pytest-xdist) are terminated cleanly to preserve tracebacks instead of relying on SIGKILL.
