@@ -17,14 +17,6 @@ kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks 
 
 active_pids = set()
 
-def _safe_release_resource(func, errors, *args, **kwargs):
-  try:
-    func(*args, **kwargs)
-  except (AttributeError, KeyError): pass
-  except FileNotFoundError as e: errors.append(e)
-  except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-  except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
-
 class CoralNPUAllocator(Allocator):
   def __init__(self, device):
     self.device = device
@@ -65,15 +57,29 @@ class CoralNPUAllocator(Allocator):
 
   def __del__(self):
         errors = []
-        for mem in getattr(self, 'mem', {}).values():
-            _safe_release_resource(mem.release, errors)
-        for shm in getattr(self, 'shms', {}).values():
-            if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
-                _safe_release_resource(shm.buf.release, errors)
-                import os
-                _safe_release_resource(os.unlink, errors, f"/dev/shm/{shm.name}")
-            _safe_release_resource(shm.close, errors)
-            _safe_release_resource(shm.unlink, errors)
+        try:
+          for mem in getattr(self, 'mem', {}).values():
+              try: mem.release()
+              except (AttributeError, KeyError): pass
+              except FileNotFoundError as e: errors.append(e)
+              except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
+              except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
+          for shm in getattr(self, 'shms', {}).values():
+              try:
+                if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
+                    shm.buf.release()
+                    import os
+                    os.unlink(f"/dev/shm/{shm.name}")
+                shm.close()
+                shm.unlink()
+              except (AttributeError, KeyError): pass
+              except FileNotFoundError as e: errors.append(e)
+              except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
+              except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
+        except (AttributeError, KeyError): pass
+        except FileNotFoundError as e: errors.append(e)
+        except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
+        except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
         if errors: raise errors[0]
 
   def _alloc(self, size:int, options:BufferSpec):
@@ -102,9 +108,15 @@ class CoralNPUAllocator(Allocator):
     def cleanup_shm(s):
         errors = []
         try:
-            _safe_release_resource(s.close, errors)
+            try: s.close()
+            except (AttributeError, KeyError): pass
+            except FileNotFoundError as e: errors.append(e)
+            except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
         finally:
-            _safe_release_resource(s.unlink, errors)
+            try: s.unlink()
+            except (AttributeError, KeyError): pass
+            except FileNotFoundError as e: errors.append(e)
+            except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
         if errors: raise errors[0]
 
     atexit.register(lambda: cleanup_shm(shm))
@@ -139,11 +151,24 @@ class CoralNPUAllocator(Allocator):
                     shm = self.shms.pop(opaque)
                     errors = []
                     try:
-                        view = memoryview(shm.buf)
-                        _safe_release_resource(view.release, errors)
-                        _safe_release_resource(shm.close, errors)
+                        try:
+                            view = memoryview(shm.buf)
+                            view.release()
+                        except (AttributeError, KeyError): pass
+                        except FileNotFoundError as e: errors.append(e)
+                        except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
+                        except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
+                        try: shm.close()
+                        except (AttributeError, KeyError): pass
+                        except FileNotFoundError as e: errors.append(e)
+                        except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
+                        except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
                     finally:
-                        _safe_release_resource(shm.unlink, errors)
+                        try: shm.unlink()
+                        except (AttributeError, KeyError): pass
+                        except FileNotFoundError as e: errors.append(e)
+                        except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
+                        except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
                     if errors: raise errors[0]
 
                     self.free_blocks.append((opaque, size_aligned))
