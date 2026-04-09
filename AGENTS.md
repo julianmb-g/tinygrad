@@ -203,3 +203,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Testing Fraud Sabotage (DEV=NULL)**: DEV=NULL evasion MUST NOT be re-introduced. Massive skips in tests mathematically deflate coverage and are testing fraud.
 
 * **IPC Teardown Fidelity**: When cleaning up multiprocessing connections and worker processes, strictly avoid blanket `except (ProcessLookupError, BufferError, FileNotFoundError, OSError): pass` masks. Ensure expected bounds natively trigger and evaluate `BufferError` (translated to `AssertionError` in allocator) and `ProcessLookupError` without masking broader OS errors, preventing 120s overarching SIGKILL deadlocks.
+
+* **Illogical Task Ordering: Reverting Fixes via Upstream Checkout**: Sequence repository pollution reversions strictly BEFORE applying new bug fixes to those same directories. Always ensure conflict resolution preserves the newer stability fixes while accurately removing the cosmetic pollution.
