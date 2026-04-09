@@ -618,6 +618,25 @@ _start:
     finally:
       renderer.MAX_VR_COUNT = old_max
 
+  
+  def test_unsplittable_footprint(self):
+    from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+    from tinygrad.tensor import Tensor
+    from tinygrad.codegen.opt.postrange import Scheduler
+    from tinygrad.codegen.opt.heuristic import hand_coded_optimizations
+    from tinygrad.helpers import DEV
+    old_default = DEV.value
+    DEV.value = "CORALNPU"
+    try:
+      with self.assertRaisesRegex(OutOfMemoryError, "Contiguous reduction axis exceeds Split-K limits"):
+        t = Tensor.empty(2000).sum()
+        for si in t.schedule():
+          from tinygrad.renderer.coralnpu import CoralNPURenderer
+          k = Scheduler(si.ast, CoralNPURenderer())
+          hand_coded_optimizations(k)
+    finally:
+      DEV.value = old_default
+
   def test_unsplittable_reduction_oom(self):
     from tinygrad.codegen.opt.heuristic import OutOfMemoryError
     from tinygrad.tensor import Tensor

@@ -33,7 +33,8 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
 
       if contiguous_shapes:
         contiguous_reduction_size = prod(contiguous_shapes)
-        if resolve(contiguous_reduction_size > CORALNPU_L1_LIMIT, False) and not can_split_k:
+        total_itemsize = sum((b.dtype.itemsize for b in k.bufs))
+        if resolve((contiguous_reduction_size * total_itemsize) > CORALNPU_L1_LIMIT, False) and not can_split_k:
           raise OutOfMemoryError("Contiguous reduction axis exceeds Split-K limits")
 
   # first try the tensor cores

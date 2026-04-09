@@ -211,3 +211,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 
 * **QA Orchestrator Timeout Management**: When executing test commands in parallel across submodules, ensure robust timeouts are used at the orchestrator layer and that runaway runners (like bazel or pytest-xdist) are terminated cleanly to preserve tracebacks instead of relying on SIGKILL.
 * **Structural Formatting**: Avoid one-liner `if` statements containing semicolons. Break them vertically into indented blocks to prevent hiding multiple operations on a single line, improving traceback clarity.
+* **Unsplittable Tensor Memory Boundaries Evaluation**: When evaluating unsplittable tensor chunk limits (e.g., 12KB) in the ML compiler (`heuristic.py`), the physical memory footprint (elements * itemsize) MUST be calculated. Evaluating the raw element count against the byte limit allows chunks to exceed physical hardware capacities natively without triggering `OutOfMemoryError`.
