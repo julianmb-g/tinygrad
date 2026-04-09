@@ -217,3 +217,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 
 * **Pytest Collection Void via Missing Import**: API Boundary Drift where a required exception or module (e.g., `OutOfMemoryError`) is not implemented or exported correctly in the target module causes an immediate Pytest Collection Void (ImportError during collection) and mathematically erases the test suite. This must be prioritized as a Tier 1 Fatal Pipeline Blocker.
 
+* **Mass Reversion Conflict Strategy**: When reverting a large drive-by refactoring commit that caused repository pollution, if conflicts occur in files that have received subsequent targeted stability fixes (like `heuristic.py` or `test_asm_gemm.py`), you must explicitly pick `HEAD` (or the newer stability fix) for those conflict blocks to ensure the stability fixes are preserved while the rest of the files are reverted.
