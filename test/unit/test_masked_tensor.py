@@ -1,7 +1,5 @@
 import unittest
-
 from tinygrad.tensor import Tensor
-
 
 class TestMaskedTensor(unittest.TestCase):
   def test_mul_masked(self):

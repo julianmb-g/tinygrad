@@ -1,22 +1,17 @@
 # An example to compile a small Tensorflow model to extremely portable C code
 
-import os
-import sys
-
+import os, sys
 os.environ["CPU"] = '1'
 os.environ["JIT"] = '2'
 
-import subprocess
-
 import numpy as np
+import subprocess
 import tensorflow as tf
 import tf2onnx
-
-from extra.export_model import compile_net, export_model_clang, jit_model
-from tinygrad.helpers import to_mv
 from tinygrad.nn.onnx import OnnxRunner
 from tinygrad.tensor import Tensor
-
+from tinygrad.helpers import to_mv
+from extra.export_model import export_model_clang, compile_net, jit_model
 
 def get_uncompiled_model2(dataset_size=32, output_size=4):
   inputs = tf.keras.Input(shape=(dataset_size,), name="inputs")

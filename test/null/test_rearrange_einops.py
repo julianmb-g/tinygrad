@@ -3,10 +3,8 @@
 # https://github.com/arogozhnikov/einops/blob/master/tests/test_ops.py
 # https://github.com/arogozhnikov/einops/blob/master/tests/test_parsing.py
 
-import unittest
-
 import numpy as np
-
+import unittest
 from tinygrad import Tensor
 
 

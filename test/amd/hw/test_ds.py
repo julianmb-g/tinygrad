@@ -5,9 +5,7 @@ Includes: ds_store_b32, ds_load_b32, ds_store_2addr_*, ds_load_2addr_*,
           ds_inc_*, ds_dec_*, ds_cmpstore_*, ds_storexchg_*
 """
 import unittest
-
 from test.amd.hw.helpers import *
-
 
 class TestDS2Addr(unittest.TestCase):
   """Tests for DS_*_2ADDR instructions."""
@@ -21,9 +19,9 @@ class TestDS2Addr(unittest.TestCase):
       s_mov_b32(s[0], 0xBBBBBBBB),
       v_mov_b32_e32(v[1], s[0]),
       DS(DSOp.DS_STORE_2ADDR_B32, addr=v[10], data0=v[0], data1=v[1], vdst=v[0], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_B32, addr=v[10], vdst=v[2:3], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xAAAAAAAA)
@@ -42,9 +40,9 @@ class TestDS2Addr(unittest.TestCase):
       s_mov_b32(s[0], 0x9ABCDEF0),
       v_mov_b32_e32(v[3], s[0]),
       DS(DSOp.DS_STORE_2ADDR_B64, addr=v[10], data0=v[0:1], data1=v[2:3], vdst=v[0], offset0=0, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_B64, addr=v[10], vdst=v[4:7], offset0=0, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0xDEADBEEF)
@@ -65,9 +63,9 @@ class TestDS2AddrMore(unittest.TestCase):
       s_mov_b32(s[2], 0x22222222),
       v_mov_b32_e32(v[1], s[2]),
       DS(DSOp.DS_STORE_2ADDR_B32, addr=v[10], data0=v[0], data1=v[1], vdst=v[0], offset0=2, offset1=5),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_B32, addr=v[10], vdst=v[2:3], offset0=2, offset1=5),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0x11111111, "v2 should have value from offset 8 (2*4)")
@@ -89,9 +87,9 @@ class TestDS2AddrMore(unittest.TestCase):
       s_mov_b32(s[2], 0x44444444),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=12),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_B64, addr=v[10], vdst=v[4:7], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0x11111111, "v4 should be 0x11111111")
@@ -108,11 +106,11 @@ class TestDS2AddrMore(unittest.TestCase):
       s_mov_b32(s[2], 0xBBBBBBBB),
       v_mov_b32_e32(v[1], s[2]),
       DS(DSOp.DS_STORE_2ADDR_B32, addr=v[10], data0=v[0], data1=v[1], vdst=v[0], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 0xDEADBEEF),
       v_mov_b32_e32(v[4], s[2]),  # Sentinel
       DS(DSOp.DS_LOAD_2ADDR_B32, addr=v[10], vdst=v[2:3], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xAAAAAAAA)
@@ -139,11 +137,11 @@ class TestDS2AddrMore(unittest.TestCase):
       s_mov_b32(s[2], 0xDDDDDDDD),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=12),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       # addr=v[4] overlaps vdst=v[4:7]
       v_mov_b32_e32(v[4], 0),
       DS(DSOp.DS_LOAD_2ADDR_B64, addr=v[4], vdst=v[4:7], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0xAAAAAAAA, "v4 = LDS[0:4]")
@@ -161,11 +159,11 @@ class TestDS2AddrMore(unittest.TestCase):
       s_mov_b32(s[2], 0xBBBBBBBB),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=4),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       # addr=v[2] overlaps vdst=v[2:3]
       v_mov_b32_e32(v[2], 0),
       DS(DSOp.DS_LOAD_2ADDR_B32, addr=v[2], vdst=v[2:3], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xAAAAAAAA, "v2 = LDS[0:4]")
@@ -180,11 +178,11 @@ class TestDS2AddrMore(unittest.TestCase):
       s_mov_b32(s[2], 0xCAFEBABE),
       v_mov_b32_e32(v[1], s[2]),
       ds_store_b64(addr=v[10], data0=v[0:1], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 0x12345678),
       v_mov_b32_e32(v[4], s[2]),  # Sentinel
       ds_load_b64(addr=v[10], vdst=v[2:3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xDEADBEEF)
@@ -206,9 +204,9 @@ class TestDSB96(unittest.TestCase):
       s_mov_b32(s[0], 0x33333333),
       v_mov_b32_e32(v[2], s[0]),
       ds_store_b96(addr=v[10], data0=v[0:2]),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b96(addr=v[10], vdst=v[4:6]),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0x11111111, "v4 should have first dword")
@@ -226,9 +224,9 @@ class TestDSB96(unittest.TestCase):
       s_mov_b32(s[0], 0xCCCCCCCC),
       v_mov_b32_e32(v[2], s[0]),
       DS(DSOp.DS_STORE_B96, addr=v[10], data0=v[0:2], offset0=12),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_B96, addr=v[10], vdst=v[4:6], offset0=12),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0xAAAAAAAA)
@@ -252,9 +250,9 @@ class TestDSB128(unittest.TestCase):
       s_mov_b32(s[0], 0x44444444),
       v_mov_b32_e32(v[3], s[0]),
       ds_store_b128(addr=v[10], data0=v[0:3]),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b128(addr=v[10], vdst=v[4:7]),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0x11111111, "v4 should have first dword")
@@ -275,9 +273,9 @@ class TestDSB128(unittest.TestCase):
       s_mov_b32(s[0], 0xDDDDDDDD),
       v_mov_b32_e32(v[3], s[0]),
       DS(DSOp.DS_STORE_B128, addr=v[10], data0=v[0:3], offset0=16),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_B128, addr=v[10], vdst=v[4:7], offset0=16),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0xAAAAAAAA)
@@ -296,13 +294,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 100),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 200),
       v_mov_b32_e32(v[1], s[2]),
       ds_max_rtn_u32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 100, "v2 should have old value (100)")
@@ -315,13 +313,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 200),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 100),
       v_mov_b32_e32(v[1], s[2]),
       ds_min_rtn_u32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 200)
@@ -334,13 +332,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 0xFF00FF00),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 0xFFFF0000),
       v_mov_b32_e32(v[1], s[2]),
       ds_and_rtn_b32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xFF00FF00)
@@ -353,13 +351,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 0x00FF0000),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 0x000000FF),
       v_mov_b32_e32(v[1], s[2]),
       ds_or_rtn_b32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0x00FF0000)
@@ -372,13 +370,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 0xAAAAAAAA),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 0xFFFFFFFF),
       v_mov_b32_e32(v[1], s[2]),
       ds_xor_rtn_b32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xAAAAAAAA)
@@ -391,13 +389,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 5),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 10),  # limit
       v_mov_b32_e32(v[1], s[2]),
       ds_inc_rtn_u32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 5)
@@ -410,13 +408,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 5),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 10),  # limit
       v_mov_b32_e32(v[1], s[2]),
       ds_dec_rtn_u32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 5)
@@ -429,15 +427,15 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 100),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 200),
       v_mov_b32_e32(v[1], s[2]),  # new value
       s_mov_b32(s[2], 100),
       v_mov_b32_e32(v[2], s[2]),  # compare = 100 (matches)
       ds_cmpstore_b32(addr=v[10], data0=v[1], data1=v[2], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[4], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 200)
@@ -449,15 +447,15 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 100),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 200),
       v_mov_b32_e32(v[1], s[2]),  # new value
       s_mov_b32(s[2], 50),
       v_mov_b32_e32(v[2], s[2]),  # compare = 50 (doesn't match)
       ds_cmpstore_b32(addr=v[10], data0=v[1], data1=v[2], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[4], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 100)
@@ -469,13 +467,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 100),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 200),
       v_mov_b32_e32(v[1], s[2]),
       ds_max_u32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][3], 200, "v3 should have max(100, 200) = 200")
@@ -489,13 +487,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 100),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 50),
       v_mov_b32_e32(v[1], s[2]),
       ds_add_u32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xDEADBEEF, "v2 should preserve sentinel")
@@ -510,13 +508,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 100),
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 50),
       v_mov_b32_e32(v[1], s[2]),
       ds_add_rtn_u32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 100, "v2 should have old value (100)")
@@ -529,13 +527,13 @@ class TestDSAtomic(unittest.TestCase):
       s_mov_b32(s[2], 0),  # Start at 0
       v_mov_b32_e32(v[0], s[2]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[2], 10),  # limit
       v_mov_b32_e32(v[1], s[2]),
       ds_dec_rtn_u32(addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0, "v2 should have old value (0)")
@@ -553,13 +551,13 @@ class TestDSStorexchg(unittest.TestCase):
       s_mov_b32(s[0], 0xAAAAAAAA),
       v_mov_b32_e32(v[0], s[0]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[0], 0xBBBBBBBB),
       v_mov_b32_e32(v[1], s[0]),
       DS(DSOp.DS_STOREXCHG_RTN_B32, addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xAAAAAAAA)
@@ -578,9 +576,9 @@ class TestDSRegisterWidth(unittest.TestCase):
       s_mov_b32(s[0], 0x11111111),
       v_mov_b32_e32(v[2], s[0]),  # sentinel
       ds_store_b32(addr=v[0], data0=v[1], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[0], vdst=v[1], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][1], 0xDEADBEEF)
@@ -599,9 +597,9 @@ class TestDS2AddrStride64(unittest.TestCase):
       s_mov_b32(s[0], 0xBBBBBBBB),
       v_mov_b32_e32(v[1], s[0]),
       DS(DSOp.DS_STORE_2ADDR_STRIDE64_B32, addr=v[10], data0=v[0], data1=v[1], vdst=v[0], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_STRIDE64_B32, addr=v[10], vdst=v[2:3], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xAAAAAAAA, "v2 from addr 256")
@@ -620,9 +618,9 @@ class TestDS2AddrStride64(unittest.TestCase):
       s_mov_b32(s[0], 0x9ABCDEF0),
       v_mov_b32_e32(v[3], s[0]),
       DS(DSOp.DS_STORE_2ADDR_STRIDE64_B64, addr=v[10], data0=v[0:1], data1=v[2:3], vdst=v[0], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_STRIDE64_B64, addr=v[10], vdst=v[4:7], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0xDEADBEEF)
@@ -639,15 +637,15 @@ class TestDS2AddrStride64(unittest.TestCase):
       s_mov_b32(s[0], 0x22222222),
       v_mov_b32_e32(v[1], s[0]),
       DS(DSOp.DS_STORE_2ADDR_B32, addr=v[10], data0=v[0], data1=v[1], vdst=v[0], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[0], 0xAAAAAAAA),
       v_mov_b32_e32(v[2], s[0]),
       s_mov_b32(s[0], 0xBBBBBBBB),
       v_mov_b32_e32(v[3], s[0]),
       DS(DSOp.DS_STOREXCHG_2ADDR_RTN_B32, addr=v[10], data0=v[2], data1=v[3], vdst=v[4:5], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_B32, addr=v[10], vdst=v[6:7], offset0=0, offset1=1),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0x11111111, "old val 0")
@@ -664,15 +662,15 @@ class TestDS2AddrStride64(unittest.TestCase):
       s_mov_b32(s[0], 0xCAFEBABE),
       v_mov_b32_e32(v[1], s[0]),   # initial high
       DS(DSOp.DS_STORE_B64, addr=v[10], data0=v[0:1], vdst=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[0], 0x12345678),
       v_mov_b32_e32(v[2], s[0]),   # new low
       s_mov_b32(s[0], 0x9ABCDEF0),
       v_mov_b32_e32(v[3], s[0]),   # new high
       DS(DSOp.DS_STOREXCHG_RTN_B64, addr=v[10], data0=v[2:3], vdst=v[4:5], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_B64, addr=v[10], vdst=v[6:7], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0xDEADBEEF, "v4 should have old low dword")
@@ -689,9 +687,9 @@ class TestDS2AddrStride64(unittest.TestCase):
       s_mov_b32(s[0], 0x22222222),
       v_mov_b32_e32(v[1], s[0]),
       DS(DSOp.DS_STORE_2ADDR_STRIDE64_B64, addr=v[10], data0=v[0:1], data1=v[0:1], vdst=v[0], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_STRIDE64_B64, addr=v[10], vdst=v[2:5], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0x11111111, "v2 should have val1 low")
@@ -708,15 +706,15 @@ class TestDS2AddrStride64(unittest.TestCase):
       s_mov_b32(s[0], 0x22222222),
       v_mov_b32_e32(v[1], s[0]),
       DS(DSOp.DS_STORE_2ADDR_STRIDE64_B32, addr=v[10], data0=v[0], data1=v[1], vdst=v[0], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[0], 0xAAAAAAAA),
       v_mov_b32_e32(v[2], s[0]),
       s_mov_b32(s[0], 0xBBBBBBBB),
       v_mov_b32_e32(v[3], s[0]),
       DS(DSOp.DS_STOREXCHG_2ADDR_STRIDE64_RTN_B32, addr=v[10], data0=v[2], data1=v[3], vdst=v[4:5], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_2ADDR_STRIDE64_B32, addr=v[10], vdst=v[6:7], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][4], 0x11111111, "v4 should have old value")
@@ -733,13 +731,13 @@ class TestDS2AddrStride64(unittest.TestCase):
       s_mov_b32(s[0], 0x22222222),
       v_mov_b32_e32(v[1], s[0]),
       DS(DSOp.DS_STORE_2ADDR_STRIDE64_B64, addr=v[10], data0=v[0:1], data1=v[0:1], vdst=v[0], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       s_mov_b32(s[0], 0xAAAAAAAA),
       v_mov_b32_e32(v[6], s[0]),
       s_mov_b32(s[0], 0xBBBBBBBB),
       v_mov_b32_e32(v[7], s[0]),
       DS(DSOp.DS_STOREXCHG_2ADDR_STRIDE64_RTN_B64, addr=v[10], data0=v[6:7], data1=v[6:7], vdst=v[8:11], offset0=1, offset1=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][8], 0x11111111, "v8 should have old val1 low")
@@ -757,14 +755,14 @@ class TestAtomicOrdering(unittest.TestCase):
       v_mov_b32_e32(v[10], 0),
       v_mov_b32_e32(v[0], 100),
       DS(DSOp.DS_STORE_B32, addr=v[10], data0=v[0], vdst=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       v_mov_b32_e32(v[1], 25),
       DS(DSOp.DS_ADD_RTN_U32, addr=v[10], data0=v[1], vdst=v[2], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_ADD_RTN_U32, addr=v[10], data0=v[1], vdst=v[3], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       DS(DSOp.DS_LOAD_B32, addr=v[10], vdst=v[4], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 100, "First add should return 100")
@@ -782,7 +780,7 @@ class TestDsPermute(unittest.TestCase):
       v_mov_b32_e32(v[0], 0),  # addr = 0 (lane 0)
       v_mov_b32_e32(v[1], 0xDEADBEEF),  # data
       ds_permute_b32(v[2], v[0], v[1]),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     # Lane 0 sends to lane 0, so lane 0 gets 0xDEADBEEF
@@ -794,7 +792,7 @@ class TestDsPermute(unittest.TestCase):
       v_mov_b32_e32(v[0], 0),  # addr = 0 (read from lane 0)
       v_mov_b32_e32(v[1], 0xCAFEBABE),  # data in lane 0
       ds_bpermute_b32(v[2], v[0], v[1]),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     # Lane 0 reads from lane 0's v[1]
@@ -807,7 +805,7 @@ class TestDsPermute(unittest.TestCase):
       v_mov_b32_e32(v[0], 0),  # All lanes send to addr 0 (lane 0)
       v_mov_b32_e32(v[1], 0x11111111),  # All lanes send same data
       ds_permute_b32(v[2], v[0], v[1]),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=4)
     # Lane 0 receives data (highest numbered active lane wins)
@@ -828,7 +826,7 @@ class TestDsPermute(unittest.TestCase):
       v_add_nc_u32_e32(v[1], s[0], v[255]),
       # ds_bpermute: v[2] = v[1] from lane (lane_id ^ 1)
       ds_bpermute_b32(vdst=v[2], addr=v[0], data0=v[1]),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=32)
     for lane in range(32):
@@ -847,9 +845,9 @@ class TestDSSubDword(unittest.TestCase):
       v_mov_b32_e32(v[1], 0xBEEF1234),
       DS(DSOp.DS_STORE_B16, addr=v[0], data0=v[1], offset0=0),
       DS(DSOp.DS_STORE_B16_D16_HI, addr=v[0], data0=v[1], offset0=2),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(vdst=v[2], addr=v[0], offset0=0),
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xBEEF1234, "lo=0x1234 at byte 0, hi=0xBEEF at byte 2")
@@ -869,9 +867,9 @@ class TestDSLargeOffset(unittest.TestCase):
       s_mov_b32(s[0], 0xDEADBEEF),
       v_mov_b32_e32(v[0], s[0]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=0, offset1=1),  # offset = 256
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[1], offset0=0, offset1=1),  # offset = 256
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][1], 0xDEADBEEF)
@@ -883,9 +881,9 @@ class TestDSLargeOffset(unittest.TestCase):
       s_mov_b32(s[0], 0xCAFEBABE),
       v_mov_b32_e32(v[0], s[0]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=44, offset1=1),  # offset = 300
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[1], offset0=44, offset1=1),  # offset = 300
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][1], 0xCAFEBABE)
@@ -899,9 +897,9 @@ class TestDSLargeOffset(unittest.TestCase):
       s_mov_b32(s[0], 0x22222222),
       v_mov_b32_e32(v[1], s[0]),
       ds_store_b64(addr=v[10], data0=v[0:1], offset0=0, offset1=2),  # offset = 512
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b64(addr=v[10], vdst=v[2:3], offset0=0, offset1=2),  # offset = 512
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0x11111111)
@@ -918,11 +916,11 @@ class TestDSLargeOffset(unittest.TestCase):
       # Store 0xAAAAAAAA at offset=0, 0xBBBBBBBB at offset=256
       ds_store_b32(addr=v[10], data0=v[0], offset0=0, offset1=0),  # offset = 0
       ds_store_b32(addr=v[10], data0=v[1], offset0=0, offset1=1),  # offset = 256
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       # Read back both
       ds_load_b32(addr=v[10], vdst=v[2], offset0=0, offset1=0),  # offset = 0
       ds_load_b32(addr=v[10], vdst=v[3], offset0=0, offset1=1),  # offset = 256
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xAAAAAAAA, "offset=0 should read 0xAAAAAAAA")
@@ -935,9 +933,9 @@ class TestDSLargeOffset(unittest.TestCase):
       s_mov_b32(s[0], 0x12345678),
       v_mov_b32_e32(v[0], s[0]),
       ds_store_b32(addr=v[10], data0=v[0], offset0=192, offset1=1),  # offset = 448
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b32(addr=v[10], vdst=v[1], offset0=192, offset1=1),  # offset = 448
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][1], 0x12345678)
@@ -951,9 +949,9 @@ class TestDSLargeOffset(unittest.TestCase):
       s_mov_b32(s[0], 0x11223344),
       v_mov_b32_e32(v[1], s[0]),
       ds_store_b64(addr=v[10], data0=v[0:1], offset0=136, offset1=1),  # offset = 392
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
       ds_load_b64(addr=v[10], vdst=v[2:3], offset0=136, offset1=1),  # offset = 392
-      s_waitcnt(lgkmcnt=0),
+      s_waitcnt_lgkmcnt(sdst=NULL, simm16=0),
     ]
     st = run_program(instructions, n_lanes=1)
     self.assertEqual(st.vgpr[0][2], 0xAABBCCDD)

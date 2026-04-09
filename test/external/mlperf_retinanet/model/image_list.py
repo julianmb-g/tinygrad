@@ -1,9 +1,8 @@
 # Copied from https://github.com/mlcommons/training/blob/637c82f9e699cd6caf108f92efb2c1d446b630e0/single_stage_detector/ssd/model/image_list.py
 
-from typing import List, Tuple
-
 import torch
 from torch import Tensor
+from typing import List, Tuple
 
 
 class ImageList(object):

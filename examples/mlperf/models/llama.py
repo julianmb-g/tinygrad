@@ -1,7 +1,6 @@
-from extra.models.llama import apply_rotary_emb, precompute_freqs_cis
 from tinygrad import Tensor, nn
 from tinygrad.helpers import getenv
-
+from extra.models.llama import apply_rotary_emb, precompute_freqs_cis
 
 class Attention:
   def __init__(self, dim:int, n_heads:int, n_kv_heads:int|None=None, linear=nn.Linear):

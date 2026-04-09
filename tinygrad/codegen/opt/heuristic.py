@@ -1,14 +1,9 @@
 import itertools
-
-from tinygrad.codegen.opt import KernelOptError, Opt, OptOps
+from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
+from tinygrad.helpers import getenv, DEBUG, prod, NOLOCALS, TC_OPT, TC_SELECT, USE_TC, AMX, IMAGE
+from tinygrad.dtype import PtrDType, ImageDType
+from tinygrad.uop.ops import Ops, resolve, AxisType
 from tinygrad.codegen.opt.postrange import Scheduler
-from tinygrad.dtype import ImageDType
-from tinygrad.helpers import AMX, DEBUG, NOLOCALS, TC_OPT, TC_SELECT, USE_TC, getenv, prod
-from tinygrad.uop.ops import AxisType, Ops, resolve
-
-
-class OutOfMemoryError(Exception): pass
-CORALNPU_L1_LIMIT = 12288
 
 def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   if k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU":
@@ -80,16 +75,17 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   k = k.copy()
 
   # upcast float4 images, this must be early so we don't accidentally add locals before the upcast
-  for buf_index,buf in enumerate(k.bufs):
-    if isinstance(buf.src[0].dtype, ImageDType):
-      # part of is_expanded
-      unit_stride_axes_mul_4 = [k.rngs.index(c) for c in k.bufs[buf_index].src[1].get_idx().split_uop(Ops.ADD) if
-        c.op is Ops.RANGE and (c.vmax+1)%4 == 0]
-      if len(unit_stride_axes_mul_4):
-        if (axis:=unit_stride_axes_mul_4[0]) in k.upcastable_dims:
-          k.apply_opt(Opt(OptOps.UPCAST, axis, 4))
-        elif axis in k.unrollable_dims:
-          k.apply_opt(Opt(OptOps.UNROLL, k.unrollable_dims.index(axis), 4))
+  if IMAGE:
+    for buf_index,buf in enumerate(k.bufs):
+      if isinstance(buf.src[0].dtype, PtrDType) and ImageDType.valid_dims(buf.src[0].dtype):
+        # part of is_expanded
+        unit_stride_axes_mul_4 = [k.rngs.index(c) for c in k.bufs[buf_index].src[1].get_idx().split_uop(Ops.ADD) if
+          c.op is Ops.RANGE and (c.vmax+1)%4 == 0]
+        if len(unit_stride_axes_mul_4):
+          if (axis:=unit_stride_axes_mul_4[0]) in k.upcastable_dims:
+            k.apply_opt(Opt(OptOps.UPCAST, axis, 4))
+          elif axis in k.unrollable_dims:
+            k.apply_opt(Opt(OptOps.UNROLL, k.unrollable_dims.index(axis), 4))
 
   # should use matvec - TODO: adjust/tune based on the wide vs tall/large vs small mat
   MV_BLOCKSIZE, MV_THREADS_PER_ROW, MV_ROWS_PER_THREAD = getenv("MV_BLOCKSIZE", 4), getenv("MV_THREADS_PER_ROW", 8), getenv("MV_ROWS_PER_THREAD", 4)
@@ -140,10 +136,10 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   is_coralnpu = k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU"
   max_upcast = 28 if is_coralnpu else (getattr(k.ren, "max_upcast", 31) if k.ren is not None else 31)
   upcasted_axis: set[int] = set()
-  while resolve(prod(k.output_shape[i] for i in k.upcastable_dims) >= 1024) and (k.upcast_size() <= max_upcast):
+  while resolve(prod(k.output_shape[i] for i in k.upcastable_dims) >= 1024) and (k.upcast_size() < 32):
     xb_choices = []
     # consider all upcastable axes with 3 or 4 upcast (128 on the DSP)
-    for axis, upcast_amount in itertools.product(k.upcastable_dims, ([128] if not len(upcasted_axis) else []) if is_dsp else [3, 4]):
+    for axis, upcast_amount in itertools.product(k.upcastable_dims, ([128] if not len(upcasted_axis) else []) if is_dsp else [3,4]):
       # if we haven't upcasted it, it mods, and buffer has stride 0 on axis while having no stride 0 in the upcasted axis already
       if axis in upcasted_axis or k.full_shape[axis]%upcast_amount != 0: continue
       rng = k.rngs[axis]

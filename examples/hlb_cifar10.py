@@ -3,18 +3,15 @@
 # tinygrad implementation of https://github.com/tysam-code/hlb-CIFAR10/blob/main/main.py
 # https://myrtle.ai/learn/how-to-train-your-resnet-8-bag-of-tricks/
 # https://siboehm.com/articles/22/CUDA-MMM
-import random
-import time
-from typing import Optional
-
+import random, time
 import numpy as np
-
-from extra.bench_log import BenchEvent, WallTimeEvent
+from typing import Optional
 from extra.lr_scheduler import OneCycleLR
-from tinygrad import Device, GlobalCounters, Tensor, TinyJit, Variable, dtypes, nn
-from tinygrad.helpers import BEAM, WINO, Context, colored, getenv, prod
-from tinygrad.nn import optim
+from tinygrad import nn, dtypes, Tensor, Device, GlobalCounters, TinyJit, Variable
 from tinygrad.nn.state import get_state_dict
+from tinygrad.nn import optim
+from tinygrad.helpers import Context, BEAM, WINO, getenv, colored, prod
+from extra.bench_log import BenchEvent, WallTimeEvent
 
 cifar_mean = [0.4913997551666284, 0.48215855929893703, 0.4465309133731618]
 cifar_std = [0.24703225141799082, 0.24348516474564, 0.26158783926049628]

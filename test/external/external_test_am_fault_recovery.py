@@ -1,11 +1,7 @@
 # ruff: noqa: F405
-import os
-import subprocess
-import unittest
-
-from tinygrad.renderer.amd.dsl import NULL, Inst, s, v
+import unittest, subprocess, os
 from tinygrad.runtime.autogen.amd.rdna3.ins import *  # noqa: F403
-
+from tinygrad.renderer.amd.dsl import s, v, Inst, NULL
 
 def assemble_kernel(insts:list[Inst], name:str="test") -> str:
   kd = {"next_free_vgpr": 8, "next_free_sgpr": 8, "wavefront_size32": 1, "user_sgpr_kernarg_segment_ptr": 1, "kernarg_size": 8}

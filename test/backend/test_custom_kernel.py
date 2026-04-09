@@ -1,8 +1,7 @@
 import unittest
-
 from tinygrad import Tensor, UOp
 from tinygrad.dtype import AddrSpace, dtypes
-from tinygrad.uop.ops import AxisType, KernelInfo
+from tinygrad.uop.ops import KernelInfo, AxisType
 
 # **** kernels ****
 
@@ -162,7 +161,7 @@ class TestCustomKernel(unittest.TestCase):
     self.assertTrue((ref == tst).all().item())
 
   def test_flip_contract(self):
-    a = ((Tensor.arange(10*4) % 10) * 0.1).reshape(10,4)
+    a = Tensor.randn(10,4)
     b = Tensor.empty_like(a)
     b = b.custom_kernel(a, fxn=flip_contract_kernel)[0]
     self.assertTrue((a.flip(1) == b).all().item())
@@ -187,15 +186,15 @@ class TestCustomKernel(unittest.TestCase):
     self.assertEqual(b.item(), 15)
 
   def test_slice_sum(self):
-    A = ((Tensor.arange(16*16) % 10) * 0.1).reshape(16, 16).contiguous()
+    A = Tensor.randn(16, 16).contiguous()
     B = Tensor.empty(16)
     B = Tensor.custom_kernel(B, A, fxn=slice_sum_kernel)[0]
     self.assertTrue(B.allclose(A.sum(1)))
 
   def test_gemm(self):
     N = 16
-    a = ((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N)
-    b = ((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N)
+    a = Tensor.randn(N, N)
+    b = Tensor.randn(N, N)
     c = Tensor.empty(N, N)
 
     tst = Tensor.custom_kernel(c, a, b, fxn=custom_gemm)[0]
@@ -205,8 +204,8 @@ class TestCustomKernel(unittest.TestCase):
   def test_gemm_multi(self):
     devs = ("CPU:0", "CPU:1")
     N = 16
-    a = ((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N).shard_(devs, axis=0)
-    b = ((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N).to(devs)
+    a = Tensor.randn(N, N).shard_(devs, axis=0)
+    b = Tensor.randn(N, N).to(devs)
     c = Tensor(Tensor.empty(N//2, N, device=devs).uop.multi(0), device=devs)
     tst = Tensor.custom_kernel(c, a, b, fxn=custom_gemm)[0]
     err = (tst - (a@b)).square().max()
@@ -216,8 +215,8 @@ class TestCustomKernel(unittest.TestCase):
   # NOTE: grad_fxn doesn't work with pyrender
   def test_gemm_backward(self, custom_backward_gemm=False):
     N = 4
-    a_rand = ((Tensor.arange(N*8) % 10) * 0.1).reshape(N, 8)
-    b_rand = ((Tensor.arange(8*N) % 10) * 0.1).reshape(8, N)
+    a_rand = Tensor.randn(N, 8)
+    b_rand = Tensor.randn(8, N)
     Tensor.realize(a_rand, b_rand)
 
     a, b = Tensor(a_rand.numpy(), requires_grad=True), Tensor(b_rand.numpy(), requires_grad=True)
@@ -244,9 +243,9 @@ class TestCustomKernel(unittest.TestCase):
 
   def test_simple_qkv(self):
     N, d = 8, 4
-    Q = ((Tensor.arange(N*d) % 10) * 0.1).reshape(N, d)
-    K = ((Tensor.arange(N*d) % 10) * 0.1).reshape(N, d)
-    V = ((Tensor.arange(N*d) % 10) * 0.1).reshape(N, d)
+    Q = Tensor.randn(N, d)
+    K = Tensor.randn(N, d)
+    V = Tensor.randn(N, d)
     O = Tensor.empty(N, d)
 
     O_custom = Tensor.custom_kernel(O, Q, K, V, fxn=lambda o,q,k,v: simple_qkv_kernel(o,q,k,v))[0]
@@ -357,6 +356,10 @@ class TestUOpReduce(unittest.TestCase):
     a = Tensor([[1, 5, 3], [4, 2, 6]]).float()
     result = Tensor(a.uop.max(axis=0)).numpy()
     assert result[0] == 4 and result[1] == 5 and result[2] == 6
+
+  def test_uop_std(self):
+    a = Tensor([2.0, 4, 4, 4, 5, 5, 7, 9])
+    self.assertAlmostEqual(Tensor(a.uop.std()).item(), a.std().item(), places=5)
 
 class TestUOpWhere(unittest.TestCase):
   def test_uop_where_both_const(self):

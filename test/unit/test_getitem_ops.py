@@ -1,9 +1,6 @@
 import unittest
-
 import numpy as np
-
-from tinygrad import GlobalCounters, Tensor
-
+from tinygrad import Tensor, GlobalCounters
 
 class TestGetitemOps(unittest.TestCase):
   def test_two_tensor_indices(self):

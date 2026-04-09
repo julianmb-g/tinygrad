@@ -3,18 +3,14 @@
 # like test_linearizer_failures, but they don't have to fail
 
 import unittest
-
-from tinygrad import dtypes
+from tinygrad import Device, dtypes
+from tinygrad.uop.ops import UOp, Ops, AxisType, KernelInfo
 from tinygrad.codegen.opt.search import Opt, OptOps
 from tinygrad.engine.realize import get_program
-from tinygrad.uop.ops import AxisType, KernelInfo, Ops, UOp
 
-
-import sys
-from tinygrad.device import Device
 class TestLinearizerFailure(unittest.TestCase):
+  @unittest.skipUnless(Device.DEFAULT == "METAL", "only tested on METAL")
   def test_failure_beam_mnist(self):
-    if sys.platform != 'darwin': raise unittest.SkipTest("MetalRenderer requires macOS")
     c0 = UOp(Ops.PARAM, dtypes.uchar.ptr(4014080), arg=0, src=())
     c1 = UOp.range(UOp.const(dtypes.weakint, 512), 0, AxisType.GLOBAL)
     c2 = UOp.range(UOp.const(dtypes.weakint, 784), 1, AxisType.GLOBAL)

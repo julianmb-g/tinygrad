@@ -9,7 +9,6 @@ from tinygrad.viz.serve import sqtt_timeline
 from test.amd.disasm import disasm
 
 import tinygrad
-
 EXAMPLES_DIR = Path(tinygrad.__file__).parent.parent / "extra/sqtt/examples"
 
 def run_cli(*cli_args) -> str:

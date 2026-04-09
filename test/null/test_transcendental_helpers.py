@@ -1,24 +1,10 @@
-import math
-import unittest
-
+import unittest, math
 import numpy as np
-
-from test.helpers import eval_uop
 from tinygrad import dtypes
-from tinygrad.uop.decompositions import (
-  TRANSCENDENTAL_DTYPES,
-  cody_waite_reduction,
-  frexp,
-  payne_hanek_reduction,
-  pow2if,
-  rintk,
-  trig_poly,
-  xexp2,
-  xlog2,
-  xpow,
-)
-from tinygrad.uop.ops import Ops, UOp
-
+from tinygrad.uop.ops import UOp, Ops
+from tinygrad.uop.decompositions import TRANSCENDENTAL_DTYPES, payne_hanek_reduction, cody_waite_reduction
+from tinygrad.uop.decompositions import frexp, rintk, xpow, xexp2, xlog2, trig_poly, pow2if
+from test.helpers import eval_uop
 
 class TestTranscendentalFunctions(unittest.TestCase):
   def test_payne_hanek_reduction(self):

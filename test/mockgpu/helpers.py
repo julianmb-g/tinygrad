@@ -1,8 +1,5 @@
-import ctypes
-import ctypes.util
-
+import ctypes, ctypes.util
 from tinygrad.helpers import getenv
-
 
 def _try_dlopen_gpuocelot():
   GPUOCELOT_PATHS = [ctypes.util.find_library("gpuocelot")] if ctypes.util.find_library("gpuocelot") is not None else []

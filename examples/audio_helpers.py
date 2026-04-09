@@ -1,9 +1,7 @@
-import math
 from typing import Optional
-
 from tinygrad import Tensor
 from tinygrad.dtype import DTypeLike, dtypes
-
+import math
 
 # rewritten from numpy
 def rfftfreq(n: int, d: float = 1.0, device=None) -> Tensor:

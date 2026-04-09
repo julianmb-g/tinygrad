@@ -1,11 +1,7 @@
-import functools
-import re
-import urllib
+import functools, re, urllib, tinygrad.runtime.autogen
 from collections import defaultdict
 from dataclasses import dataclass
-
-import tinygrad.runtime.autogen
-from tinygrad.helpers import fetch, getbits
+from tinygrad.helpers import getbits, fetch
 
 AMDGPU_URL = "https://gitlab.com/linux-kernel/linux-next/-/raw/cf6d949a409e09539477d32dbe7c954e4852e744/drivers/gpu/drm/amd"
 ROCM_URL = "https://raw.githubusercontent.com/ROCm/rocm-systems/cccc350dc620e61ae2554978b62ab3532dc10bd9/projects"

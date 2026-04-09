@@ -1,10 +1,8 @@
 #!/usr/bin/env python3
 """Integration test: round-trip RDNA3 assembly through LLVM toolchain."""
 import unittest
-
-from test.amd.helpers import llvm_assemble, llvm_disasm
 from tinygrad.runtime.autogen.amd.rdna3.ins import *
-
+from test.amd.helpers import llvm_assemble, llvm_disasm
 
 def waitcnt(vmcnt: int = 0x3f, expcnt: int = 0x7, lgkmcnt: int = 0x3f) -> int:
   return (expcnt & 0x7) | ((lgkmcnt & 0x3f) << 4) | ((vmcnt & 0x3f) << 10)
@@ -79,9 +77,9 @@ class TestTinygradIntegration(unittest.TestCase):
 
   def _get_kernel_code(self, op_fn) -> bytes:
     from tinygrad import Tensor
+    from tinygrad.helpers import Target
     from tinygrad.codegen import get_program
     from tinygrad.renderer.llvmir import AMDLLVMRenderer
-    from tinygrad.runtime.support.compiler_amd import AMDLLVMCompiler
     from tinygrad.runtime.support.elf import elf_loader
     from tinygrad.uop.ops import Ops
 
@@ -89,9 +87,9 @@ class TestTinygradIntegration(unittest.TestCase):
     schedule = result.schedule()
     sink_items = [si for si in schedule if si.ast.op == Ops.SINK]
     assert len(sink_items) > 0, "No SINK in schedule"
-    renderer = AMDLLVMRenderer('gfx1100')
+    renderer = AMDLLVMRenderer(Target("AMD", arch='gfx1100'))
     prg = get_program(sink_items[0].ast, renderer)
-    lib = AMDLLVMCompiler('gfx1100').compile(prg.src)
+    lib = renderer.compiler.compile(prg.src)
     return next(s.content for s in elf_loader(lib)[1] if s.name == ".text")
 
   def test_simple_add_kernel(self):

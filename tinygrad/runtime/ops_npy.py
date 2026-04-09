@@ -1,8 +1,6 @@
 import numpy as np
-
-from tinygrad.device import Allocator, Compiled
 from tinygrad.helpers import flat_mv
-
+from tinygrad.device import Compiled, Allocator
 
 class NpyAllocator(Allocator['NpyDevice']):
   def _alloc(self, size:int, options=None) -> np.ndarray: return np.empty(size, dtype=np.uint8)

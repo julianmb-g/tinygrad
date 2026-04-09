@@ -1,13 +1,11 @@
-import json
-import random
 import sys
-
+import random
+import json
 import numpy
-
-from examples.vgg7_helpers.waifu2x import Vgg7, image_load, image_save
-from tinygrad.nn.optim import SGD
-from tinygrad.nn.state import get_state_dict, load_state_dict, safe_load, safe_save
 from tinygrad.tensor import Tensor
+from tinygrad.nn.optim import SGD
+from tinygrad.nn.state import safe_save, safe_load, get_state_dict, load_state_dict
+from examples.vgg7_helpers.waifu2x import image_load, image_save, Vgg7
 
 # amount of context erased by model
 CONTEXT = 7

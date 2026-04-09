@@ -2,23 +2,16 @@
 # https://github.com/onnx/onnx/blob/main/docs/Operators.md
 # https://github.com/microsoft/onnxruntime/blob/main/docs/ContribOperators.md
 
-import math
-import tempfile
-import unittest
 from typing import Any
-
-import numpy as np
-import onnx
-from onnx.defs import AI_ONNX_PREVIEW_TRAINING_DOMAIN, ONNX_DOMAIN
-
-from extra.onnx_helpers import validate
-from tinygrad import Tensor, dtypes
+import unittest, onnx, tempfile
+from tinygrad import dtypes, Tensor
 from tinygrad.nn.onnx import OnnxRunner
-
+import numpy as np
+from extra.onnx_helpers import validate
+from onnx.defs import ONNX_DOMAIN, AI_ONNX_PREVIEW_TRAINING_DOMAIN
 MICROSOFT_CONTRIB_OPS_DOMAIN = "com.microsoft"
 # TODO: remove this once ORT supports 1.18.0
 from onnx.helper import VERSION_TABLE
-
 VERSION_MAP = {row[0]: row[1:] for row in VERSION_TABLE}
 IR_VERSION, ai_onnx, ai_onnx_ml, ai_onnx_training = VERSION_MAP["1.17.0"]
 
@@ -56,7 +49,7 @@ class TestMainOnnxOps(TestOnnxOps):
 
   def test_squeeze(self):
     # axes is None
-    inputs = {"data": (np.arange(math.prod((1, 3, 1, 1,))) % 10 * 0.1).reshape(1, 3, 1, 1).astype(np.float32)}
+    inputs = {"data": np.random.randn(1, 3, 1, 1).astype(np.float32)}
     attributes = {}
     outputs = ["squeezed"]
     self.helper_test_single_op("Squeeze", inputs, attributes, outputs)
@@ -64,9 +57,9 @@ class TestMainOnnxOps(TestOnnxOps):
   def test_conv(self):
     # test VALID auto_pad
     inputs = {
-      "x": (np.arange(math.prod((1, 3, 384, 384,))) % 10 * 0.1).reshape(1, 3, 384, 384).astype(np.float32),
-      "w": (np.arange(math.prod((1152, 3, 14, 14,))) % 10 * 0.1).reshape(1152, 3, 14, 14).astype(np.float32),
-      "b": (np.arange(math.prod((1152,))) % 10 * 0.1).reshape(1152).astype(np.float32)
+      "x": np.random.randn(1, 3, 384, 384).astype(np.float32),
+      "w": np.random.randn(1152, 3, 14, 14).astype(np.float32),
+      "b": np.random.randn(1152).astype(np.float32)
     }
     attributes = {'auto_pad': 'VALID', 'dilations': (1, 1), 'group': 1, 'kernel_shape': (14, 14), 'strides': (14, 14)}
     outputs = ["y"]
@@ -84,7 +77,7 @@ class TestMainOnnxOps(TestOnnxOps):
   def test_gather(self):
     # test const negative indices
     inputs = {
-      "input": (np.arange(math.prod((1, 3, 3,))) % 10 * 0.1).reshape(1, 3, 3).astype(np.float32),
+      "input": np.random.randn(1, 3, 3).astype(np.float32),
       "indices": np.array(-2, dtype=np.int64),
     }
     attributes = {'axis': 1}
@@ -244,7 +237,7 @@ class TestMainOnnxOps(TestOnnxOps):
 
   def test_averagepool_3d_dilations_large_count_include_pad_is_1_ceil_mode_is_True(self):
     # https://github.com/onnx/onnx/blob/main/docs/Operators.md#examples-13
-    inputs = {"x": (np.arange(math.prod((1, 1, 32, 32, 32,))) % 10 * 0.1).reshape(1, 1, 32, 32, 32).astype(np.float32)}
+    inputs = {"x": np.random.randn(1, 1, 32, 32, 32).astype(np.float32)}
     attributes = {"kernel_shape": (5, 5, 5), "strides": (3, 3, 3), "dilations": (2, 2, 2), "count_include_pad": 1, "ceil_mode": True}
     outputs = ["y"]
     self.helper_test_single_op("AveragePool", inputs, attributes, outputs)
@@ -368,7 +361,7 @@ class TestMainOnnxOps(TestOnnxOps):
   def test_qlinearmatmul_3D_int8_float32(self): self._run_qlinearmatmul_test(np.int8, np.float32, 3)
 
   def test_reduce_l2_half(self):
-    inputs = {"data": (np.arange(math.prod((1, 1, 32, 32, 32,))) % 10 * 0.1).reshape(1, 1, 32, 32, 32).astype(np.half)*100}
+    inputs = {"data": np.random.randn(1, 1, 32, 32, 32).astype(np.half)*100}
     self.helper_test_single_op("ReduceL2", inputs, {}, ["reduced"])
 
 class TestTrainingOnnxOps(TestOnnxOps):
@@ -389,9 +382,9 @@ class TestTrainingOnnxOps(TestOnnxOps):
       inputs = {
         "r": np.array(0.01, dtype=np.float32),
         "t": np.array(t, dtype=np.int32),
-        "x": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
-        "g": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
-        "h": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
+        "x": np.random.randn(3, 3).astype(np.float32),
+        "g": np.random.randn(3, 3).astype(np.float32),
+        "h": np.random.randn(3, 3).astype(np.float32),
       }
       attributes = {"decay_factor": 0.1, "epsilon": 1e-6, "norm_coefficient": 0.01}
       outputs = ["X_out", "H_out"]
@@ -404,9 +397,9 @@ class TestTrainingOnnxOps(TestOnnxOps):
         inputs = {
           "r": np.array(0.01, dtype=np.float32),
           "t": np.array(t, dtype=np.int32),
-          "x": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
-          "g": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
-          "v": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
+          "x": np.random.randn(3, 3).astype(np.float32),
+          "g": np.random.randn(3, 3).astype(np.float32),
+          "v": np.random.randn(3, 3).astype(np.float32),
         }
         attributes = {"alpha": 0.9, "beta": 0.1, "mode": mode, "norm_coefficient": 0.01}
         outputs = ["X_out", "V_out"]
@@ -418,10 +411,10 @@ class TestTrainingOnnxOps(TestOnnxOps):
       inputs = {
         "r": np.array(0.01, dtype=np.float32),
         "t": np.array(t, dtype=np.int32),
-        "x": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
-        "g": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
-        "v": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
-        "h": (np.arange(math.prod((3, 3,))) % 10 * 0.1).reshape(3, 3).astype(np.float32),
+        "x": np.random.randn(3, 3).astype(np.float32),
+        "g": np.random.randn(3, 3).astype(np.float32),
+        "v": np.random.randn(3, 3).astype(np.float32),
+        "h": np.random.randn(3, 3).astype(np.float32),
       }
       attributes = { "alpha": 0.9, "beta": 0.999, "epsilon": 1e-8, "norm_coefficient": 0.01, "norm_coefficient_post": 0.02 }
       outputs = ["X_new", "V_new", "H_new"]
@@ -442,10 +435,10 @@ class TestContribOnnxOps(TestOnnxOps):
     left_padding_mask = np.concatenate([end_positions, start_positions])
 
     base_inps = {
-      "input": (np.arange(math.prod((batch_size, seq_len, input_hidden_size,))) % 10 * 0.1).reshape(batch_size, seq_len, input_hidden_size).astype(np.float32),  # noqa: E501
-      "weights": (np.arange(math.prod((input_hidden_size, hidden_size * 3,))) % 10 * 0.1).reshape(input_hidden_size, hidden_size * 3).astype(np.float32),  # noqa: E501
+      "input": np.random.randn(batch_size, seq_len, input_hidden_size).astype(np.float32),
+      "weights": np.random.randn(input_hidden_size, hidden_size * 3).astype(np.float32),
       # bias is required in ORT (segfaults otherwise), eventhough docs says it's optional
-      "bias": (np.arange(math.prod((hidden_size * 2 + v_hidden_size,))) % 10 * 0.1).reshape(hidden_size * 2 + v_hidden_size).astype(np.float32),
+      "bias": np.random.randn(hidden_size * 2 + v_hidden_size).astype(np.float32),
     }
     base_opts = {"num_heads": num_heads}
 
@@ -463,8 +456,8 @@ class TestContribOnnxOps(TestOnnxOps):
       # e.g. mask_index = [[0, 0, 1, 0, 1, 1, 1, 1], [0, 0, 1, 0, 1, 1, 1, 1]]
       # will need mask[:, :, 0:1, 0:1] = True
       ({"mask_index": np.array([[1, 0, 1, 0, 1, 1, 1, 1], [1, 0, 1, 0, 1, 1, 1, 1]], dtype=np.int32)}, {"unidirectional": 1}),
-      ({ "weights": (np.arange(math.prod((input_hidden_size, hidden_size + hidden_size + 128,))) % 10 * 0.1).reshape(input_hidden_size, hidden_size + hidden_size + 128).astype(np.float32),  # noqa: E501
-         "bias": (np.arange(math.prod((hidden_size + hidden_size + 128,))) % 10 * 0.1).reshape(hidden_size + hidden_size + 128).astype(np.float32)},
+      ({ "weights": np.random.randn(input_hidden_size, hidden_size + hidden_size + 128).astype(np.float32),
+         "bias": np.random.randn(hidden_size + hidden_size + 128).astype(np.float32)},
        {"qkv_hidden_sizes": [hidden_size, hidden_size, 128]}),
       # TODO: past is not tested. ORT gives type error for input
     ]
@@ -483,12 +476,12 @@ class TestContribOnnxOps(TestOnnxOps):
         with self.subTest(has_beta=has_beta, has_bias=has_bias):
           hidden_size = shape[-1]
           inputs = {
-            "input": (np.arange(math.prod(shape)) % 10 * 0.1).reshape(*shape).astype(np.float32),
-            "skip": (np.arange(math.prod(shape)) % 10 * 0.1).reshape(*shape).astype(np.float32),
-            "gamma": (np.arange(math.prod((hidden_size,))) % 10 * 0.1).reshape(hidden_size).astype(np.float32),
+            "input": np.random.randn(*shape).astype(np.float32),
+            "skip": np.random.randn(*shape).astype(np.float32),
+            "gamma": np.random.randn(hidden_size).astype(np.float32),
           }
-          if has_beta: inputs["beta"] = (np.arange(math.prod((hidden_size,))) % 10 * 0.1).reshape(hidden_size).astype(np.float32)
-          if has_bias: inputs["bias"] = (np.arange(math.prod((hidden_size,))) % 10 * 0.1).reshape(hidden_size).astype(np.float32)
+          if has_beta: inputs["beta"] = np.random.randn(hidden_size).astype(np.float32)
+          if has_bias: inputs["bias"] = np.random.randn(hidden_size).astype(np.float32)
           attributes = {"epsilon": 1e-12}
           outputs = ["output", "mean", "inv_std_var", "input_skip_bias_sum"]
           self.helper_test_single_op("SkipLayerNormalization", inputs, attributes, outputs)
@@ -496,8 +489,8 @@ class TestContribOnnxOps(TestOnnxOps):
   def test_bias_gelu(self):
     shape = (2,3,4)
     inputs = {
-      "A": (np.arange(math.prod(shape)) % 10 * 0.1).reshape(*shape).astype(np.float32),
-      "B": (np.arange(math.prod((shape[-1],))) % 10 * 0.1).reshape(shape[-1]).astype(np.float32)
+      "A": np.random.randn(*shape).astype(np.float32),
+      "B": np.random.randn(shape[-1]).astype(np.float32)
     }
     attributes = {}
     outputs = ["C"]

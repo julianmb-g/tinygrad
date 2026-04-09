@@ -2,7 +2,6 @@ import functools, itertools
 from tinygrad.helpers import all_int, prod, DEBUG, RING, ALL2ALL, getenv
 from tinygrad.uop.ops import UOp, Invalid
 
-
 # *** allreduce implementation ***
 def handle_allreduce(buf:UOp, red:UOp) -> UOp|None:
   if not isinstance(buf.device, tuple): return None

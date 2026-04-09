@@ -1,12 +1,10 @@
 # mypy: disable-error-code="empty-body"
 from __future__ import annotations
-
 import ctypes
 from typing import Annotated, Literal, TypeAlias
-
-from tinygrad.runtime.support import c, objc
-from tinygrad.runtime.support.c import _IO, _IOR, _IOW, _IOWR
-
+from tinygrad.runtime.support.c import _IO, _IOW, _IOR, _IOWR
+from tinygrad.runtime.support import c
+from tinygrad.runtime.support import objc
 dll = c.DLL('metal', 'Metal')
 @c.record
 class MTLDispatchThreadgroupsIndirectArguments(c.Struct):
@@ -288,7 +286,7 @@ NSInvocation._methods_ = [
 NSInvocation._classmethods_ = [
   ('invocationWithMethodSignature:', NSInvocation, [NSMethodSignature]),
 ]
-class struct__NSZone(ctypes.Structure): pass
+class struct__NSZone(c.Struct): SIZE = 0
 class Protocol(objc.Spec): pass
 class NSString(objc.Spec): pass
 unichar: TypeAlias = Annotated[int, ctypes.c_uint16]
@@ -1496,7 +1494,7 @@ MTLArchitecture._methods_ = [
 class MTLHeapDescriptor(objc.Spec): pass
 class MTLDepthStencilState(objc.Spec): pass
 class MTLDepthStencilDescriptor(objc.Spec): pass
-class struct___IOSurface(ctypes.Structure): pass
+class struct___IOSurface(c.Struct): SIZE = 0
 IOSurfaceRef: TypeAlias = c.POINTER[struct___IOSurface]
 class MTLSharedTextureHandle(objc.Spec): pass
 MTLSharedTextureHandle._bases_ = [NSObject]

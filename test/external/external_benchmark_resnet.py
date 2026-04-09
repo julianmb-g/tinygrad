@@ -2,14 +2,15 @@ import functools
 import time
 import unittest
 
-from examples.hlb_cifar10 import UnsyncedBatchNorm
-from examples.mlperf.initializers import Conv2dHeNormal, Linear
-from extra.models import resnet
-from tinygrad import Device, GlobalCounters, Tensor, TinyJit
-from tinygrad.engine.realize import run_schedule
-from tinygrad.helpers import Context, getenv
+from tinygrad import Tensor, TinyJit, GlobalCounters, Device
+from tinygrad.helpers import getenv, Context
 from tinygrad.nn.optim import SGD
 from tinygrad.nn.state import get_parameters
+from tinygrad.engine.realize import run_schedule
+
+from extra.models import resnet
+from examples.mlperf.initializers import Conv2dHeNormal, Linear
+from examples.hlb_cifar10 import UnsyncedBatchNorm
 
 # benchmark memory or kernel count: DEFAULT_FLOAT=HALF python test/external/external_benchmark_resnet.py
 # benchmark speed:                  BEAM=2 JITCNT=10 DEFAULT_FLOAT=HALF python test/external/external_benchmark_resnet.py
@@ -80,7 +81,7 @@ class BenchmarkResnetTrain(unittest.TestCase):
     best_tm = None
     flops, mem_used, mem, kernels = None, None, None, None
     for i in range(CNT):
-      with Context(TRACK_MATCH_STATS=0): x = ((Tensor.arange(bs*cin*xy*xy) % 10) * 0.1).reshape(bs, cin, xy, xy).requires_grad_(True).realize()
+      with Context(TRACK_MATCH_STATS=0): x = Tensor.randn(bs, cin, xy, xy, requires_grad=True).realize()
       GlobalCounters.reset()
 
       st = time.perf_counter()

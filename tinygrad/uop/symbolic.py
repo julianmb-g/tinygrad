@@ -1,15 +1,11 @@
 # all of symbolic lives here now
-import functools
-import math
-import operator
-import struct
+import math, operator, struct, functools
 from collections import defaultdict
-
-from tinygrad.dtype import ConstType, Invalid, PtrDType, can_lossless_cast, dtypes
-from tinygrad.helpers import IMAGE, all_same, dedup, flatten, get_single_element, partition, prod, unwrap
+from tinygrad.uop.ops import Ops, PatternMatcher, UPat, UOp, GroupOp, exec_alu
+from tinygrad.dtype import ConstType, dtypes, PtrDType, can_lossless_cast, Invalid
+from tinygrad.helpers import partition, all_same, prod, flatten, get_single_element, unwrap, IMAGE, dedup
 from tinygrad.uop.decompositions import xpow
 from tinygrad.uop.divandmod import div_and_mod_symbolic
-from tinygrad.uop.ops import GroupOp, Ops, PatternMatcher, UOp, UPat, exec_alu
 
 # ******** phase 1 of symbolic used to live in ops, it's the most generic folding rules ********
 
@@ -113,6 +109,10 @@ symbolic_simple = propagate_invalid + PatternMatcher([
   (UPat.var("x") % UPat.var("x"), lambda x: x.const_like(0)), # x%x -> 0
   (UPat.var("x") ^ UPat.var("x"), lambda x: x.const_like(0)), # x^x -> 0
   (UPat.var("x") & 0, lambda x: x.const_like(0)), # x&0 -> 0
+  # (x&mask)>>k -> x>>k when mask only clears bits below k
+  # TODO: combine this with "# rules for threefry" below
+  ((UPat.var("x") & UPat.cvar("mask", vec=False)) >> UPat.cvar("k", vec=False),
+   lambda x,mask,k: x >> k.arg if mask.arg | ((1 << k.arg) - 1) == -1 else None),
   (UPat.var("x", dtype=dtypes.ints+(dtypes.bool, dtypes.weakint)) != UPat.var("x"),
    lambda x: x.const_like(False).cast(dtypes.bool.vec(x.dtype.count))), # x != x -> False (only ints)
   # ** constant folding **
@@ -147,7 +147,7 @@ symbolic_simple = propagate_invalid + PatternMatcher([
   # ** pow **
   (UPat.var("x").alu(Ops.POW, UPat.cvar("c", vec=False)), simplify_pow),
   # positive const ** x
-  (UPat.cvar("c", vec=False).alu(Ops.POW, UPat.var("x")), lambda c,x: c if c.arg == 1 else None if dtypes.is_int(c.dtype) else (x*math.log2(c.arg)).exp2() if c.arg > 0 else None),
+  (UPat.cvar("c", vec=False).alu(Ops.POW, UPat.var("x")), lambda c,x: c if c.arg == 1 else (x*math.log2(c.arg)).exp2() if c.arg > 0 else None),
   # rules for threefry
   ((UPat.var('x', dtypes.uint64)&0xFFFFFFFF).cast(dtypes.uint32), lambda x: x.cast(dtypes.uint32)),
   (((UPat.var(None, dtypes.uint64)*(1<<32)) | UPat.var('y',  dtypes.uint32).cast(dtypes.uint64)).cast(dtypes.uint32), lambda y: y),
@@ -301,8 +301,6 @@ symbolic = symbolic_simple+commutative+PatternMatcher([
                    else y.src for y in x.src[1:]])))),
   # after with 1 src is just src[0]
   (UPat(Ops.AFTER, src=(UPat.var("s"),)), lambda s: s),
-  # VECTORIZE 1 element
-  (UPat(Ops.VECTORIZE, name="x"), lambda x: x.src[0] if len(x.src) == 1 and x.src[0].dtype == x.dtype else None),
   # VECTORIZE/CONST
   (UPat(Ops.VECTORIZE, src=UPat(Ops.CONST), name="vec"),
     lambda vec: UOp.const(vec.dtype, tuple(x.arg for x in vec.src)) if len(vec.src) > 0 else None),
@@ -435,16 +433,9 @@ pm_simplify_valid = PatternMatcher([
   (invalid_gate, gated_given_valid),
 ])
 
-def fold_wmma_zero(x:UOp) -> UOp|None:
-  src0, src1, acc = x.src
-  def is_zero(v:UOp): return (v.op is Ops.CONST and getattr(v, "arg", None) == 0.0) or (v.op is Ops.VECTORIZE and all(y.op is Ops.CONST and getattr(y, "arg", None) == 0.0 for y in v.src))
-  if is_zero(src0) or is_zero(src1): return acc
-  return None
-
 # this is symbolic 2.0
 REMOVE_FROM_SINK_LIKE = {Ops.UNROLL, Ops.NOOP, Ops.VECTORIZE, Ops.SINK}
 sym = symbolic+pm_simplify_valid+PatternMatcher([
-  (UPat(Ops.WMMA, name="x"), fold_wmma_zero),
   # reorder ALU/VECTORIZE
   (UPat(GroupOp.ALU, src=(UPat(Ops.VECTORIZE, src=UPat(name='x')), UPat(Ops.VECTORIZE, src=UPat(name='y'))), name='alu'),
    lambda x,y,alu: UOp(Ops.VECTORIZE, alu.dtype, (UOp(alu.op, alu.dtype.scalar(), (x,y)),)*alu.dtype.count)),

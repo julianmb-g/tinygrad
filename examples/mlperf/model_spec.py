@@ -1,9 +1,7 @@
 # load each model here, quick benchmark
-import numpy as np
-
-from tinygrad import GlobalCounters, Tensor
+from tinygrad import Tensor, GlobalCounters
 from tinygrad.helpers import getenv
-
+import numpy as np
 
 def test_model(model, *inputs):
   GlobalCounters.reset()

@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
 import os
-
 if "NOOPT" not in os.environ: os.environ["NOOPT"] = "1"
 from tinygrad import Device, nn, Tensor, dtypes
 from train_gpt2 import GPT, GPTConfig

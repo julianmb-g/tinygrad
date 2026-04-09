@@ -1,14 +1,9 @@
 from __future__ import annotations
-
-import ctypes
-import functools
-import math
-import struct
+from typing import Final, ClassVar, Callable, Literal
+import math, struct, ctypes, functools
 from dataclasses import dataclass, fields
 from tinygrad.helpers import ceildiv, getenv, prod, round_up, OSX
 from enum import Enum, auto
-from typing import Callable, ClassVar, Final, Literal
-
 
 class ConstFloat(float):
   """Float subclass that distinguishes -0.0 from 0.0 and where nan == nan."""
@@ -102,7 +97,6 @@ class DType(metaclass=DTypeMetaClass):
     # NOTE: float('nan') != float('nan'), so we canonicalize here
     if isinstance(val, float) and math.isnan(val): val = math.nan
     # int is the default. wrap floats in ConstFloat to distinguish -0.0 from 0.0 in cache
-    if not dtypes.is_float(self) and not dtypes.is_bool(self) and isinstance(val, float) and (math.isnan(val) or math.isinf(val)): return 0
     return ConstFloat(float(val)) if dtypes.is_float(self) else bool(val) if dtypes.is_bool(self) else int(val)
 
 @dataclass(frozen=True, eq=False)
@@ -371,8 +365,7 @@ def _from_np_dtype(npdtype:'np.dtype') -> DType: # type: ignore [name-defined] #
 
 @functools.cache
 def _to_torch_dtype(dtype:DType) -> 'torch.dtype'|None:  # type: ignore [name-defined] # noqa: F821
-  import numpy as np
-  import torch
+  import numpy as np, torch
   if dtype == dtypes.uint64: return torch.uint64
   if dtype == dtypes.bfloat16: return torch.bfloat16
   if dtype in dtypes.fp8s: return torch.uint8

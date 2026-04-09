@@ -1,13 +1,8 @@
 #!/usr/bin/env python3
-import math
-import os
-import time
-from dataclasses import dataclass
-
+import os, math, time
 import numpy as np
-
-from tinygrad import Device, GlobalCounters, Tensor, TinyJit, fetch, nn
-
+from tinygrad import Tensor, nn, fetch, Device, TinyJit, GlobalCounters
+from dataclasses import dataclass
 
 @dataclass
 class GPTConfig:
@@ -122,9 +117,7 @@ class GPT:
     return logits, loss
 
 if __name__ == "__main__":
-  import argparse
-
-  import tiktoken
+  import tiktoken, argparse
 
   parser = argparse.ArgumentParser()
   parser.add_argument("--num_iterations", type=int, default=10, help="number of iterations to run")

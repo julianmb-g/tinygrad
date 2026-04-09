@@ -1,24 +1,12 @@
 from __future__ import annotations
-
-import ctypes
-import functools
-import os
-import pathlib
-import re
-import sys
-import sysconfig
-from _ctypes import Array as _CArray
-from _ctypes import _Pointer, _SimpleCData
-from typing import TYPE_CHECKING, Annotated, Any, Generic, Iterable, ParamSpec, TypeVar, get_args, get_origin, get_type_hints, overload
-
-from tinygrad.helpers import DEBUG, OSX, WIN, ceildiv, getenv, unwrap
-
+import ctypes, functools, os, pathlib, re, sys, sysconfig
+from tinygrad.helpers import ceildiv, getenv, unwrap, DEBUG, OSX, WIN
+from _ctypes import Array as _CArray, _SimpleCData, _Pointer
+from typing import TYPE_CHECKING, get_type_hints, get_args, get_origin, overload, Annotated, Any, Generic, Iterable, ParamSpec, TypeVar
 
 def _do_ioctl(__idir, __base, __nr, __struct, __fd, *args, __payload=None, **kwargs):
   assert not WIN, "ioctl not supported"
-  import fcntl
-
-  import tinygrad.runtime.support.hcq as hcq
+  import tinygrad.runtime.support.hcq as hcq, fcntl
   ioctl = __fd.ioctl if isinstance(__fd, hcq.FileIOInterface) else functools.partial(fcntl.ioctl, __fd)
   if __struct is None: return ioctl((__base<<8)|__nr, __payload or (args[0] if args else 0))
   if (rc:=ioctl((__idir<<30)|(ctypes.sizeof(out:=(__payload or __struct(*args, **kwargs)))<<16)|(__base<<8)|__nr, out)):
@@ -42,8 +30,8 @@ V = TypeVar("V")
 P = ParamSpec("P")
 
 if TYPE_CHECKING:
-  from _ctypes import _CData
   from ctypes import _CFunctionType
+  from _ctypes import _CData
   class Array(Generic[T, U], _CData):
     @overload
     def __getitem__(self: Array[_SimpleCData[V], Any], key: int) -> V: ...

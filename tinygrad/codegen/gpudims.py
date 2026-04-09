@@ -1,10 +1,8 @@
 import math
-
-from tinygrad.dtype import AddrSpace, Invalid, dtypes
+from tinygrad.uop.ops import UOp, Ops, sint, PatternMatcher, UPat, KernelInfo, ssimplify, AxisType, sint_to_uop
 from tinygrad.helpers import dedup, get_contraction
+from tinygrad.dtype import dtypes, AddrSpace, Invalid
 from tinygrad.renderer import Renderer
-from tinygrad.uop.ops import AxisType, KernelInfo, Ops, PatternMatcher, UOp, UPat, sint, sint_to_uop, ssimplify
-
 
 def _dim_max(d:sint) -> int: return d if isinstance(d, int) else int(d.vmax)
 

@@ -1,13 +1,11 @@
 import unittest
 from typing import Any, Tuple
-
-import numpy as np
-import onnx.backend.test
 from onnx.backend.base import Backend, BackendRep
-
-from tinygrad import Device, Tensor, dtypes
+import onnx.backend.test
+import numpy as np
+from tinygrad import Tensor, Device, dtypes
+from tinygrad.helpers import getenv, OSX
 from tinygrad.device import is_dtype_supported
-from tinygrad.helpers import OSX, getenv
 from tinygrad.nn.onnx import OnnxRunner
 
 # pip3 install tabulate

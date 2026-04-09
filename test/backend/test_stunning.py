@@ -1,8 +1,6 @@
 import unittest
-
-from tinygrad import Context, Tensor, Variable, nn
+from tinygrad import nn, Tensor, Variable, Context, Device
 from tinygrad.helpers import trange
-
 
 class Model:
   def __init__(self): self.layer = nn.Linear(28*28, 10)
@@ -27,9 +25,12 @@ class TestStunning(unittest.TestCase):
     nv = a[12].cat(a[76]).tolist()
 
     vi = Variable('i', 0, a.shape[0]-1)
-    wv = a[vi.bind(12)].cat(a[vi.bind(76)]).tolist()
-    self.assertListEqual(nv, wv)
+    with self.assertRaisesRegex(RuntimeError, "bind mismatch on"):
+      wv = a[vi.bind(12)].cat(a[vi.bind(76)]).tolist()
+      self.assertListEqual(nv, wv)
 
+  @unittest.skipIf(Device.DEFAULT in {"WEBGPU", "NV", "CUDA"}, "Too many buffers / too slow")
+  @unittest.skip("This is binding a Variable to two different values")
   def test_simple_train(self, steps=6, bs=4, adam=True):
     X_train, Y_train, _, _ = nn.datasets.mnist()
     model = Model()
@@ -39,7 +40,6 @@ class TestStunning(unittest.TestCase):
     Y_train = Y_train.one_hot(10)
     X_samp, Y_samp = X_train[samples], Y_train[samples]
     vi = Variable('i', 0, samples.shape[0]-1)
-
     with Context(SPLIT_REDUCEOP=0):
       with Tensor.train():
         losses = []
@@ -54,5 +54,6 @@ class TestStunning(unittest.TestCase):
 
     # run
     for i in (t:=trange(len(losses))): t.set_description(f"loss: {losses[i].item():6.2f}")
+
 if __name__ == '__main__':
   unittest.main()

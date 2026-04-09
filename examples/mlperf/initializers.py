@@ -1,11 +1,10 @@
 import math
 from typing import Union
 
-from extra.models.unet import UNetModel
-from tinygrad import Tensor, dtypes, nn
-from tinygrad.helpers import Context, argfix, prod
+from tinygrad import Tensor, nn, dtypes
+from tinygrad.helpers import prod, argfix, Context
 from tinygrad.nn.state import get_parameters
-
+from extra.models.unet import UNetModel
 
 # rejection sampling truncated randn
 def rand_truncn(*shape, dtype=None, truncstds=2, **kwargs) -> Tensor:
@@ -164,10 +163,9 @@ def attn_f32_softmax(q:Tensor, k:Tensor, v:Tensor) -> Tensor:
   return (q.matmul(k.transpose(-2,-1), dtype=dtypes.float32) / math.sqrt(q.shape[-1])).softmax(-1).cast(q.dtype) @ v
 
 def init_stable_diffusion(version:str, pretrained:str, devices:list[str]):
-  from tempfile import TemporaryDirectory
-
   from examples.stable_diffusion import StableDiffusion
-  from tinygrad.nn.state import get_state_dict, load_state_dict, safe_load, safe_save
+  from tinygrad.nn.state import safe_load, safe_save, load_state_dict, get_state_dict
+  from tempfile import TemporaryDirectory
   model = StableDiffusion(version=version, pretrained=pretrained)
   unet:UNetModel = model.model.diffusion_model
 

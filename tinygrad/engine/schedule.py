@@ -1,13 +1,11 @@
-import inspect
-import time
-from collections import deque
+import time, inspect
 from typing import cast
-
+from collections import deque
+from tinygrad.uop.ops import UOp, Ops, buffers, UOpMetaClass, track_rewrites, graph_rewrite, gate_kernel_sink, KernelInfo
+from tinygrad.uop.spec import type_verify, tensor_spec
 from tinygrad.device import Buffer, MultiBuffer
-from tinygrad.uop.spec import tensor_spec, type_verify
+from tinygrad.helpers import DEBUG, cpu_profile, TracingKey, SPEC, pluralize, SCACHE, BASEDIR, flatten
 from tinygrad.engine.realize import ExecItem
-from tinygrad.helpers import BASEDIR, DEBUG, SCACHE, SPEC, TracingKey, cpu_profile, flatten, pluralize
-from tinygrad.uop.ops import KernelInfo, Ops, UOp, UOpMetaClass, buffers, gate_kernel_sink, graph_rewrite, track_rewrites
 
 # **** schedule linearizer
 
@@ -15,11 +13,6 @@ from tinygrad.uop.ops import KernelInfo, Ops, UOp, UOpMetaClass, buffers, gate_k
 def _unwrap_src(s: UOp) -> UOp:
   while len(s.src) and s.op not in {Ops.AFTER, Ops.BUFFER, Ops.PARAM, Ops.MSELECT, Ops.MSTACK, Ops.BIND}: s = s.src[0]
   return s
-
-def _is_complex_node(ast: UOp) -> bool:
-  """Classify nodes that generate large ASTs (like Gemma RMSNorm/RoPE) to enforce sequential execution."""
-  ops = {u.op for u in ast.toposort()}
-  return Ops.SIN in ops or Ops.SQRT in ops
 
 def create_schedule(sched_sink:UOp) -> UOp:
   with cpu_profile(TracingKey("toposort sched_sink")):
@@ -51,19 +44,6 @@ def create_schedule(sched_sink:UOp) -> UOp:
             pass  # BUFFER/PARAM is already realized, BIND is a bound variable (not a buffer dependency)
           case _:
             raise RuntimeError(f"input to kernel must be AFTER, BUFFER, PARAM, MSELECT, MSTACK, or BIND, not {s.op}")
-
-    # Dependency Chaining Scheduler: dynamically inject sequential edges across Gemma RMSNorm/RoPE nodes
-    complex_nodes = []
-    for k in in_degree.keys():
-      ast = k.src[0] if k.op is Ops.END else k
-      if hasattr(ast, "toposort") and _is_complex_node(ast):
-        complex_nodes.append(k)
-    for i in range(len(complex_nodes) - 1):
-      src = complex_nodes[i]
-      dest = complex_nodes[i+1]
-      if src not in children.get(dest, []) and dest not in children.get(src, []):
-        children.setdefault(src, []).append(dest)
-        in_degree[dest] += 1
 
   with cpu_profile(TracingKey("linearize schedule")):
     queue: deque[UOp] = deque(k for k,v in in_degree.items() if v == 0)
@@ -111,7 +91,6 @@ from tinygrad.schedule.rangeify import get_kernel_graph
 from tinygrad.helpers import CAPTURING
 from tinygrad.uop.ops import PatternMatcher, UPat
 
-
 def create_new_buffer(ctx:tuple[dict[UOp, UOp], tuple[UOp, ...]], b:UOp):
   if (ret:=ctx[0].get(b, None)) is None: ctx[0][b] = ret = UOp.new_buffer(b.device, b.arg, b.dtype)
   return ret
@@ -137,8 +116,7 @@ def lower_sink_to_linear(function:UOp) -> UOp|None:
   st = time.perf_counter()
   if isinstance(function.arg, KernelInfo): return None
   cache_key = function.key
-  sc_ret = schedule_cache.get(cache_key, None) if SCACHE else None
-  if sc_ret is None:
+  if not SCACHE or (sc_ret:=schedule_cache.get(cache_key, None)) is None:
     if SPEC: type_verify(function, tensor_spec)
     # support recursive CALLs
     linear = create_schedule(get_kernel_graph(function))

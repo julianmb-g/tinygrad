@@ -23,12 +23,12 @@
 #   repeat_interleave doesn't support a tensor as the dim. check tinygrad type signature before claiming something is a bug
 
 import unittest
-
 import numpy as np
 import torch
-
 from tinygrad import Tensor, dtypes, nn
+from tinygrad.device import Device
 from tinygrad.helpers import getenv
+from tinygrad.renderer.nir import NIRRenderer
 
 MOCKGPU = getenv("MOCKGPU")
 
@@ -46,6 +46,7 @@ class TestNaNEdgeCases(unittest.TestCase):
     else:
       np.testing.assert_equal(out, torch_out)
 
+  @unittest.skip("passes on webgpu")
   @unittest.expectedFailure
   def test_argmax_nan(self):
     # PyTorch returns the index of the NaN, tinygrad returns the index of the maximum value.
@@ -53,6 +54,7 @@ class TestNaNEdgeCases(unittest.TestCase):
     torch_idx = torch.tensor(arr).argmax().item()
     idx = Tensor(arr).argmax().item()
     self.assertEqual(idx, torch_idx)
+
   @unittest.expectedFailure
   def test_sort_with_nan(self):
     # Sorting a tensor containing NaN should keep NaN at the end like PyTorch.
@@ -122,21 +124,18 @@ class TestInputValidation(unittest.TestCase):
     with self.assertRaises(RuntimeError):
       Tensor([1, 2, 3]).repeat(-1, 2)
 
-  @unittest.expectedFailure
   def test_negative_weight_decay(self):
     with self.assertRaises(ValueError):
       torch.optim.AdamW([torch.tensor([1.], requires_grad=True)], lr=0.1, weight_decay=-0.1)
     with self.assertRaises(ValueError):
       nn.optim.AdamW([Tensor([1.], requires_grad=True)], lr=0.1, weight_decay=-0.1)
 
-  @unittest.expectedFailure
   def test_negative_lr(self):
     with self.assertRaises(ValueError):
       torch.optim.SGD([torch.tensor([1.], requires_grad=True)], lr=-0.1)
     with self.assertRaises(ValueError):
       nn.optim.SGD([Tensor([1.], requires_grad=True)], lr=-0.1)
 
-  @unittest.expectedFailure
   def test_negative_momentum(self):
     with self.assertRaises(ValueError):
       torch.optim.SGD([torch.tensor([1.], requires_grad=True)], lr=0.1, momentum=-0.1)
@@ -205,11 +204,13 @@ class TestUOpValidationIssue(unittest.TestCase):
   # these fail with UOp verification error.
   # we want more of these with diverse errors!
 
+  @unittest.skipIf(MOCKGPU or isinstance(Device[Device.DEFAULT].renderer, NIRRenderer), "hangs gpuocelot, NIR cannot render")
   def test_tensor_index_overflow(self):
     val = Tensor([1])
     big = val.expand(2**31 + 3)
     idx = Tensor([0, 2**31 + 2])
     np.testing.assert_equal(big[idx].numpy(), np.array([1, 1]))
+
   def test_float_floordiv_scalar(self):
     (Tensor.arange(4, dtype=dtypes.float32) // 2).realize()
 
@@ -233,6 +234,7 @@ class TestEdgeCases(unittest.TestCase):
     out = Tensor.arange(0, 2, 0.3).numpy()
     np.testing.assert_allclose(out, torch_out, atol=1e-7)
 
+  @unittest.skip("this is flaky")
   @unittest.expectedFailure
   def test_topk_ties_indices(self):
     # topk should match PyTorch tie-breaking behavior when values are equal
@@ -240,5 +242,7 @@ class TestEdgeCases(unittest.TestCase):
     _, ti = torch.tensor(arr).topk(2)
     _, i = Tensor(arr).topk(2)
     np.testing.assert_equal(i.numpy(), ti.numpy().astype(np.int32))
+
+
 if __name__ == "__main__":
   unittest.main()

@@ -42,6 +42,14 @@ class MovementMixin:
     """
     return prod(self.shape)
 
+  def _normalize_indices(self, indices:list) -> list:
+    if len(ell := [i for i,x in enumerate(indices) if x is Ellipsis]) > 1: raise IndexError("indices can only have a single ellipsis")
+    num_real = len(indices) - len(ell) - sum(1 for i in indices if i is None)
+    if num_real > self.ndim: raise IndexError(f"too many indices ({num_real}) for {self.ndim}D")
+    fill_idx = ell[0] if ell else len(indices)
+    indices[fill_idx:fill_idx+1] = [slice(None)] * (self.ndim - num_real)
+    return indices
+
   def _resolve_dim(self, dim: int, *, extra: bool = False) -> int:
     total = self.ndim + int(extra)
     if not -max(1, total) <= dim <= max(1, total) - 1:
@@ -77,7 +85,7 @@ class MovementMixin:
     new_shape = tuple(from_ if to == -1 or to is None else to for from_, to in zip(*(_align_left(self.shape, argfix(shape, *args)))))
     return self._broadcast_to(new_shape)
 
-  def reshape(self, shape, *args, **kwargs) -> Self:
+  def reshape(self, shape, *args) -> Self:
     """
     Returns a tensor with the same data as the original tensor but with a different shape.
     `shape` can be passed as a tuple or as separate arguments.
@@ -87,9 +95,6 @@ class MovementMixin:
     print(t.reshape(2, 3).numpy())
     ```
     """
-    device = kwargs.pop("device", None)
-    if kwargs:
-      raise TypeError(f"MovementMixin.reshape() got an unexpected keyword argument '{next(iter(kwargs))}'")
     # resolve None and args
     new_shape = tuple([s if s is not None else self.shape[i] for i, s in enumerate(argfix(shape, *args))])
     # resolve -1
@@ -100,10 +105,7 @@ class MovementMixin:
     if prod(self.shape) != prod(new_shape):
       raise ValueError(f"size mismatch, can't reshape ({self.shape}) -> ({new_shape})")
     ret = self._mop(Ops.RESHAPE, arg=new_shape)
-    ret = self if ret.shape == self.shape else ret
-    if device is not None and getattr(ret, "device", None) != device:
-      ret = getattr(ret, "to")(device)
-    return ret
+    return self if ret.shape == self.shape else ret
 
   def shrink(self, arg: tuple[tuple[sint, sint] | None, ...]) -> Self:
     """

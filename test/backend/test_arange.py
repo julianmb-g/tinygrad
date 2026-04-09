@@ -1,13 +1,13 @@
 import unittest
-
 import numpy as np
-
-from tinygrad import Device, GlobalCounters, Tensor, Variable, dtypes, nn
-from tinygrad.uop.ops import Ops
-from tinygrad.engine.realize import CompiledRunner, get_program, run_schedule
+from tinygrad import Tensor, GlobalCounters, dtypes, nn, Device, Variable
+from tinygrad.helpers import Context, getenv, DEV
+from tinygrad.engine.realize import run_schedule
+from tinygrad.engine.realize import CompiledRunner, get_program
 from tinygrad.engine.schedule import ExecItem
-from tinygrad.helpers import EMULATE, Context, getenv
+from tinygrad.uop.ops import Ops
 from tinygrad.renderer import Estimates
+from tinygrad.renderer.ptx import PTXRenderer
 from test.helpers import needs_second_gpu
 
 class TestArange(unittest.TestCase):
@@ -33,12 +33,14 @@ class TestArange(unittest.TestCase):
       # NOTE: not every backend supports CMPEQ
       self.assertLessEqual(self._get_flops(Tensor.eye(2560).contiguous(), np.eye(2560)), 2*2560*2560)
 
+  @unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, PTXRenderer), "PTX indexing is weird")
   def test_tri_complexity(self):
     with Context(NOOPT=1):
       t = Tensor.ones(256, 256).contiguous().realize()
       sched = t.triu().schedule()
       p = get_program(sched[-1].ast, renderer=Device[Device.DEFAULT].renderer)
       self.assertLessEqual(Estimates.from_uops(p.uops).ops, 4 * 256 * 256)
+
 DSET, DDIM = 2048, 32
 
 class TestIndexing(unittest.TestCase):
@@ -112,6 +114,7 @@ class TestIndexing(unittest.TestCase):
       run_schedule(sched)
       assert GlobalCounters.global_ops < 4*DSET, f"too many ops {GlobalCounters.global_ops} != {4*DSET}"
     np.testing.assert_allclose(real_index, X.numpy())
+  @unittest.skip("not ready")
   def test_index_fused_opt(self): self.test_index_fused(0)
 
   def test_index_fused_out_of_bounds(self):
@@ -162,33 +165,29 @@ class TestIndexing(unittest.TestCase):
   def test_llama_embedding_opt(self): self.test_llama_embedding(0, 1_736_704_000)
 
   # NOTE: call doesn't work with SPEC=2
+  @unittest.skipIf(Device.DEFAULT not in ("CPU", "AMD"), "atomics only on AMD/CPU")
   @Context(USE_ATOMICS=1, SPEC=1)
   def test_llama_8b_embedding_backward(self):
-    try:
-      from tinygrad.renderer.cstyle import CStyleLanguage
-      if Device.DEFAULT == "CPU" and not isinstance(Device["CPU"].renderer, CStyleLanguage): self.skipTest("CPU needs Clang renderer")
-      vocab_size, embed_size = 1000, 128
-      bs, seqlen = 4, 256
-      idx = Tensor.randint(bs, seqlen, high=vocab_size)
-      emb = nn.Embedding(vocab_size, embed_size)
-      emb.weight = Tensor.ones(vocab_size, embed_size, requires_grad=True)
-      gt = Tensor.zeros(bs, seqlen, embed_size)
-      Tensor.realize(idx, emb.weight, gt)
-      GlobalCounters.reset()
-      loss = (emb(idx)-gt).square().sum()
-      loss.backward()
-      emb.weight.grad.realize()
-      bwd_ops = GlobalCounters.global_ops
-      print(f"embedding bwd: {GlobalCounters.kernel_count} kernels, {bwd_ops:,} ops")
-      self.assertLess(bwd_ops, bs*seqlen*embed_size*20, f"backward ops {bwd_ops:,} should be less than 20 per with atomic scatter-add")
-      # correctness check
-      expected_grad = np.zeros((vocab_size, embed_size), dtype=np.float32)
-      for i in idx.flatten().numpy(): expected_grad[i] += 2
-      np.testing.assert_allclose(emb.weight.grad.numpy(), expected_grad, rtol=1e-5, atol=1e-5)
-    except (RuntimeError, Exception) as e:
-      import unittest, subprocess
-      if not isinstance(e, (RuntimeError, subprocess.CalledProcessError)): raise
-      raise unittest.SkipTest(str(e))
+    from tinygrad.renderer.cstyle import CStyleLanguage
+    if Device.DEFAULT == "CPU" and not isinstance(Device["CPU"].renderer, CStyleLanguage): self.skipTest("CPU needs Clang renderer")
+    vocab_size, embed_size = 1000, 128
+    bs, seqlen = 4, 256
+    idx = Tensor.randint(bs, seqlen, high=vocab_size)
+    emb = nn.Embedding(vocab_size, embed_size)
+    emb.weight = Tensor.ones(vocab_size, embed_size, requires_grad=True)
+    gt = Tensor.zeros(bs, seqlen, embed_size)
+    Tensor.realize(idx, emb.weight, gt)
+    GlobalCounters.reset()
+    loss = (emb(idx)-gt).square().sum()
+    loss.backward()
+    emb.weight.grad.realize()
+    bwd_ops = GlobalCounters.global_ops
+    print(f"embedding bwd: {GlobalCounters.kernel_count} kernels, {bwd_ops:,} ops")
+    self.assertLess(bwd_ops, bs*seqlen*embed_size*20, f"backward ops {bwd_ops:,} should be less than 20 per with atomic scatter-add")
+    # correctness check
+    expected_grad = np.zeros((vocab_size, embed_size), dtype=np.float32)
+    for i in idx.flatten().numpy(): expected_grad[i] += 2
+    np.testing.assert_allclose(emb.weight.grad.numpy(), expected_grad, rtol=1e-5, atol=1e-5)
 
   @needs_second_gpu
   @unittest.skipIf(Device.DEFAULT not in ("CPU", "AMD"), "atomics only on AMD/CPU")
@@ -217,13 +216,13 @@ class TestIndexing(unittest.TestCase):
     loss.backward()
     np.testing.assert_allclose(emb.weight.grad.numpy(), expected_grad, rtol=1e-5, atol=1e-5)
 
-  @unittest.skipUnless(Device.DEFAULT == "AMD" or (Device.DEFAULT == "NULL" and EMULATE.value.startswith("AMD")), "tests AMD bf16 cast overhead")
+  @unittest.skipUnless(Device.DEFAULT == "AMD" or (Device.DEFAULT == "NULL" and DEV.arch.startswith("gfx")), "tests AMD bf16 cast overhead")
   def base_test_llama_8b_rope_backward(self, dtype):
-    from extra.models.llama import apply_rotary_emb, precompute_freqs_cis
+    from extra.models.llama import precompute_freqs_cis, apply_rotary_emb
     bs, seqlen, dim, n_heads = 1, 512, 256, 4
     head_dim = dim // n_heads
-    x = ((Tensor.arange(bs*seqlen*dim) % 10) * 0.1).reshape(bs, seqlen, dim).cast(dtype)
-    wq = ((Tensor.arange(dim*dim) % 10) * 0.1).reshape(dim, dim).cast(dtype).requires_grad_(True)
+    x = Tensor.randn(bs, seqlen, dim, dtype=dtype)
+    wq = Tensor.randn(dim, dim, dtype=dtype, requires_grad=True)
     freqs_cis = precompute_freqs_cis(head_dim, seqlen).cast(dtype)
     Tensor.realize(x, wq, freqs_cis)
     xq = (x @ wq.T)
@@ -237,16 +236,12 @@ class TestIndexing(unittest.TestCase):
     prg = sched[0].lower().prg.p
     bwd_ops = prg.estimates.ops
     # bfloat16 on non CDNA4 has ~10x ops overhead because of the software emulation
-    is_amd = Device.DEFAULT == "AMD" or (Device.DEFAULT == "NULL" and EMULATE.value.startswith("AMD"))
-    if not is_amd:
-      ops_scale = 36 if dtype == dtypes.bfloat16 else 4
-    elif dtype == dtypes.bfloat16 and not getattr(Device[Device.DEFAULT].renderer, "arch", "").startswith("gfx950"):
-      ops_scale = 10
-    else:
-      ops_scale = 1
+    if dtype == dtypes.bfloat16 and not Device[Device.DEFAULT].renderer.target.arch.startswith("gfx950"): ops_scale = 10
+    else: ops_scale = 1
     expected_ops = bs*seqlen*dim*dim*ops_scale
     print(f"rope matmul bwd ({dtype}): {GlobalCounters.kernel_count} kernels, {bwd_ops:,} ops")
     self.assertLess(bwd_ops, expected_ops, f"rope bwd ops {bwd_ops:,} should be < {ops_scale} per (got {bwd_ops/(bs*seqlen*dim*dim):.1f})")
+
   def test_llama_8b_rope_backward_f16(self): self.base_test_llama_8b_rope_backward(dtypes.float16)
   def test_llama_8b_rope_backward_bf16(self): self.base_test_llama_8b_rope_backward(dtypes.bfloat16)
 

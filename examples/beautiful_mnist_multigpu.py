@@ -1,8 +1,7 @@
 # model based off https://towardsdatascience.com/going-beyond-99-mnist-handwritten-digits-recognition-cfff96337392
-from typing import Callable, List
-
-from tinygrad import Device, GlobalCounters, Tensor, TinyJit, nn
-from tinygrad.helpers import colored, getenv, trange
+from typing import List, Callable
+from tinygrad import Tensor, TinyJit, nn, GlobalCounters, Device
+from tinygrad.helpers import getenv, colored, trange
 from tinygrad.nn.datasets import mnist
 
 GPUS = tuple(f'{Device.DEFAULT}:{i}' for i in range(getenv("GPUS", 2)))

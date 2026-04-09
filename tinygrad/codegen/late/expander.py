@@ -1,12 +1,9 @@
 # this converts a lowerer program into a vectorized program
-import functools
-import itertools
-
-from tinygrad.dtype import AddrSpace, PtrDType, dtypes
-from tinygrad.helpers import all_same, dedup, flatten, partition, prod
+import functools, itertools
+from tinygrad.dtype import dtypes, PtrDType, AddrSpace
+from tinygrad.helpers import dedup, flatten, all_same, prod, partition
+from tinygrad.uop.ops import UOp, Ops, UPat, PatternMatcher, GroupOp, AxisType, range_start
 from tinygrad.schedule.rangeify import BufferizeOpts
-from tinygrad.uop.ops import AxisType, GroupOp, Ops, PatternMatcher, UOp, UPat, range_start
-
 
 def _expand_arg_to_idx(args:tuple[tuple[int, int], ...], rpk:dict[int, int]) -> int:
   idx, mul = 0, 1

@@ -1,13 +1,8 @@
-import asyncio
-import json
-import math
-import socket
-import threading
+import socket, json, asyncio, threading, math
 from contextlib import asynccontextmanager
-
-from tinygrad import Tensor
-from tinygrad.device import Allocator, Compiled
+from tinygrad.device import Compiled, Allocator
 from tinygrad.helpers import DEBUG, getenv
+from tinygrad import Tensor
 
 TINYFS_ENDPOINT = getenv("TINYFS_ENDPOINT", "localhost:6767")
 TINYFS_TIMEOUT = getenv("TINYFS_TIMEOUT", 60)

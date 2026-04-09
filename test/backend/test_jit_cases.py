@@ -1,6 +1,5 @@
 import unittest
-
-from tinygrad import Tensor, TinyJit
+from tinygrad import TinyJit, Tensor
 
 # The JIT functions as a "capturing" JIT.
 # Whatever kernels ran in the JIT the second run through the function will be the kernels that will run from then on.

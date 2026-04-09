@@ -1,13 +1,8 @@
-import base64
-import ctypes
-import hashlib
-import pathlib
-import tempfile
-
+import base64, ctypes, pathlib, tempfile, hashlib
 from tinygrad.device import Compiler
-from tinygrad.helpers import cpu_objdump, data64, system
-from tinygrad.runtime.autogen import llvm, mesa
-from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, cerr, expect
+from tinygrad.helpers import cpu_objdump, system, data64
+from tinygrad.runtime.autogen import mesa, llvm
+from tinygrad.runtime.support.compiler_cpu import CPULLVMCompiler, expect, cerr
 
 # NB: compilers assume mesa's glsl type cache is managed externally with mesa.glsl_type_singleton_init_or_ref() and mesa.glsl_type_singleton_decref()
 

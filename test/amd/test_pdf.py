@@ -1,8 +1,7 @@
 #!/usr/bin/env python3
 """Test PDF pseudocode extraction from generate.py."""
 import unittest
-
-from tinygrad.renderer.amd.generate import ARCHS, FIXES, extract_pcode, extract_pdf_text, parse_xml
+from tinygrad.renderer.amd.generate import extract_pdf_text, extract_pcode, parse_xml, ARCHS, FIXES
 
 EXPECTED_PAGES = {"rdna3": 655, "rdna4": 711, "cdna": 610}
 

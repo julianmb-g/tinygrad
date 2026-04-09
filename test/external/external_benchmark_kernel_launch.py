@@ -1,7 +1,6 @@
 import time
-
-from tinygrad import Context, Device, Tensor, TinyJit
-from tinygrad.helpers import GlobalCounters, Profiling, Timing
+from tinygrad import Tensor, TinyJit, Device, Context
+from tinygrad.helpers import Profiling, Timing, GlobalCounters
 
 # python3 test/speed/external_test_speed_v_torch.py TestSpeed.test_add_a
 

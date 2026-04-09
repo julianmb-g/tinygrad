@@ -1,18 +1,13 @@
-import argparse
-import math
-import os
-import sys
-import time
-
+import os, sys, math, argparse, time
 sys.path.append(os.getcwd())
-from typing import Any, Dict, Optional
-
-from tqdm import tqdm
-from transformers import AutoTokenizer
+from typing import Any, Optional, Dict
 
 from tinygrad import Tensor, TinyJit, nn
 from tinygrad.helpers import fetch
 from tinygrad.nn.state import load_state_dict, torch_load
+
+from tqdm import tqdm
+from transformers import AutoTokenizer
 
 MODELS = {
   "130m": {"dim":  768, "n_layers": 24, "vocab_size": 50277, "pad_vocab_size_multiple": 8},

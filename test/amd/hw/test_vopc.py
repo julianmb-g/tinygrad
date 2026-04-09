@@ -3,7 +3,6 @@
 Includes: v_cmp_class_f32, v_cmp_class_f16, v_cmp_eq_*, v_cmp_lt_*, v_cmp_gt_*
 """
 import unittest
-
 from test.amd.hw.helpers import *
 
 VCC = 106  # SGPR index for VCC_LO

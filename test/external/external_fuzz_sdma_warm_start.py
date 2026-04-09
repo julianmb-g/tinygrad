@@ -1,7 +1,4 @@
-import os
-import random
-import subprocess
-import sys
+import subprocess, sys, os, random
 
 CHILD_SCRIPT = """
 import os, random

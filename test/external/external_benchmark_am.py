@@ -1,5 +1,5 @@
-from tinygrad import Device
 from tinygrad.helpers import Profiling
+from tinygrad import Device
 
 if __name__ == "__main__":
   am = Device["AMD"]

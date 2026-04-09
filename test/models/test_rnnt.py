@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 import unittest
-
+from tinygrad import Tensor
+from extra.models.rnnt import LSTM
 import numpy as np
 import torch
-
-from extra.models.rnnt import LSTM
-from tinygrad import Tensor
-
 
 class TestRNNT(unittest.TestCase):
   def test_lstm(self):
@@ -32,7 +29,7 @@ class TestRNNT(unittest.TestCase):
 
     # test initial hidden
     for _ in range(3):
-      x = ((Tensor.arange(SQ*BS*IS) % 10) * 0.1).reshape(SQ, BS, IS)
+      x = Tensor.randn(SQ, BS, IS)
       z, hc = layer(x, None)
       torch_x = torch.tensor(x.numpy())
       torch_z, torch_hc = torch_layer(torch_x)
@@ -40,7 +37,7 @@ class TestRNNT(unittest.TestCase):
 
     # test passing hidden
     for _ in range(3):
-      x = ((Tensor.arange(SQ*BS*IS) % 10) * 0.1).reshape(SQ, BS, IS)
+      x = Tensor.randn(SQ, BS, IS)
       z, hc = layer(x, hc)
       torch_x = torch.tensor(x.numpy())
       torch_z, torch_hc = torch_layer(torch_x, torch_hc)

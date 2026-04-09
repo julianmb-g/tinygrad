@@ -2,16 +2,12 @@
 # Reproduces consistently with seed=74 around iteration 1767. Versions <=4.15.3 are fine.
 # Workaround: reuse a single z3.Context, or pin z3-solver<4.15.4 (see pyproject.toml).
 # To repro: pip install z3-solver==4.15.4.0 && python test/external/fuzz_symbolic.py 74
-import operator
-import random
-import sys
-
+import random, operator, sys
 import z3
-
 from tinygrad import Variable, dtypes
-from tinygrad.helpers import DEBUG, Context
 from tinygrad.uop.ops import UOp
 from tinygrad.uop.validate import uops_to_z3
+from tinygrad.helpers import DEBUG, Context
 
 seed = int(sys.argv[1]) if len(sys.argv) > 1 else random.randint(0, 100)
 print(f"Seed: {seed}", flush=True)

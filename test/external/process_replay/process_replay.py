@@ -1,27 +1,18 @@
 #!/usr/bin/env python3
 # compare kernels created by HEAD against master
-import base64
-import codecs
-import difflib
-import functools
-import logging
-import multiprocessing
-import os
-import pickle
-import sqlite3
-import warnings
+import os, multiprocessing, logging, pickle, sqlite3, difflib, warnings, functools, base64, codecs
 from dataclasses import replace
-from typing import Any, Callable
+from typing import Callable, Any
 
 ASSERT_DIFF = int((flag:="[pr]") in os.getenv("COMMIT_MESSAGE", flag) or flag in os.getenv("PR_TITLE", flag))
 if not int(os.getenv("ASSERT_PROCESS_REPLAY", "1")): ASSERT_DIFF = 0
 
 try:
-  from tinygrad.codegen.opt import Opt
+  from tinygrad.renderer import Renderer, ProgramSpec
   from tinygrad.engine.realize import get_program
-  from tinygrad.helpers import BEAM, VERSION, Context, ContextVar, colored, db_connection, getenv, tqdm
-  from tinygrad.renderer import ProgramSpec, Renderer
-  from tinygrad.uop.ops import KernelInfo, Ops, UOp
+  from tinygrad.uop.ops import UOp, Ops, KernelInfo
+  from tinygrad.codegen.opt import Opt
+  from tinygrad.helpers import VERSION, Context, ContextVar, colored, db_connection, getenv, tqdm, BEAM
 except ImportError as e:
   print(repr(e))
   exit(int(ASSERT_DIFF))

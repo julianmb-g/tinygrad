@@ -1,10 +1,5 @@
 from __future__ import annotations
-
-import ctypes
-import mmap
-import struct
-import sys
-
+import ctypes, mmap, struct, sys
 if sys.platform != "win32": from tinygrad.runtime.autogen import libc
 
 class MockUSB:
@@ -207,7 +202,8 @@ class MockASM24State:
     return None
 
 class MockUSB3:
-  def __init__(self, *args, **kwargs): pass
+  def __init__(self, *args, **kwargs):
+    self.product, self.is_custom = "", False
   def send_batch(self, cdbs:list[bytes], idata:list[int]|None=None, odata:list[bytes|None]|None=None) -> list[bytes|None]:
     assert _mock_usb_state is not None
     idata, odata = idata or [0] * len(cdbs), odata or [None] * len(cdbs)

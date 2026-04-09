@@ -1,14 +1,9 @@
-import itertools
-import math
-import unittest
-
-import numpy as np
-
-from tinygrad import Context, Tensor, dtypes
-from tinygrad.codegen import full_rewrite_to_sink
-from tinygrad.dtype import ConstType, DType
+import unittest, itertools, math
+from tinygrad import Tensor, dtypes, Context
+from tinygrad.dtype import DType, ConstType
 from tinygrad.uop.ops import Ops, UOp
-
+from tinygrad.codegen import full_rewrite_to_sink
+import numpy as np
 
 def _check_ast_count(desired_count:int, t:Tensor):
   # NOTE: this has side effect because everything can be scheduled only once
@@ -35,7 +30,7 @@ class TestUnaryOpsConstFolding(unittest.TestCase):
     _check_ast_count(0, Tensor([1, 2, 3]).neg().neg())
 
   def test_neg_realized_no_fold(self):
-    x = ((Tensor.arange(32*32) % 10) * 0.1).reshape(32, 32)
+    x = Tensor.randn(32, 32)
     x = x.clip(0, 1).realize()
     _check_ast_count(1, x.neg())
 

@@ -3,13 +3,10 @@
 
 Run with: DEV=AMD MOCKGPU=1 python -m pytest test/amd/test_sqtt_encoder.py -v
 """
-import ctypes
-import unittest
-
+import ctypes, unittest
 from tinygrad.helpers import Context
-from tinygrad.renderer.amd.sqtt import IMMEDIATE, INST, LAYOUT_HEADER, VALUINST, WAVEEND, WAVESTART, InstOp, decode
+from tinygrad.renderer.amd.sqtt import decode, LAYOUT_HEADER, WAVESTART, WAVEEND, INST, IMMEDIATE, VALUINST, InstOp
 from tinygrad.runtime.autogen.amd.rdna3.ins import *
-
 
 def _run_kernel(instructions: list, lx=1, ly=1, lz=1, gx=1, gy=1, gz=1, args_ptr=0) -> bytes:
   """Assemble instructions, run on emulator with PROFILE=1, return the SQTT blob."""

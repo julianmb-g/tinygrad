@@ -1,16 +1,16 @@
 import argparse
 import os
 import sys
+
+from transformers import AutoTokenizer
 from pathlib import Path
 from typing import Dict, Union
 
-from transformers import AutoTokenizer
-
-from examples.llama3 import load
 from extra.models.llama import Transformer, convert_from_huggingface, fix_bf16
-from tinygrad import Device, Tensor, nn
-from tinygrad.helpers import DEBUG, GlobalCounters, Timing, colored, fetch
-from tinygrad.nn.state import get_parameters, load_state_dict
+from examples.llama3 import load
+from tinygrad import nn, Tensor, Device
+from tinygrad.helpers import fetch, colored, GlobalCounters, Timing, DEBUG
+from tinygrad.nn.state import load_state_dict, get_parameters
 
 MODELS = {
   "32B": {

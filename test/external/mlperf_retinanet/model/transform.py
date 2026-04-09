@@ -1,12 +1,11 @@
 # Copied from https://github.com/mlcommons/training/blob/637c82f9e699cd6caf108f92efb2c1d446b630e0/single_stage_detector/ssd/model/transform.py
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
-from torch import Tensor, nn
+
+from torch import nn, Tensor
+from typing import List, Tuple, Dict, Optional
 
 from test.external.mlperf_retinanet.model.image_list import ImageList
-
 
 @torch.jit.unused
 def _get_shape_onnx(image: Tensor) -> Tensor:

@@ -186,6 +186,7 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Atomic API Lock-Step**: While internal feature logic can be prototyped loosely and fail prototype tests, any agent modifying a cross-component interface (e.g., changing a C++ AST encoder signature, PyBind11 bindings) MUST immediately update the downstream bindings within the same atomic commit to prevent silent API drift across the ecosystem.
 
 
+
 * **Tinygrad max_upcast Hard-Cap**: Patch `tinygrad/codegen/opt/heuristic.py` to hard-cap the unroll size at `max_upcast = 28` specifically for `CORALNPU`.
 * **Sequential Dependencies**: Implement a scheduling pass forcing sequential data dependencies ("chaining dependents") to stagger AST depths for wide operations like RoPE.
 * **OutOfMemoryError Boundary for Unsplittable Tensors**: The compiler MUST evaluate the total physical footprint of ANY unsplittable tensor chunk. If ANY chunk > 12KB, abort with `OutOfMemoryError`.
@@ -213,3 +214,6 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Structural Formatting**: Avoid one-liner `if` statements containing semicolons. Break them vertically into indented blocks to prevent hiding multiple operations on a single line, improving traceback clarity.
 * **Unsplittable Tensor Memory Boundaries Evaluation**: When evaluating unsplittable tensor chunk limits (e.g., 12KB) in the ML compiler (`heuristic.py`), the physical memory footprint (elements * itemsize) MUST be calculated. Evaluating the raw element count against the byte limit allows chunks to exceed physical hardware capacities natively without triggering `OutOfMemoryError`.
 * **Flaky Hypothesis Timeout**: Hypothesis tests failing with `FlakyFailure` (e.g., in `test_approx_jit_timeout`) indicate unreliable execution bounds or non-deterministic test evaluation logic natively. The bounds must be empirically hardened to prevent false overarching pipeline failures.
+
+* **Pytest Collection Void via Missing Import**: API Boundary Drift where a required exception or module (e.g., `OutOfMemoryError`) is not implemented or exported correctly in the target module causes an immediate Pytest Collection Void (ImportError during collection) and mathematically erases the test suite. This must be prioritized as a Tier 1 Fatal Pipeline Blocker.
+

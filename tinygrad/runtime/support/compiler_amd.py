@@ -1,25 +1,17 @@
-import ctypes
-import hashlib
-import pathlib
-import shutil
-import subprocess
-import tempfile
-
-from tinygrad.helpers import getenv, system
+import ctypes, hashlib, tempfile, subprocess, pathlib, shutil
+from tinygrad.helpers import system, getenv
 from tinygrad.runtime.autogen import comgr
-
 try:
   comgr.amd_comgr_get_version(ctypes.byref(major:=ctypes.c_uint64()), ctypes.byref(minor:=ctypes.c_uint64()))
   if major.value >= 3:
     # in comgr 3 the values of enums in headers were changed: https://github.com/ROCm/llvm-project/issues/272
-    import tinygrad.runtime.autogen.comgr_3 as comgr  # type: ignore[no-redef]
+    import tinygrad.runtime.autogen.comgr_3 as comgr # type: ignore[no-redef]
     assert comgr.AMD_COMGR_LANGUAGE_HIP == 3
 except AttributeError: pass  # ignore if ROCm isn't installed
-from tinygrad.device import CompileError, Compiler
-from tinygrad.helpers import OSX, to_char_p_p
-from tinygrad.runtime.support import c
+from tinygrad.device import Compiler, CompileError
 from tinygrad.runtime.support.compiler_cpu import LLVMCompiler
-
+from tinygrad.runtime.support import c
+from tinygrad.helpers import OSX, to_char_p_p
 
 def _find_llvm_objdump():
   if OSX: return '/opt/homebrew/opt/llvm/bin/llvm-objdump'
@@ -120,9 +112,9 @@ class HIPCCCompiler(Compiler):
 
         rocm_path = getenv("ROCM_PATH", "/opt/rocm")
         subprocess.run(["hipcc", "-c", "-emit-llvm", "--cuda-device-only", "-O3", "-mcumode",
-                        f"--offload-arch={self.arch}", f"-I{rocm_path}/include/hip", "-o", bcf.name, srcf.name] + self.extra_options, check=True, timeout=None)
+                        f"--offload-arch={self.arch}", f"-I{rocm_path}/include/hip", "-o", bcf.name, srcf.name] + self.extra_options, check=True)
         subprocess.run(["hipcc", "-target", "amdgcn-amd-amdhsa", f"-mcpu={self.arch}",
-                        "-O3", "-mllvm", "-amdgpu-internalize-symbols", "-c", "-o", libf.name, bcf.name] + self.extra_options, check=True, timeout=None)
+                        "-O3", "-mllvm", "-amdgpu-internalize-symbols", "-c", "-o", libf.name, bcf.name] + self.extra_options, check=True)
 
         return pathlib.Path(libf.name).read_bytes()
   def disassemble(self, lib:bytes): amdgpu_disassemble(lib)

@@ -2,10 +2,9 @@
 # Obviously, not developed, supported, etc. by the original waifu2x author(s).
 
 import numpy
-from PIL import Image
-
-from tinygrad.helpers import fetch
 from tinygrad.tensor import Tensor
+from PIL import Image
+from tinygrad.helpers import fetch
 
 # File Formats
 

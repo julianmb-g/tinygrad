@@ -1,8 +1,6 @@
-import time
-import unittest
-
-from tinygrad import Device, Tensor, TinyJit, dtypes
-from tinygrad.helpers import GlobalCounters, getenv
+import time, unittest
+from tinygrad import Tensor, TinyJit, Device, dtypes
+from tinygrad.helpers import getenv, GlobalCounters
 
 SZMAX = getenv("SZMAX", 10)
 SZMIN = min(SZMAX, getenv("SZMIN", 10))

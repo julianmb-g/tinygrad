@@ -1,13 +1,6 @@
 from __future__ import annotations
-
-import array
-import collections
-import ctypes
-import dataclasses
-import functools
-import hashlib
-
-from tinygrad.helpers import DEBUG, fetch, getenv, hi32, lo32, mv_address
+import ctypes, collections, dataclasses, functools, hashlib, array
+from tinygrad.helpers import mv_address, getenv, DEBUG, fetch, lo32, hi32
 from tinygrad.runtime.autogen import pci
 from tinygrad.runtime.autogen.am import am
 from tinygrad.runtime.support.amd import AMDReg, import_module, import_asic_regs
@@ -205,8 +198,8 @@ class AMDev:
 
     # Memory manager & firmware
     self.mm = AMMemoryManager(self, self.vram_size - self.reserved_vram_size, boot_size=(32 << 20), pt_t=AMPageTableEntry, va_shifts=[12, 21, 30, 39],
-      va_bits=48, first_lv=am.AMDGPU_VM_PDB2, va_base=AMMemoryManager.va_allocator.base,
-      palloc_ranges=[(1 << (i + 12), 0x1000) for i in range(9 * (3 - am.AMDGPU_VM_PDB2), -1, -1)], reserve_ptable=not self.large_bar)
+      va_bits=48, first_lv=am.AMDGPU_VM_PDB2, va_base=AMMemoryManager.va_allocator.base, reserve_ptable=not self.large_bar,
+      palloc_ranges=[(1 << (i + 12), (2 << 20) if i >= 9 else 0x1000) for i in range(9 * (3 - am.AMDGPU_VM_PDB2), -1, -1)])
     self.fw = AMFirmware(self)
 
     # Initialize IP blocks

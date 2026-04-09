@@ -1,9 +1,6 @@
-import math
-import pytest
 import unittest
-
-pytestmark = pytest.mark.timeout(30)
 from tinygrad import Tensor, Device, dtypes, Context
+from tinygrad.device import is_dtype_supported
 from tinygrad.helpers import getenv, system
 from extra.gemm.cdna_asm_gemm import asm_gemm
 from test.helpers import needs_second_gpu
@@ -14,8 +11,8 @@ def is_cdna4(): return getattr(Device[Device.DEFAULT].renderer, "arch", "").star
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
   Tensor.manual_seed(0)
-  a_rand = ((Tensor.arange(math.prod(a_shape)) % 10) * 0.1).reshape(a_shape).cast(dtypes.float).sub(0.5).cast(dtype)
-  b_rand = ((Tensor.arange(math.prod(b_shape)) % 10) * 0.1).reshape(b_shape).cast(dtypes.float).sub(0.5).cast(dtype)
+  a_rand = Tensor.randn(a_shape, dtype=dtypes.float).sub(0.5).cast(dtype)
+  b_rand = Tensor.randn(b_shape, dtype=dtypes.float).sub(0.5).cast(dtype)
   with Context(DEBUG=0):
     Tensor.realize(a_rand, b_rand)
 
@@ -29,6 +26,10 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
   Tensor.realize(tst, a.grad, b.grad)
 
   a_ref, b_ref = a_rand.clone().requires_grad_(), b_rand.clone().requires_grad_()
+  # do reference gemm in bf16 for fp8, adjusting atol for quantization effects
+  if a_ref.dtype == FP8_DTYPE:
+    a_ref = a_ref.cast(dtypes.bfloat16)
+    b_ref = b_ref.cast(dtypes.bfloat16)
   if multi: a_ref, b_ref = a_ref.shard(devs, axis=a_shard), b_ref.shard(devs, axis=b_shard)
   with Context(ASM_GEMM=0):
     ref = asm_gemm(a_ref, b_ref)
@@ -37,9 +38,15 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
 
   atol, rtol = (2e-1, 1e-2) if dtype == dtypes.bfloat16 else (1e-2, 1e-3)
   with Context(DEBUG=0):
+    # enable for debugging, slow for larger gemms
+    if getenv("USE_NPY"):
+      import numpy as np
+      np.testing.assert_allclose(tst.numpy(), ref.numpy(), atol=atol, rtol=rtol)
+      np.testing.assert_allclose(a.grad.numpy(), a_ref.grad.numpy(), atol=grad_atol, rtol=grad_rtol)
+      np.testing.assert_allclose(b.grad.numpy(), b_ref.grad.numpy(), atol=grad_atol, rtol=grad_rtol)
     assert tst.allclose(ref, atol=atol, rtol=rtol), "forward mismatch"
-    assert a.grad.allclose(a_ref.grad, atol=atol, rtol=rtol), "grad_a mismatch"
-    assert b.grad.allclose(b_ref.grad, atol=atol, rtol=rtol), "grad_b mismatch"
+    assert a.grad.allclose(a_ref.grad, atol=grad_atol, rtol=grad_rtol), "grad_a mismatch"
+    assert b.grad.allclose(b_ref.grad, atol=grad_atol, rtol=grad_rtol), "grad_b mismatch"
 
 def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=1) -> None:
   run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
@@ -61,6 +68,7 @@ def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.fl
 
 # 128x smaller than usual
 # uses the UOp GEMM, runs on non CDNA4 and CI
+@unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
 class TestGemm(unittest.TestCase):
   def setUp(self):
     if is_cdna4(): self.skipTest("shapes are too small for the assembly GEMM")
@@ -82,6 +90,9 @@ class TestGemm(unittest.TestCase):
 
 # uses the smallest size for the cdna assembly gemm
 class TestAsmGEMM(unittest.TestCase):
+  def setUp(self):
+    if not is_cdna4():
+      self.skipTest("assembly gemm is only for cdna4")
 
   def test_tiny(self): verify_asm_gemm(1, 256, 256, 64)
 
@@ -102,15 +113,12 @@ class TestAsmGEMM(unittest.TestCase):
     with self.assertRaisesRegex(AssertionError, "batch size"):
       verify_asm_gemm(3, 256, 256, 256)
 
-  @unittest.skipIf(not is_cdna4(), "only cdna4 checks this multiple")
   def test_unsupported_k(self):
     with self.assertRaisesRegex(AssertionError, "not a multiple"):
       verify_asm_gemm(1, 1024, 1024, 100)
-  @unittest.skipIf(not is_cdna4(), "only cdna4 checks this multiple")
   def test_unsupported_m(self):
     with self.assertRaisesRegex(AssertionError, "not a multiple"):
       verify_asm_gemm(1, 1000, 256, 256)
-  @unittest.skipIf(not is_cdna4(), "only cdna4 checks this multiple")
   def test_unsupported_n(self):
     with self.assertRaisesRegex(AssertionError, "not a multiple"):
       verify_asm_gemm(1, 256, 1000, 256)
@@ -121,10 +129,7 @@ class TestGemmLlama(unittest.TestCase):
 
   def setUp(self):
     if not is_cdna4() or getenv("MOCKGPU"):
-      self.skipTest("Requires authentic hardware execution for ASM boundary tests - NULL device evasion is forbidden")
-
-  def tearDown(self):
-    pass
+      self.skipTest("very slow on non mi350x")
 
   @Context(ASM_GEMM=1)
   def test_empty(self): (Tensor.empty(N:=getenv("N", 4096), N, dtype=self.dtype)@Tensor.empty(N, N, dtype=self.dtype)).realize()
@@ -146,11 +151,13 @@ class TestGemmLlama(unittest.TestCase):
   def test_gemm_batched(self): verify_asm_gemm(2, 8192, 4096, 4096, dtype=self.dtype)
 
   def test_gemm1(self): verify_asm_gemm(8, 8192, 4096, 14336, dtype=self.dtype, gpus=8)
+  @unittest.skip("disabled, asm in this shape is slower than tinygrad")
   def test_gemm2(self): verify_asm_gemm(8, 8192, 128256, 4096, dtype=self.dtype, gpus=8)
   def test_gemm3(self): verify_asm_gemm(8, 8192, 14336, 4096, dtype=self.dtype, gpus=8)
   def test_gemm4(self): verify_asm_gemm(8, 4096, 14336, 4096, dtype=self.dtype, gpus=8)
   def test_gemm5(self): verify_asm_gemm(8, 4096, 4096, 14336, dtype=self.dtype, gpus=8)
   def test_gemm6(self): verify_asm_gemm(16, 4096, 4096, 14336, dtype=self.dtype, gpus=8)
+  @unittest.skip("disabled, asm in this shape is slower than tinygrad")
   def test_gemm7(self): verify_asm_gemm(1, 8192, 128256, 4096, dtype=self.dtype)
   def test_gemm8(self): verify_asm_gemm(1, 4096, 14336, 8192, dtype=self.dtype)
   def test_gemm9(self): verify_asm_gemm(8, 4096, 14336, 8192, dtype=self.dtype, gpus=8)

@@ -1,13 +1,13 @@
 import unittest
+from tinygrad import Device, Tensor, dtypes
+from tinygrad.codegen.opt import Opt, OptOps, KernelOptError
 
 # TODO: write a clean version of this
 from test.backend.test_linearizer import helper_linearizer_opt
-from tinygrad import Device, Tensor, dtypes
-from tinygrad.codegen.opt import KernelOptError, Opt, OptOps
-
 
 class TestKernelOpts(unittest.TestCase):
-  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_local, "test requires locals")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_shared, "test requires shared")
   def test_local_and_grouped_reduce(self):
     N = 128
     Tensor.manual_seed(1882)
@@ -33,6 +33,7 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.LOCAL, 0, 2)] * 4,
       [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUP, 0, 2)] * 4,
     ])
+
   def test_upcasts(self):
     N = 16
     Tensor.manual_seed(1772)
@@ -54,7 +55,8 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.UPCAST, 0, 4)], # Checking how it works with upcasts
     ])
 
-  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_local, "test requires locals")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_shared, "test requires shared")
   def test_matmul(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -81,7 +83,9 @@ class TestKernelOpts(unittest.TestCase):
       # Full global upcast + local
       [Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.LOCAL, 0, 4), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.UPCAST, 0, 8)],
     ])
-  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
+
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_local, "test requires locals")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_shared, "test requires shared")
   def test_double_reduce(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -106,6 +110,9 @@ class TestKernelOpts(unittest.TestCase):
        Opt(OptOps.UPCAST, 0, 2)], # No globals
     ])
 
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
+  @unittest.skipUnless(any(tc.dtype_in == tc.dtype_out == dtypes.half for tc in Device[Device.DEFAULT].renderer.tensor_cores),
+                      "test requires tensor cores with accumulation in half") # testing with half suffices.
   def test_tensor_core_opts(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -126,7 +133,11 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 4)],
       [Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UNROLL, 0, 4)],
     ], apply_tc=True, atol=atol, rtol=rtol)
-  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
+
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
+  @unittest.skipUnless(any(tc.dtype_in == tc.dtype_out == dtypes.half for tc in Device[Device.DEFAULT].renderer.tensor_cores),
+                      "test requires tensor cores with accumulation in half") # testing with half suffices.
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_local, "test requires locals")
   def test_tensor_core_opts_locals(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -139,8 +150,15 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.UPCAST, 0, 4), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 4), Opt(OptOps.LOCAL, 0, 2)],
       [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.UPCAST, 1, 4), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 0, 4)],
     ], apply_tc=True, atol=atol, rtol=rtol)
+
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.tensor_cores, "test requires tensor cores")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_local, "test requires locals")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_shared, "test requires shared memory")
+  @unittest.skipUnless(any(tc.dtype_in == tc.dtype_out == dtypes.half for tc in Device[Device.DEFAULT].renderer.tensor_cores),
+                      "test requires tensor cores with accumulation in half") # testing with half suffices.
   # NOTE: the METAL test is broken, likely due to a compiler bug. passes on CI with -O0 and with default opt level locally on M3
-  @unittest.skipIf(not getattr(Device[Device.DEFAULT].renderer, "tensor_cores", False), "no tensor core available")
+  @unittest.skipIf(Device.DEFAULT == "METAL", "broken for METAL")
+  @unittest.skip("feature was removed")
   def test_tensor_core_opts_group(self):
     N = 128
     Tensor.manual_seed(1552)
@@ -156,6 +174,7 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.UPCAST, 0, 2), Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUP, 0, 2)],
       [Opt(OptOps.LOCAL, 0, 2), Opt(OptOps.GROUPTOP, 0, 8), Opt(OptOps.UNROLL, 0, 2), Opt(OptOps.UPCAST, 1, 2)],
     ], apply_tc=True, atol=atol, rtol=rtol)
+
   def test_padto_matmul(self):
     N = 17
     Tensor.manual_seed(289)
@@ -261,7 +280,7 @@ class TestKernelOpts(unittest.TestCase):
   def test_padto_where(self):
     Tensor.manual_seed(0)
     N = 17
-    a = (((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N).realize().max(axis=0, keepdim=True) > 1).where(1, 0)
+    a = (Tensor.randn(N, N).realize().max(axis=0, keepdim=True) > 1).where(1, 0)
     helper_linearizer_opt(a.max(0), [
       [Opt(OptOps.PADTO, 0, 32)],
       [Opt(OptOps.PADTO, 0, 32), Opt(OptOps.UPCAST, 0, 8),],
@@ -270,7 +289,7 @@ class TestKernelOpts(unittest.TestCase):
   def test_padto_where_multioutput(self):
     Tensor.manual_seed(0)
     N = 17
-    r = ((Tensor.arange(N*N) % 10) * 0.1).reshape(N, N).realize().max(axis=0, keepdim=True) > 1
+    r = Tensor.randn(N, N).realize().max(axis=0, keepdim=True) > 1
     a0 = r.where(1, 0)
     a1 = r.where(2, 0)
     helper_linearizer_opt([a0.max(0), a1.max(0)], [
@@ -278,7 +297,8 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.PADTO, 0, 32), Opt(OptOps.UPCAST, 0, 8),],
     ])
 
-  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_local, "test requires locals")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_shared, "test requires shared")
   def test_color_shapes_with_local(self):
     N = 32
     Tensor.manual_seed(1552)
@@ -298,7 +318,10 @@ class TestKernelOpts(unittest.TestCase):
       ([Opt(OptOps.GROUP, 0, 2),Opt(OptOps.UNROLL, 0, 0)], [("blue",32),("blue",32),("red",16),("magenta",2)]),
     ]
     helper_linearizer_opt(r, [x[0] for x in opts_shapes], color_sizes=[x[1] for x in opts_shapes])
-  @unittest.skipIf(getattr(Device[Device.DEFAULT].renderer, "has_local", False) is False, "locals needed")
+
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_local, "test requires locals")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_shared, "test requires shared")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.supports_float4, "test requires float4")
   def test_arange_opts(self):
     a = Tensor.arange(128)
     # NOTE: arange no longer has reduce ops available for opt
@@ -310,6 +333,10 @@ class TestKernelOpts(unittest.TestCase):
       #[Opt(op=OptOps.LOCAL, axis=0, arg=8), Opt(op=OptOps.UPCAST, axis=0, arg=0), Opt(op=OptOps.GROUP, axis=0, arg=8)],
       #[Opt(op=OptOps.LOCAL, axis=0, arg=8), Opt(op=OptOps.UPCAST, axis=0, arg=0), Opt(op=OptOps.GROUP, axis=0, arg=8), Opt(op=OptOps.UNROLL, axis=1, arg=4)], # noqa: E501
     ])
+
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.has_threads, "test requires threads")
+  @unittest.skipUnless(Device[Device.DEFAULT].renderer.global_max is not None and
+                       Device[Device.DEFAULT].renderer.global_max[0] > 1, "test requires multicore")
   def test_thread_opts(self):
     a = Tensor.rand(4, 4, 4, 4)
     b = Tensor.rand(4, 4, 4)
@@ -320,6 +347,7 @@ class TestKernelOpts(unittest.TestCase):
       [Opt(OptOps.UPCAST, 0, 2), Opt(OptOps.THREAD, 0, 2), Opt(OptOps.UNROLL, 0, 2)],
     ] + [[Opt(OptOps.THREAD, 0, 4)] if Device[Device.DEFAULT].renderer.global_max[0] >= 4 else []]
       + [[Opt(OptOps.THREAD, 0, 8)] if Device[Device.DEFAULT].renderer.global_max[0] >= 8 else []])
+
   def test_double_sum_group(self):
     a = Tensor.rand(4, 4, 4)
     r = a.sum((1, 2)).sum()

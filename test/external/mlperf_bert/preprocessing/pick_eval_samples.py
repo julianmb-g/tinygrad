@@ -4,10 +4,9 @@
 """
 
 import argparse
-import collections
-import logging
 import time
-
+import logging
+import collections
 import tensorflow as tf
 
 parser = argparse.ArgumentParser(

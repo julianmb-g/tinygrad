@@ -1,14 +1,14 @@
 # Copied from https://github.com/mlcommons/training/blob/637c82f9e699cd6caf108f92efb2c1d446b630e0/single_stage_detector/ssd/transforms.py
 
-from typing import Dict, List, Optional, Tuple
-
 import torch
 import torchvision
-from PIL import Image
-from torch import Tensor, nn
+
+from torch import nn, Tensor
 from torchvision.transforms import functional as F
 from torchvision.transforms import transforms as T
+from typing import List, Tuple, Dict, Optional
 
+from PIL import Image
 Image.MAX_IMAGE_PIXELS = None
 from typing import Any
 

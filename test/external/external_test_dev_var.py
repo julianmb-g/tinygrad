@@ -1,10 +1,5 @@
-import os
-import subprocess
-import sys
-import unittest
-
+import subprocess, unittest, os, sys
 from tinygrad.device import Device
-
 
 class TestTinygradSlow(unittest.TestCase):
   def test_env_overwrite_default_device(self):
@@ -13,11 +8,11 @@ class TestTinygradSlow(unittest.TestCase):
 
     if Device.DEFAULT != "CPU":
       # setting device via DEV
-      subprocess.run([f'DEV={Device.DEFAULT.capitalize()} python3 -c "from tinygrad import Device; assert Device.DEFAULT == \\"{Device.DEFAULT}\\""'], timeout=None,
+      subprocess.run([f'DEV={Device.DEFAULT.capitalize()} python3 -c "from tinygrad import Device; assert Device.DEFAULT == \\"{Device.DEFAULT}\\""'],
                       shell=True, check=True)
-      subprocess.run([f'DEV={Device.DEFAULT.lower()} python3 -c "from tinygrad import Device; assert Device.DEFAULT == \\"{Device.DEFAULT}\\""'], timeout=None,
+      subprocess.run([f'DEV={Device.DEFAULT.lower()} python3 -c "from tinygrad import Device; assert Device.DEFAULT == \\"{Device.DEFAULT}\\""'],
                       shell=True, check=True)
-      subprocess.run([f'DEV={Device.DEFAULT.upper()} python3 -c "from tinygrad import Device; assert Device.DEFAULT == \\"{Device.DEFAULT}\\""'], timeout=None,
+      subprocess.run([f'DEV={Device.DEFAULT.upper()} python3 -c "from tinygrad import Device; assert Device.DEFAULT == \\"{Device.DEFAULT}\\""'],
                       shell=True, check=True)
 
 class TestRunAsModule(unittest.TestCase):

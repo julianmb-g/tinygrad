@@ -1,45 +1,11 @@
 from __future__ import annotations
-
-import contextlib
-import copyreg
-import cProfile
-import ctypes
-import decimal
-import functools
-import gc
-import getpass
-import gzip
-import hashlib
-import importlib
-import inspect
-import itertools
-import math
-import multiprocessing
-try: multiprocessing.set_start_method("spawn", force=True)
-except RuntimeError: pass
-import operator
-import os
-import pathlib
-import pickle
-import platform
-import pstats
-import re
-import select
-import shutil
-import signal
-import sqlite3
-import string
-import subprocess
-import sys
-import tempfile
 import time
-import types
-import urllib.request
+START_TIME = time.perf_counter()
+import os, functools, platform, re, contextlib, operator, hashlib, pickle, sqlite3, tempfile, pathlib, string, ctypes, sys, gzip, getpass, gc
 from collections import defaultdict
+import subprocess, shutil, math, types, copyreg, inspect, importlib, decimal, itertools
 from dataclasses import dataclass, field, replace
 from typing import ClassVar, Iterable, Any, TypeVar, Callable, Sequence, TypeGuard, Iterator, Generic, Generator, cast, overload
-
-START_TIME = time.perf_counter()
 
 T = TypeVar("T")
 U = TypeVar("U")
@@ -95,6 +61,8 @@ def lo32(x:Any) -> Any: return x & 0xFFFFFFFF # Any is sint
 def hi32(x:Any) -> Any: return x >> 32 # Any is sint
 def data64(data:Any) -> tuple[Any, Any]: return (data >> 32, data & 0xFFFFFFFF) # Any is sint
 def data64_le(data:Any) -> tuple[Any, Any]: return (data & 0xFFFFFFFF, data >> 32) # Any is sint
+def to_be32(val:Any) -> Any: return ((val & 0xFF) << 24) | (((val >> 8) & 0xFF) << 16) | (((val >> 16) & 0xFF) << 8) | ((val >> 24) & 0xFF)
+def to_be64(val:Any) -> Any: return to_be32(val >> 32) | (to_be32(val & 0xFFFFFFFF) << 32)
 def getbits(value: int, start: int, end: int): return (value >> start) & ((1 << (end - start + 1)) - 1)
 def i2u(bits: int, value: int): return value if value >= 0 else (1<<bits)+value
 def is_numpy_ndarray(x) -> bool: return str(type(x)) == "<class 'numpy.ndarray'>"
@@ -153,18 +121,16 @@ def suppress_finalizing(func):
       if not getattr(sys, 'is_finalizing', lambda: True)(): raise # re-raise if not finalizing
   return wrapper
 
-def select_first_inited(candidates:Sequence[Callable[...,T]|Sequence[Callable[...,T]|None]], err_msg:str, cache:dict|None=None):
+def select_first_inited(candidates:Sequence[Callable[...,T]], err_msg:str, cache:dict|None=None, **kwargs):
   excs = []
   for typ in candidates:
     if cache is not None and typ in cache: return cache[typ]
     try:
-      x = tuple([cast(Callable, t)() if t is not None else None for t in typ]) if isinstance(typ, Sequence) else cast(Callable, typ)()
+      x = typ(**kwargs)
       if cache is not None: cache[typ] = x
       return x
     except Exception as e: excs.append(e)
-  raise ExceptionGroup(err_msg, excs)
-
-def unwrap_class_type(cls_t): return cls_t.func if isinstance(cls_t, functools.partial) else cls_t
+  raise excs[0] if len(excs) == 1 else ExceptionGroup(err_msg, excs)
 
 def pluralize(st:str, cnt:int): return f"{cnt} {st}"+('' if cnt == 1 else 's')
 
@@ -214,10 +180,22 @@ class ContextVar(Generic[T]):
 class Target:
   device: str = ""
   renderer: str = ""
+  arch: str = ""
+  interface: str = ""
 
   @staticmethod
-  def parse(s:str) -> Target: return Target(*(x.upper() for x in s.split(':')))
-  def __repr__(self) -> str: return self.device + (":" + self.renderer if self.renderer else "")
+  def parse(s:str) -> Target:
+    if len(iface_split:=s.split('+')) == 2: iface, s = iface_split
+    elif len(iface_split) > 2: raise RuntimeError(f"too many '+' in target string: {s!r}")
+    else: iface = ""
+    match [x.upper() if i < 2 else x for i,x in enumerate(s.split(':'))]:
+      case [dev, ren, arch]: return Target(dev, ren, arch, iface)
+      case [dev, ren]: return Target(dev, ren, interface=iface)
+      case [dev]: return Target(dev, interface=iface)
+      case _: raise RuntimeError(f"too many ':' in target string: {s!r}")
+  def __repr__(self): return re.sub(":*$", "", (self.interface + "+" if self.interface else "") + ":".join([self.device, self.renderer, self.arch]))
+  # replaces if not already set
+  def replacedefault(self, **kwargs) -> Target: return replace(self, **{k:v for k,v in kwargs.items() if not getattr(self, k)})
 
 class _DEV(ContextVar):
   _value = Target()
@@ -226,9 +204,9 @@ class _DEV(ContextVar):
   @value.setter
   def value(self, v:str|Target): self._value = v if isinstance(v, Target) else Target.parse(v)
   def __getattr__(self, k): return getattr(self.value, k)
-  # get target for device string
-  def target(self, dev:str) -> Target:
-    t = self.value if self.device == dev or not self.device else Target(device=dev)
+  # get target for device string, kwargs are passed if not already specified
+  def target(self, dev:str, **kwargs) -> Target:
+    t = self.value.replacedefault(**kwargs) if self.device == dev or not self.device else Target(device=dev, **kwargs)
     # TODO: remove this once DEV supports secondary targets
     if (cv:=ContextVar._cache.get(f"{dev}_CC", None)) is not None and cv.value:
       assert not t.renderer, f"renderer set in DEV and {dev}_CC"
@@ -248,7 +226,7 @@ VALIDATE_WITH_CPU, DISABLE_FAST_IDIV = ContextVar("VALIDATE_WITH_CPU", 0), Conte
 CORRECT_DIVMOD_FOLDING, FUSE_OPTIM = ContextVar("CORRECT_DIVMOD_FOLDING", 0), ContextVar("FUSE_OPTIM", 0)
 ALLOW_DEVICE_USAGE, MAX_BUFFER_SIZE = ContextVar("ALLOW_DEVICE_USAGE", 1), ContextVar("MAX_BUFFER_SIZE", 0)
 MAX_KERNEL_BUFFERS = ContextVar("MAX_KERNEL_BUFFERS", 0)
-EMULATE, EMULATED_DTYPES = ContextVar("EMULATE", ""), ContextVar("EMULATED_DTYPES", "")
+EMULATED_DTYPES = ContextVar("EMULATED_DTYPES", "")
 CAPTURE_PROCESS_REPLAY = ContextVar("CAPTURE_PROCESS_REPLAY", 0)
 CPU_COUNT = ContextVar("CPU_COUNT", max(1, len(os.sched_getaffinity(0)) if hasattr(os, "sched_getaffinity") else (os.cpu_count() or 1)))
 # Compilers
@@ -310,12 +288,14 @@ class Profiling(contextlib.ContextDecorator):
   def __init__(self, enabled=True, sort='cumtime', frac=0.2, fn=None, ts=1):
     self.enabled, self.sort, self.frac, self.fn, self.time_scale = enabled, sort, frac, fn, 1e3/ts
   def __enter__(self):
+    import cProfile
     self.pr = cProfile.Profile()
     if self.enabled: self.pr.enable()
   def __exit__(self, *exc):
     if self.enabled:
       self.pr.disable()
       if self.fn: self.pr.dump_stats(self.fn)
+      import pstats
       stats = pstats.Stats(self.pr).strip_dirs().sort_stats(self.sort)
       for fcn in stats.fcn_list[0:int(len(stats.fcn_list)*self.frac)]:    # type: ignore[attr-defined]
         (_primitive_calls, num_calls, tottime, cumtime, callers) = stats.stats[fcn]    # type: ignore[attr-defined]
@@ -383,17 +363,13 @@ if getenv("DEBUG_GC"):
 # *** universal database cache ***
 
 cache_dir: str = os.path.join(getenv("XDG_CACHE_HOME", os.path.expanduser("~/Library/Caches" if OSX else "~/.cache")), "tinygrad")
-worker = getenv("PYTEST_XDIST_WORKER", "")
-CACHEDB: str = getenv("CACHEDB", os.path.abspath(os.path.join(cache_dir, f"cache_{worker}.db" if worker else "cache.db")))
+CACHEDB: str = getenv("CACHEDB", os.path.abspath(os.path.join(cache_dir, "cache.db")))
 
 VERSION = 22
 _db_connection = None
 def db_connection():
-  global _db_connection, CACHEDB
+  global _db_connection
   if _db_connection is None:
-    worker = getenv("PYTEST_XDIST_WORKER", "")
-    if worker and not CACHEDB.endswith(f"_{worker}.db") and "CACHEDB" not in os.environ:
-      CACHEDB = os.path.abspath(os.path.join(cache_dir, f"cache_{worker}.db"))
     os.makedirs(CACHEDB.rsplit(os.sep, 1)[0], exist_ok=True)
     _db_connection = sqlite3.connect(CACHEDB, timeout=60, isolation_level="IMMEDIATE")
     # another connection has set it already or is in the process of setting it
@@ -402,13 +378,10 @@ def db_connection():
     if DEBUG >= 8: _db_connection.set_trace_callback(print)
   return _db_connection
 
-_db_tables = set()
 def diskcache_clear():
-  global _db_tables
   cur = db_connection().cursor()
   drop_tables = cur.execute("SELECT 'DROP TABLE IF EXISTS ' || quote(name) || ';' FROM sqlite_master WHERE type = 'table';").fetchall()
   cur.executescript("\n".join([s[0] for s in drop_tables] + ["VACUUM;"]))
-  _db_tables.clear()
 
 def diskcache_get(table:str, key:dict|str|int) -> Any:
   if CACHELEVEL < 1: return None
@@ -421,6 +394,7 @@ def diskcache_get(table:str, key:dict|str|int) -> Any:
   if (val:=res.fetchone()) is not None: return pickle.loads(val[0])
   return None
 
+_db_tables = set()
 def diskcache_put(table:str, key:dict|str|int, val:Any, prepickled=False):
   if CACHELEVEL < 1: return val
   if isinstance(key, (str,int)): key = {"key": key}
@@ -459,6 +433,7 @@ def _ensure_downloads_dir() -> pathlib.Path:
 
 def fetch(url:str, name:pathlib.Path|str|None=None, subdir:str|None=None, gunzip:bool=False,
           allow_caching=not getenv("DISABLE_HTTP_CACHE"), headers:dict[str, str]={}) -> pathlib.Path:
+  import urllib.request
   if url.startswith(("/", ".")): return pathlib.Path(url)
   if name is not None and (isinstance(name, pathlib.Path) or '/' in name): fp = pathlib.Path(name)
   else:
@@ -590,213 +565,3 @@ class count:
     cur = self.n
     self.n += self.step
     return cur
-
-def init_worker_process_group():
-  """Severs the process group and binds lifecycle to parent"""
-  try:
-    os.setpgrp()
-    libc = ctypes.CDLL("libc.so.6")
-    libc.prctl(1, signal.SIGKILL) # PR_SET_PDEATHSIG
-  except OSError:
-    pass
-
-def init_c_process_group():
-  """Severs the process group and binds lifecycle to parent (no atexit hooks needed)"""
-  try:
-    os.setpgrp()
-    libc = ctypes.CDLL("libc.so.6")
-    libc.prctl(1, signal.SIGKILL)
-  except OSError:
-    pass
-
-
-_ipc_active_pids = set()
-class TinygradAutoTunerIPC:
-  """Python Auto-Tuner Concurrency Pipeline IPC Bridging (Project 3)"""
-  def __init__(self, timeout_sec: float = 15.0):
-    self.kDefaultCompilationTimeoutMs = int(timeout_sec * 1000)
-    try:
-      multiprocessing.set_start_method("spawn", force=True)
-    except RuntimeError: pass
-    self._respawn()
-
-  def _respawn(self):
-    if hasattr(self, 'parent_conn'):
-      try: self.parent_conn.close()
-      except OSError: pass
-    if hasattr(self, 'child_conn'):
-      try: self.child_conn.close()
-      except OSError: pass
-    self.parent_conn, self.child_conn = multiprocessing.Pipe(duplex=True)
-    self.worker = multiprocessing.Process(target=self._worker_loop, args=(self.child_conn,))
-    self.worker.daemon = True
-    self.worker.start()
-
-  def _worker_loop(self, conn):
-    os.setpgrp()
-    while True:
-      try:
-        msg = conn.recv()
-        if msg is None: break
-        binary_payload = msg
-
-        # Execute isolated payload
-        with tempfile.NamedTemporaryFile(delete=False) as f:
-          f.write(binary_payload)
-          elf_path = f.name
-
-        try:
-          cmd = ['coralnpu_v2_sim', elf_path, '--max_cycles=1000000']
-          p = subprocess.run(cmd, preexec_fn=os.setpgrp, capture_output=True, text=True)
-
-          # Intercept mcause != 0 hardware traps
-          if p.returncode != 0:
-            conn.send(("trap", p.returncode))
-          else:
-            cycles_match = re.search(r"ISS_CYCLES:\s*(\d+)", p.stdout)
-            cost = float(cycles_match.group(1)) if cycles_match else 0.0
-            conn.send(("ok", cost))
-        finally:
-          os.unlink(elf_path)
-      except EOFError:
-        break
-      except Exception as e:
-        conn.send(("error", str(e)))
-
-  def evaluate_cost_isolated(self, binary_payload: bytes) -> float:
-    self.parent_conn.send(binary_payload)
-
-    poll_obj = select.poll()
-    poll_obj.register(self.parent_conn.fileno(), select.POLLIN)
-    events = poll_obj.poll(self.kDefaultCompilationTimeoutMs)
-
-    if not events:
-      # Timeout: Explicitly kill/respawn worker process
-      self.worker.terminate()
-      self.worker.join()
-      self._respawn()
-      return math.inf
-
-    try:
-      status, val = self.parent_conn.recv()
-      if status == "trap" or status == "error":
-        # mcause != 0 hardware trap
-        self.worker.terminate()
-        self.worker.join()
-        self._respawn()
-        return math.inf
-      return val
-    except Exception:
-      self.worker.terminate()
-      self.worker.join()
-      self._respawn()
-      return math.inf
-
-  def __del__(self):
-    try:
-      self.parent_conn.send(None)
-      self.worker.join(timeout=1.0)
-      if self.worker.is_alive():
-        self.worker.terminate()
-        self.worker.join()
-    except (AttributeError, KeyError, TypeError, ValueError):
-      pass
-    except (ProcessLookupError, FileNotFoundError):
-      pass
-    except OSError as e:
-      if "already closed" not in str(e) and "cannot send" not in str(e) and getattr(e, 'errno', None) != 9:
-        raise
-    if hasattr(self, 'parent_conn'):
-      try: self.parent_conn.close()
-      except (ProcessLookupError, FileNotFoundError): pass
-      except OSError as e:
-        if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
-    if hasattr(self, 'child_conn'):
-      try: self.child_conn.close()
-      except (ProcessLookupError, FileNotFoundError): pass
-      except OSError as e:
-        if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
-
-_ipc_active_pids = set()
-
-class IpcWorkerPool:
-  """Stateful Python daemon boundaries to prevent Pytest-xdist node collapses and zombie deadlocks."""
-  def __init__(self, target, num_workers=1):
-    self.target = target
-    self.num_workers = num_workers
-    self.workers = []
-
-    for _ in range(num_workers):
-      parent_conn, child_conn = multiprocessing.Pipe(duplex=True)
-      p = multiprocessing.Process(target=self._worker_wrapper, args=(child_conn, target))
-      p.daemon = True
-      p.start()
-      _ipc_active_pids.add(p.pid)
-      self.workers.append({"process": p, "conn": parent_conn, "pid": p.pid})
-
-  @staticmethod
-  def _send_with_timeout(conn, obj, timeout=5.0):
-    if hasattr(select, "poll"):
-      p = select.poll()
-      p.register(conn.fileno(), select.POLLOUT)
-      if not p.poll(timeout * 1000.0):
-        raise TimeoutError("IPC Worker pipe is full, write deadlock prevented.")
-    else:
-      _, w, _ = select.select([], [conn.fileno()], [], timeout)
-      if not w:
-        raise TimeoutError("IPC Worker pipe is full, write deadlock prevented.")
-    try:
-      conn.send(obj)
-    except OSError as e:
-      if "cannot send" in str(e) or "already closed" in str(e) or "Bad file descriptor" in str(e):
-        pass
-      else:
-        raise e
-
-  @staticmethod
-  def _worker_wrapper(conn, target):
-    init_worker_process_group()
-    while True:
-      try:
-        if conn.poll(timeout=1.0):
-          msg = conn.recv()
-          if msg is None: break
-          res = target(*msg[0], **msg[1])
-          IpcWorkerPool._send_with_timeout(conn, res, 1.0)
-      except EOFError:
-        break
-      except Exception as e:
-        try: IpcWorkerPool._send_with_timeout(conn, e, 1.0)
-        except (TimeoutError, OSError): pass
-
-  def submit(self, worker_idx, *args, **kwargs):
-    conn = self.workers[worker_idx]["conn"]
-    self._send_with_timeout(conn, (args, kwargs), 5.0)
-
-  def get_result(self, worker_idx, timeout=None):
-    conn = self.workers[worker_idx]["conn"]
-    if conn.poll(timeout):
-      res = conn.recv()
-      if isinstance(res, Exception): raise res
-      return res
-    raise TimeoutError(f"IPC Worker {worker_idx} execution timed out.")
-
-  def shutdown(self):
-    for w in self.workers:
-      try: self._send_with_timeout(w["conn"], None, 1.0)
-      except (TimeoutError, OSError): pass
-
-      try: w["process"].kill()
-      except ProcessLookupError: pass
-      _ipc_active_pids.discard(w["pid"])
-      w["process"].join(timeout=1)
-
-  def __del__(self):
-    try: self.shutdown()
-    except (AttributeError, KeyError, TypeError, ValueError): pass
-    if hasattr(self, 'workers'):
-      for w in self.workers:
-        try: w["conn"].close()
-        except (ProcessLookupError, FileNotFoundError): pass
-        except OSError as e:
-          if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise

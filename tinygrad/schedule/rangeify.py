@@ -1,3 +1,4 @@
+from dataclasses import dataclass, field, replace
 import itertools
 from tinygrad.dtype import dtypes, PtrDType, AddrSpace, Invalid
 from tinygrad.uop.ops import PatternMatcher, UPat, Ops, UOp, resolve, GroupOp, _substitute, KernelInfo
@@ -13,9 +14,6 @@ from tinygrad.schedule.allreduce import create_allreduce_function
 
 # creation can recurse a lot
 import sys
-from dataclasses import dataclass, field, replace
-
-
 sys.setrecursionlimit(10000)
 
 def add_ranges_to_store(ctx, x):
@@ -40,9 +38,6 @@ pm_store_ranges = PatternMatcher([
 ])
 
 pm_syntactic_sugar = PatternMatcher([
-  # simplify MSTACK/MSELECT of CONSTs
-  (UPat(Ops.MSTACK, src=(UPat(Ops.CONST),), allow_any_len=True, name="ms"), lambda ms: UOp.const(ms.dtype, ms.src[0].arg, device=tuple(x.device for x in ms.src)) if all(x.op is Ops.CONST and x.arg == ms.src[0].arg for x in ms.src) else None),  # noqa: E501
-  (UPat(Ops.MSELECT, src=(UPat(Ops.CONST, name="c"),), name="ms"), lambda ms,c: UOp.const(ms.dtype, c.arg, device=c.device[ms.arg]) if isinstance(c.device, tuple) else None),  # noqa: E501
   # INDEX on ptr INDEX concats them
   (UPat(Ops.INDEX, name="i1").f(Ops.INDEX, name="i2", allow_any_len=True),
    lambda i1,i2: i2.replace(src=i1.src+i2.src[1:]) if isinstance(i1.dtype, PtrDType) and not isinstance(i2.dtype, PtrDType) else None),
@@ -190,7 +185,7 @@ earliest_rewrites = mop_cleanup+PatternMatcher([
   # ** assign rules (STORE+AFTER) **
 
   # move bitcast from store+after target to source
-  (UPat(Ops.AFTER, src=(UPat(Ops.BITCAST, src=(UPat(name="target"),)), UPat(Ops.STORE, src=(UPat(Ops.BITCAST), UPat.var("src"))))),
+  (UPat(Ops.AFTER, src=(UPat(Ops.BITCAST, src=(UPat(name="target"),)), UPat(Ops.STORE, src=(UPat(Ops.BITCAST), UPat(name="src"))))),
    lambda target, src: target.after(target.store(src.bitcast(target.dtype)))),
 
   # wrap STORE in inner AFTER when target is a view — gives the STORE its own ranges from the view shape
@@ -198,10 +193,10 @@ earliest_rewrites = mop_cleanup+PatternMatcher([
    lambda after, buf, target: after.replace(src=(buf, target.after(after.src[1]))) if target.shape != buf.shape else None),
 
   # make source contiguous if it has hazardous movement ops on the dest buffer
-  (UPat(Ops.AFTER, src=(UPat(), UPat(Ops.STORE, src=(UPat(name="target"), UPat.var("src")))), name="after"), fix_store_after_hazard),
+  (UPat(Ops.AFTER, src=(UPat(), UPat(Ops.STORE, src=(UPat(name="target"), UPat(name="src")))), name="after"), fix_store_after_hazard),
 
   # normalize target chain: walk through AFTERs to root, insert contiguous if needed
-  (UPat(Ops.AFTER, src=(UPat(Ops.AFTER, name="target"), UPat(Ops.STORE, src=(UPat(), UPat.var("src")))), name="after"),
+  (UPat(Ops.AFTER, src=(UPat(Ops.AFTER, name="target"), UPat(Ops.STORE, src=(UPat(), UPat(name="src")))), name="after"),
    lambda after, target, src: normalize_store_after_target_chain(after, target, src)),
 
   # ** size 0 **
@@ -328,26 +323,8 @@ pm_const_buffer_folding = pm_mops+PatternMatcher([
    lambda s: UOp.const(c.dtype, c.arg) if (c:=s.base).op is Ops.CONST else None),
 ])
 
-
-def fold_double_contig(contig1:UOp, idx:UOp, buf:UOp, contig2:UOp, src:UOp):
-  from tinygrad.dtype import Invalid
-  if len(idx.src[1:]) != len(buf.src[1:]): return None
-  replaced = {k:v for k,v in zip(buf.src[1:], idx.src[1:]) if k.op is not Ops.CONST and not (v.op is Ops.CONST and v.arg is Invalid)}
-  from tinygrad.schedule.rangeify import pm_gate_substitute
-  return contig1.replace(src=(src.substitute(replaced, extra_pm=pm_gate_substitute),))
-
 pm_remove_bufferize = PatternMatcher([
-  (UPat(Ops.CONTIGUOUS, name="contig1", src=(
-    UPat(Ops.INDEX, name="idx", allow_any_len=True, src=(
-      UPat(Ops.BUFFERIZE, name="buf", allow_any_len=True, src=(
-        UPat(Ops.CONTIGUOUS, name="contig2", src=(
-          UPat.var("src"),
-        )),
-      )),
-    )),
-  )), fold_double_contig),
   # remove reindexing with cost function
-
   (UPat.var("src").f(Ops.BUFFERIZE, allow_any_len=True, name="buf").f(Ops.INDEX, allow_any_len=True, name="idx"), remove_bufferize),
 ])
 
@@ -427,8 +404,8 @@ def bufferize_to_store(ctx:itertools.count, x:UOp, idx:UOp, allow_locals=True):
   # NOTE: the DEFINE_LOCAL needs to be disambiguated here
   if sdtype.addrspace == AddrSpace.GLOBAL:
     buf = UOp(Ops.BUFFER, x.dtype, (UOp(Ops.LUNIQUE, arg=next(ctx)), UOp(Ops.DEVICE, arg=x.arg.device)), size)
-    do_store = buf.index(idx, dtype=sdtype).store(x.src[0], metadata=x.src[0].metadata).end(*rngs, metadata=x.src[0].metadata)
-    return buf.after(do_store, metadata=x.src[0].metadata)
+    do_store = buf.index(idx, dtype=sdtype).store(x.src[0]).end(*rngs)
+    return buf.after(do_store)
 
   if allow_locals:
     # handle locals
@@ -581,8 +558,7 @@ def split_store(x:UOp) -> UOp|None:
   if stored.op in {Ops.COPY, Ops.BUFFER_VIEW}: ret = stored.replace(src=stored.src + ret.ended_ranges)
   else: ret = ret.sink(arg=KernelInfo(opts_to_apply=lctx.opts))
 
-  metadata = tuple(dedup((x.metadata or ()) + tuple(m for u in x.toposort() if u.op not in {Ops.BUFFERIZE, Ops.PARAM} for m in (u.metadata or []))))
-  kernel = ret.call(*lctx.map.values(), *lctx.vars.keys(), metadata=metadata)
+  kernel = ret.call(*lctx.map.values(), *lctx.vars.keys())
   if ret.op is Ops.SINK and not all_same([x.device for x in kernel.src[1:] if x.op is not Ops.BIND]):
     raise RuntimeError(f"all buffers must be on the same device: {tuple(b.buf_uop for b in kernel.src[1:])}")
   return kernel
