@@ -206,3 +206,4 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 
 * **Illogical Task Ordering: Reverting Fixes via Upstream Checkout**: Sequence repository pollution reversions strictly BEFORE applying new bug fixes to those same directories. Always ensure conflict resolution preserves the newer stability fixes while accurately removing the cosmetic pollution.
 * **Python time.sleep Teardown Mocking Fraud**: In E2E runners, using `time.sleep()` (e.g. `time.sleep(100.0)`) instead of natively routing an authentic cross-compiled AST payload actively evades overarching IPC teardown limits and constitutes testing fraud.
+- **Test Pipeline Verification Strictness**: QA must independently verify test voids via harness.yaml.
