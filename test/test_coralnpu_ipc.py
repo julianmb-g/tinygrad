@@ -127,6 +127,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             del lock
             try:
                 shm.close()
+                shm.unlink()
             except (ProcessLookupError, BufferError):
                 pass
 
