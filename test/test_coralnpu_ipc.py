@@ -19,7 +19,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
         from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
-        
+
         # Authentically generate a valid payload to test initialization bounds
         uops = [
             UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("data0", 0)),
@@ -90,15 +90,15 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
         from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
-        
+
         uops = [
             UOp(Ops.SPECIAL, dtypes.int, (UOp(Ops.CONST, dtypes.int, (), 1),), "invalid_syntax!@#"),
         ]
-        
+
         r = CoralNPURenderer()
         name, kernel, bufs = r._render(uops)
         src = r.render_kernel(name, kernel, bufs, uops)
-        
+
         with self.assertRaises(RuntimeError) as context:
             prog = CoralNPUProgram(None, name, src.encode('utf-8'))
             prog(wait=False)
@@ -108,17 +108,16 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
         from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
         prog = CoralNPUProgram(self.device, "kernel", b"void kernel() { while(1); }")
-        
+
         with self.assertRaises((TimeoutError, subprocess.TimeoutExpired, RuntimeError)):
             # Allow the simulator to organically evaluate the infinite loop
             prog(timeout=0.01) # Hit timeout
-
 
     def test_ipc_teardown_fidelity(self):
         """Test that active locks correctly trigger BufferError during teardown."""
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
-        
+
         shm = self.allocator.shms[handle]
         lock = memoryview(shm.buf)
         try:
@@ -210,7 +209,7 @@ class TestIpcWorkerPool(unittest.TestCase):
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
         from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
-        
+
         # Authentically generate a valid payload to test initialization bounds
         uops = [
             UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("data0", 0)),

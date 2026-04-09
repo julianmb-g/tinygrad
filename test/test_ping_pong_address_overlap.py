@@ -26,32 +26,32 @@ class TestPingPongAddressOverlap(unittest.TestCase):
         st_a = UOp(Ops.STORE, dtypes.void, (idx_a, val))
         st_b = UOp(Ops.STORE, dtypes.void, (idx_b, val))
         sink = UOp(Ops.SINK, dtypes.void, (st_a, st_b))
-        
+
         uops = [buf_a, buf_b, idx, idx_a, idx_b, val, st_a, st_b, sink]
-        
+
         try:
             name, kernel, bufs = renderer._render(uops)
             src_exceed = renderer.render_kernel(name, kernel, bufs, uops)
-            
+
             with tempfile.TemporaryDirectory() as temp_dir:
                 src_file = os.path.join(temp_dir, "kernel_exceed.c")
                 elf_file = os.path.join(temp_dir, "kernel_exceed.elf")
                 ld_script = os.path.join(temp_dir, "linker.ld")
-                
+
                 with open(src_file, "w") as f:
                     f.write(src_exceed)
                 with open(ld_script, "w") as f:
                     f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-                
+
                 with self.assertRaises(subprocess.CalledProcessError):
                     subprocess.check_call([
                         "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
                         "-T", ld_script, src_file, "-o", elf_file
                     ], stderr=subprocess.DEVNULL)
-        except Exception as e:
+        except Exception:
             # If render_kernel raises memory error natively, that's also acceptable bounds checking
             pass
-            
+
         # Valid execution natively on simulator
         t1 = Tensor([1.0, 2.0, 3.0], device="CORALNPU")
         t2 = Tensor([4.0, 5.0, 6.0], device="CORALNPU")
@@ -62,22 +62,22 @@ class TestPingPongAddressOverlap(unittest.TestCase):
                 from tinygrad.engine.realize import get_runner
                 runner = get_runner("CORALNPU", si.ast)
                 src = runner.p.prg
-                
+
                 with tempfile.TemporaryDirectory() as temp_dir:
                     src_file = os.path.join(temp_dir, "kernel.c")
                     elf_file = os.path.join(temp_dir, "kernel.elf")
                     ld_script = os.path.join(temp_dir, "linker.ld")
-                    
+
                     with open(src_file, "w") as f:
                         f.write(src)
                     with open(ld_script, "w") as f:
                         f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-                    
+
                     subprocess.check_call([
                         "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
                         "-T", ld_script, src_file, "-o", elf_file
                     ])
-                    
+
                     # Execute natively on ISS to ensure it runs without hardware exception
                     subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000", "--allow_memory_region", "0x0:0x80000000:rwx"])
 

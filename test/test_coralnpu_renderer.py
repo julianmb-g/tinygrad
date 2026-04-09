@@ -685,7 +685,7 @@ _start:
           "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
           "-T", ld_script, src_file, "-o", elf_file
       ])
-      
+
       sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
       if not os.path.exists(sim_path):
           self.fail(f"Hardware simulator missing: {sim_path}")

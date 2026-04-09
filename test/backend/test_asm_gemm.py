@@ -35,7 +35,6 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
     ref.sum().backward()
   Tensor.realize(ref, a_ref.grad, b_ref.grad)
 
-  
   atol, rtol = (2e-1, 1e-2) if dtype == dtypes.bfloat16 else (1e-2, 1e-3)
   with Context(DEBUG=0):
     assert tst.allclose(ref, atol=atol, rtol=rtol), "forward mismatch"
@@ -96,7 +95,7 @@ class TestAsmGEMM(unittest.TestCase):
     a, b = Tensor(a_np), Tensor(b_np)
     c = asm_gemm(a, b)
     c.realize()
-    
+
     np.testing.assert_allclose(c.numpy(), c_np, atol=2e-3, rtol=5e-2)
 
   def test_unsupported_batch(self):
@@ -129,6 +128,18 @@ class TestGemmLlama(unittest.TestCase):
 
   @Context(ASM_GEMM=1)
   def test_empty(self): (Tensor.empty(N:=getenv("N", 4096), N, dtype=self.dtype)@Tensor.empty(N, N, dtype=self.dtype)).realize()
+
+  @Context(ASM_GEMM=1)
+  def test_empty_bw(self):
+    x = Tensor.empty(1, N:=getenv("N", 4096), N, dtype=self.dtype, requires_grad=True)
+    y = Tensor.empty((N, N), dtype=self.dtype, requires_grad=True)
+    z = x @ y
+    z.sum().backward()
+    Tensor.realize(z, x.grad, y.grad)
+    # FP8 forward output is bf16, gradients use fp8e5m2 (aka bf8)
+    grad_dtype = dtypes.fp8e5m2 if self.dtype == FP8_DTYPE else self.dtype
+    assert z.dtype == dtypes.bfloat16
+    assert x.grad.dtype == y.grad.dtype == grad_dtype
 
   def test_simple(self): verify_asm_gemm(1, N:=getenv("N", 4096), N, N, dtype=self.dtype)
   def test_gemm(self): verify_asm_gemm(1, 8192, 4096, 14336, dtype=self.dtype)

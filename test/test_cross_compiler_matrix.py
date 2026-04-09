@@ -2,10 +2,9 @@ import os
 import subprocess
 import tempfile
 import unittest
-import unittest.mock
 
 from tinygrad.renderer.coralnpu import CoralNPURenderer
-from tinygrad.runtime.ops_coralnpu import CoralNPUProgram, CORALNPU_DTCM_LINKER_SCRIPT
+from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
 from tinygrad.uop.ops import Ops, UOp
 from tinygrad.dtype import dtypes
 
@@ -37,11 +36,10 @@ class TestCrossCompilerTestingMatrix(unittest.TestCase):
     compilers = ["gcc", "g++", "clang", "clang++", "riscv64-unknown-elf-gcc", "riscv64-unknown-elf-g++"]
     flags = ["-O0", "-O1", "-O2", "-O3"]
 
-
     with tempfile.NamedTemporaryFile(suffix=".cc") as f, tempfile.NamedTemporaryFile(suffix=".ld") as f_ld:
       f_ld.write(CORALNPU_DTCM_LINKER_SCRIPT.encode())
       f_ld.flush()
-      
+
       dummy_includes = "extern \"C\" { void test(); void* memcpy(void *dest, const void *src, unsigned long n) { return dest; } }\n#include <stdint.h>\nextern \"C\" void CORAL_DMA_ASYNC(void* dest, void* src, int size);\ntypedef float float4 __attribute__((vector_size(16)));\ntypedef float float8 __attribute__((vector_size(32)));\n"  # noqa: E501
       f.write((dummy_includes + self.src).encode())
       f.flush()

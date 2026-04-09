@@ -12,7 +12,6 @@ except RuntimeError:
 
 class TestPytestXdistTeardown(unittest.TestCase):
     def test_xdist_no_oserror_on_teardown(self):
-        import xdist
 
         with tempfile.TemporaryDirectory() as tmpdir:
             authentic_test_file = os.path.join(tmpdir, "test_npu_compute_payload.py")

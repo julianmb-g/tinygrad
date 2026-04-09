@@ -1,7 +1,4 @@
-from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
-import math
 import os
-import re
 import subprocess
 import tempfile
 import unittest
@@ -46,19 +43,19 @@ class TestCoralNPUMemory(unittest.TestCase):
 
         name, kernel, bufs = renderer._render(uops)
         src = renderer.render_kernel(name, kernel, bufs, uops)
-        
+
         with tempfile.TemporaryDirectory() as temp_dir:
             src_file = os.path.join(temp_dir, "kernel.c")
             elf_file = os.path.join(temp_dir, "kernel.elf")
             ld_script = os.path.join(temp_dir, "linker.ld")
-            
+
             with open(src_file, "w") as f:
                 dummy_includes = "#include <stdint.h>\n"
                 f.write(dummy_includes + src)
-                
+
             with open(ld_script, "w") as f:
                 f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-                
+
             subprocess.check_call([
                 "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
                 "-T", ld_script, src_file, "-o", elf_file
@@ -85,14 +82,14 @@ class TestCoralNPUMemory(unittest.TestCase):
             src_file = os.path.join(temp_dir, "kernel.c")
             elf_file = os.path.join(temp_dir, "kernel.elf")
             ld_script = os.path.join(temp_dir, "linker.ld")
-            
+
             with open(src_file, "w") as f:
                 dummy_includes = "#include <stdint.h>\n"
                 f.write(dummy_includes + src)
-                
+
             with open(ld_script, "w") as f:
                 f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-                
+
             subprocess.check_call([
                 "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
                 "-T", ld_script, src_file, "-o", elf_file
