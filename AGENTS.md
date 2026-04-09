@@ -203,3 +203,5 @@ Aggressively catching missing cross-compiler errors (like `FileNotFoundError`) t
 * **Unsplittable Tensor Memory Boundaries**: ANY unsplittable tensor chunk or combined overhead > 12KB MUST gracefully abort with a fatal OutOfMemoryError.
 * **W8A8 INT8 Accumulator Overflow**: Vector MAC operations performing W8A8 late-dequantization MUST mathematically assert the vxsat (Vector Fixed-Point Saturation) CSR upon overflow.
 * **Testing Fraud Sabotage (DEV=NULL)**: DEV=NULL evasion MUST NOT be re-introduced. Massive skips in tests mathematically deflate coverage and are testing fraud.
+
+* **IPC Teardown Fidelity**: When cleaning up multiprocessing connections and worker processes, strictly avoid blanket `except (ProcessLookupError, BufferError, FileNotFoundError, OSError): pass` masks. Ensure expected bounds natively trigger and evaluate `BufferError` (translated to `AssertionError` in allocator) and `ProcessLookupError` without masking broader OS errors, preventing 120s overarching SIGKILL deadlocks.

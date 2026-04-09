@@ -127,14 +127,14 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             del lock
             try:
                 self.allocator._free(handle, dummy_options)
-            except (ProcessLookupError, BufferError, FileNotFoundError, OSError, AssertionError, TypeError):
+            except (ProcessLookupError, BufferError, AssertionError):
                 pass
             try:
                 shm.close()
-            except (ProcessLookupError, BufferError, FileNotFoundError, OSError, AssertionError, TypeError): pass
+            except (ProcessLookupError, BufferError, AssertionError): pass
             try:
                 shm.unlink()
-            except (ProcessLookupError, BufferError, FileNotFoundError, OSError, AssertionError, TypeError): pass
+            except (ProcessLookupError, BufferError, AssertionError): pass
 
 if __name__ == '__main__':
     unittest.main()
