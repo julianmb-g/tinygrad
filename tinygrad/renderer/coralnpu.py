@@ -1125,10 +1125,8 @@ class CoralNPURenderer(CStyleLanguage):
     # Enforces strict AXI burst limits. AXI4 allows max 256 beats per burst.
     # For a 32-bit bus, max burst is 1024 bytes.
     return f"""{threshold_check}
-const int CORALNPU_DMA_CHUNK_LIMIT = 1024;
-const int CORALNPU_DMA_ALIGN_MASK = 0x3FF;
 for (int _dma_off = 0; _dma_off < ({size_str}); ) {{
-  int _dma_chunk = CORALNPU_DMA_CHUNK_LIMIT - ((((uintptr_t)({src})) + _dma_off) & CORALNPU_DMA_ALIGN_MASK);
+  int _dma_chunk = 1024 - ((((uintptr_t)({src})) + _dma_off) & 0x3FF);
   if (_dma_chunk > ({size_str}) - _dma_off) _dma_chunk = ({size_str}) - _dma_off;
   CORAL_DMA_ASYNC(((uint8_t*)({dest})) + _dma_off, ((uint8_t*)({src})) + _dma_off, _dma_chunk);
   _dma_off += _dma_chunk;
