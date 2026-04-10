@@ -15,3 +15,4 @@
 * **[LESSON] 2026-04-10: API Boundary Drift Testing Strictness**: ClangJITRenderer attribute crashes highlight that renderers must be explicitly cross-component tested to prove conformity to the ML compiler expected interfaces natively.
 * **[LESSON] 2026-04-10**: Strict enforcement of Test Pyramid layers ([UNIT], [INTEGRATION], [E2E]) is required.
 * **Brittle API Boundary Integrations**: Cross-component integration tests (e.g. `test_mfma` on `gfx950`) that fail abruptly when environmental definitions shift represent brittle API integration voids. Hardware boundaries must be dynamically evaluated.
+* **[LESSON] E2E Artifact Void Provisioning**: When tests fail with E2E Artifact Void because target compiler constraints evaluate to False (e.g., `is_cdna4()` evaluates to False), the authentic artifacts must be dynamically configured, or the test payload explicitly provisioned to satisfy the native E2E Trap validation. Do not blindly skip.
