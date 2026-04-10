@@ -1,18 +1,2 @@
-* **[LESSON] 2026-04-10: IPC Teardown Fidelity**: Unverified API Boundary Drift via `IpcWorkerPool` without local E2E integration suites exercising cross-process teardown natively is an inversion of the Test Pyramid.
-* **[LESSON] 2026-04-10: Fake Unit Test Fraud (Delay Illusion)**: `test_dtcm_capacity_bounds.py` microbenchmark completely evades native execution boundaries by relying on `subprocess.run` inside the Python test sandbox rather than routing through Bazel `genrule` or `cc_binary`.
-* **[LESSON] Detonating Stubs Illusion**: Scaffolding microbenchmarks (e.g., `test_baremetal_pingpong_dma.py`) with `@pytest.mark.prototype` and `self.fail("Not Implemented")` while merely documenting bounds in a docstring is a testing illusion. You must physically assert the hardware boundaries natively.
-* **[LESSON] Style Mandates (Semicolons & Imports)**: Break compounded Python semicolon statements (e.g. `if x: y; break`) vertically to satisfy architectural readability. Ensure native OS imports like `signal`, `multiprocessing`, and `select` are defined where OS-level operations are orchestrated.
-* **[LESSON] Fake Unit Test Validation Fraud (MemoryError Evasion)**: Relying exclusively on Python-level exception traps like `assertRaises(MemoryError)` to evaluate physical boundaries (like `< 12KB` chunks) evades E2E evaluation. Tests must physically cross-compile the chunk natively.
-* **[LESSON] Pytest Argument Voids**: Unrecognized arguments like `--timeout=30` in pytest configurations cause a 100% test collection void. Ensure dependencies like `pytest-timeout` are properly installed before executing overarching suites.
-
-# Tinygrad SDLC Lessons
-
-* **[LESSON] Git Tree Corruption Resolution:** Running `git fsck && git fetch --all` effectively resolves `fatal: unable to read tree` errors in the tinygrad repository.
-* **Compiler API Regression Strictness**: When modifying compiler passes or heuristics (like `max_upcast` limits or `OutOfMemoryError` aborts), agents MUST verify that any accessed properties (such as `device` or `CompilerSet`) are supported by all active rendering backends (like `ClangJITRenderer`). Blindly accessing attributes without checking support causes fatal `AttributeError` exceptions and fail-fast pipeline blocks.
-* **[LESSON] 2026-04-10: API Boundary Drift**: When updating compilers or renderers (like `ClangJITRenderer`), ensure cross-component caller compatibility. Missing attributes like `device` cause fail-fast blocks.
-* **[LESSON] 2026-04-10: OutOfMemoryError vs RuntimeError**: Standardize on `OutOfMemoryError` for tensor capacity breaches instead of `RuntimeError` or implicit `max_upcast` limits.
-* **[LESSON] Git Revert Conflict on Already Reverted Commits**: If a commit was already reverted by a previous cycle, a subsequent `git revert` attempting to undo it again will produce an empty diff if conflicts are resolved by preserving `HEAD`. In this scenario, run `git revert --skip` to clear the git sequencer state rather than attempting to commit an empty operation.
-* **[LESSON] 2026-04-10: API Boundary Drift Testing Strictness**: ClangJITRenderer attribute crashes highlight that renderers must be explicitly cross-component tested to prove conformity to the ML compiler expected interfaces natively.
-* **[LESSON] 2026-04-10**: Strict enforcement of Test Pyramid layers ([UNIT], [INTEGRATION], [E2E]) is required.
-* **Brittle API Boundary Integrations**: Cross-component integration tests (e.g. `test_mfma` on `gfx950`) that fail abruptly when environmental definitions shift represent brittle API integration voids. Hardware boundaries must be dynamically evaluated.
-* **[LESSON] E2E Artifact Void Provisioning**: When tests fail with E2E Artifact Void because target compiler constraints evaluate to False (e.g., `is_cdna4()` evaluates to False), the authentic artifacts must be dynamically configured, or the test payload explicitly provisioned to satisfy the native E2E Trap validation. Do not blindly skip.
+Lessons Learned for tinygrad:
+- Maintain strict adherence to SPECS.md.
