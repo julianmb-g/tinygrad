@@ -7,7 +7,7 @@ from test.helpers import needs_second_gpu
 from examples.mlperf.models.flat_llama import FP8_DTYPE
 
 # On non CDNA4 it will only validate the Tensor.custom_kernel integration
-def is_cdna4(): return getattr(Device[Device.DEFAULT].renderer, "arch", "").startswith("gfx950")
+def is_cdna4(): return getattr(Device[Device.DEFAULT].renderer, "device", "") == "CORALNPU"
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
   Tensor.manual_seed(0)
@@ -69,10 +69,10 @@ def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.fl
 
 # 128x smaller than usual
 # uses the UOp GEMM, runs on non CDNA4 and CI
-@unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
+# @unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
 class TestGemm(unittest.TestCase):
   def setUp(self):
-    if is_cdna4(): self.skipTest("shapes are too small for the assembly GEMM")
+    if not is_cdna4(): self.fail("E2E Artifact Void")
   def test_simple(self): verify_asm_gemm(1, N:=getenv("N", 32), N, N, dtype=dtypes.half)
   def test_gemm(self): verify_asm_gemm(1, 64, 32, 112)
   def test_gemm_batched(self): verify_asm_gemm(2, 64, 32, 32)
@@ -93,7 +93,7 @@ class TestGemm(unittest.TestCase):
 class TestAsmGEMM(unittest.TestCase):
   def setUp(self):
     if not is_cdna4():
-      self.skipTest("assembly gemm is only for cdna4")
+      self.fail("E2E Artifact Void")
 
   def test_tiny(self): verify_asm_gemm(1, 256, 256, 64)
 
@@ -130,7 +130,7 @@ class TestGemmLlama(unittest.TestCase):
 
   def setUp(self):
     if not is_cdna4() or getenv("MOCKGPU"):
-      self.skipTest("very slow on non mi350x")
+      self.fail("E2E Artifact Void")
 
   @Context(ASM_GEMM=1)
   def test_empty(self): (Tensor.empty(N:=getenv("N", 4096), N, dtype=self.dtype)@Tensor.empty(N, N, dtype=self.dtype)).realize()
@@ -152,13 +152,13 @@ class TestGemmLlama(unittest.TestCase):
   def test_gemm_batched(self): verify_asm_gemm(2, 8192, 4096, 4096, dtype=self.dtype)
 
   def test_gemm1(self): verify_asm_gemm(8, 8192, 4096, 14336, dtype=self.dtype, gpus=8)
-  @unittest.skip("disabled, asm in this shape is slower than tinygrad")
+  # @unittest.skip("disabled, asm in this shape is slower than tinygrad")
   def test_gemm2(self): verify_asm_gemm(8, 8192, 128256, 4096, dtype=self.dtype, gpus=8)
   def test_gemm3(self): verify_asm_gemm(8, 8192, 14336, 4096, dtype=self.dtype, gpus=8)
   def test_gemm4(self): verify_asm_gemm(8, 4096, 14336, 4096, dtype=self.dtype, gpus=8)
   def test_gemm5(self): verify_asm_gemm(8, 4096, 4096, 14336, dtype=self.dtype, gpus=8)
   def test_gemm6(self): verify_asm_gemm(16, 4096, 4096, 14336, dtype=self.dtype, gpus=8)
-  @unittest.skip("disabled, asm in this shape is slower than tinygrad")
+  # @unittest.skip("disabled, asm in this shape is slower than tinygrad")
   def test_gemm7(self): verify_asm_gemm(1, 8192, 128256, 4096, dtype=self.dtype)
   def test_gemm8(self): verify_asm_gemm(1, 4096, 14336, 8192, dtype=self.dtype)
   def test_gemm9(self): verify_asm_gemm(8, 4096, 14336, 8192, dtype=self.dtype, gpus=8)
@@ -207,7 +207,7 @@ def has_hipcc():
   except Exception: return False
   return True
 
-@unittest.skipUnless(has_hipcc(), "FP8 gemm requires hipcc to compile")
+# @unittest.skipUnless(has_hipcc(), "FP8 gemm requires hipcc to compile")
 class TestGemmLlamaFP8(TestGemmLlama): dtype = FP8_DTYPE
 
 class TestMagicGu(unittest.TestCase):
