@@ -8,3 +8,4 @@
 # Tinygrad SDLC Lessons
 
 * **[LESSON] Git Tree Corruption Resolution:** Running `git fsck && git fetch --all` effectively resolves `fatal: unable to read tree` errors in the tinygrad repository.
+* **Compiler API Regression Strictness**: When modifying compiler passes or heuristics (like `max_upcast` limits or `OutOfMemoryError` aborts), agents MUST verify that any accessed properties (such as `device` or `CompilerSet`) are supported by all active rendering backends (like `ClangJITRenderer`). Blindly accessing attributes without checking support causes fatal `AttributeError` exceptions and fail-fast pipeline blocks.
