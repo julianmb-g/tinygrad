@@ -3,7 +3,7 @@ import time
 START_TIME = time.perf_counter()
 import os, functools, platform, re, contextlib, operator, hashlib, pickle, sqlite3, tempfile, pathlib, string, ctypes, sys, gzip, getpass, gc
 from collections import defaultdict
-import subprocess, shutil, math, types, copyreg, inspect, importlib, decimal, itertools
+import subprocess, shutil, math, types, copyreg, inspect, importlib, decimal, itertools, signal, multiprocessing, select
 from dataclasses import dataclass, field, replace
 from typing import ClassVar, Iterable, Any, TypeVar, Callable, Sequence, TypeGuard, Iterator, Generic, Generator, cast, overload
 
@@ -565,3 +565,213 @@ class count:
     cur = self.n
     self.n += self.step
     return cur
+
+def init_worker_process_group():
+  """Severs the process group and binds lifecycle to parent"""
+  try:
+    os.setpgrp()
+    libc = ctypes.CDLL("libc.so.6")
+    libc.prctl(1, signal.SIGKILL) # PR_SET_PDEATHSIG
+  except OSError:
+    pass
+
+def init_c_process_group():
+  """Severs the process group and binds lifecycle to parent (no atexit hooks needed)"""
+  try:
+    os.setpgrp()
+    libc = ctypes.CDLL("libc.so.6")
+    libc.prctl(1, signal.SIGKILL)
+  except OSError:
+    pass
+
+
+_ipc_active_pids = set()
+class TinygradAutoTunerIPC:
+  """Python Auto-Tuner Concurrency Pipeline IPC Bridging (Project 3)"""
+  def __init__(self, timeout_sec: float = 15.0):
+    self.kDefaultCompilationTimeoutMs = int(timeout_sec * 1000)
+    try:
+      multiprocessing.set_start_method("spawn", force=True)
+    except RuntimeError: pass
+    self._respawn()
+
+  def _respawn(self):
+    if hasattr(self, 'parent_conn'):
+      try: self.parent_conn.close()
+      except OSError: pass
+    if hasattr(self, 'child_conn'):
+      try: self.child_conn.close()
+      except OSError: pass
+    self.parent_conn, self.child_conn = multiprocessing.Pipe(duplex=True)
+    self.worker = multiprocessing.Process(target=self._worker_loop, args=(self.child_conn,))
+    self.worker.daemon = True
+    self.worker.start()
+
+  def _worker_loop(self, conn):
+    os.setpgrp()
+    while True:
+      try:
+        msg = conn.recv()
+        if msg is None: break
+        binary_payload = msg
+
+        # Execute isolated payload
+        with tempfile.NamedTemporaryFile(delete=False) as f:
+          f.write(binary_payload)
+          elf_path = f.name
+
+        try:
+          cmd = ['coralnpu_v2_sim', elf_path, '--max_cycles=1000000']
+          p = subprocess.run(cmd, preexec_fn=os.setpgrp, capture_output=True, text=True)
+
+          # Intercept mcause != 0 hardware traps
+          if p.returncode != 0:
+            conn.send(("trap", p.returncode))
+          else:
+            cycles_match = re.search(r"ISS_CYCLES:\s*(\d+)", p.stdout)
+            cost = float(cycles_match.group(1)) if cycles_match else 0.0
+            conn.send(("ok", cost))
+        finally:
+          os.unlink(elf_path)
+      except EOFError:
+        break
+      except Exception as e:
+        conn.send(("error", str(e)))
+
+  def evaluate_cost_isolated(self, binary_payload: bytes) -> float:
+    self.parent_conn.send(binary_payload)
+
+    poll_obj = select.poll()
+    poll_obj.register(self.parent_conn.fileno(), select.POLLIN)
+    events = poll_obj.poll(self.kDefaultCompilationTimeoutMs)
+
+    if not events:
+      # Timeout: Explicitly kill/respawn worker process
+      self.worker.terminate()
+      self.worker.join()
+      self._respawn()
+      return math.inf
+
+    try:
+      status, val = self.parent_conn.recv()
+      if status == "trap" or status == "error":
+        # mcause != 0 hardware trap
+        self.worker.terminate()
+        self.worker.join()
+        self._respawn()
+        return math.inf
+      return val
+    except Exception:
+      self.worker.terminate()
+      self.worker.join()
+      self._respawn()
+      return math.inf
+
+  def __del__(self):
+    try:
+      self.parent_conn.send(None)
+      self.worker.join(timeout=1.0)
+      if self.worker.is_alive():
+        self.worker.terminate()
+        self.worker.join()
+    except (AttributeError, KeyError, TypeError, ValueError):
+      pass
+    except (ProcessLookupError, FileNotFoundError):
+      pass
+    except OSError as e:
+      if "already closed" not in str(e) and "cannot send" not in str(e) and getattr(e, 'errno', None) != 9:
+        raise
+    if hasattr(self, 'parent_conn'):
+      try: self.parent_conn.close()
+      except (ProcessLookupError, FileNotFoundError): pass
+      except OSError as e:
+        if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
+    if hasattr(self, 'child_conn'):
+      try: self.child_conn.close()
+      except (ProcessLookupError, FileNotFoundError): pass
+      except OSError as e:
+        if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise
+
+_ipc_active_pids = set()
+
+class IpcWorkerPool:
+  """Stateful Python daemon boundaries to prevent Pytest-xdist node collapses and zombie deadlocks."""
+  def __init__(self, target, num_workers=1):
+    self.target = target
+    self.num_workers = num_workers
+    self.workers = []
+
+    for _ in range(num_workers):
+      parent_conn, child_conn = multiprocessing.Pipe(duplex=True)
+      p = multiprocessing.Process(target=self._worker_wrapper, args=(child_conn, target))
+      p.daemon = True
+      p.start()
+      _ipc_active_pids.add(p.pid)
+      self.workers.append({"process": p, "conn": parent_conn, "pid": p.pid})
+
+  @staticmethod
+  def _send_with_timeout(conn, obj, timeout=5.0):
+    if hasattr(select, "poll"):
+      p = select.poll()
+      p.register(conn.fileno(), select.POLLOUT)
+      if not p.poll(timeout * 1000.0):
+        raise TimeoutError("IPC Worker pipe is full, write deadlock prevented.")
+    else:
+      _, w, _ = select.select([], [conn.fileno()], [], timeout)
+      if not w:
+        raise TimeoutError("IPC Worker pipe is full, write deadlock prevented.")
+    try:
+      conn.send(obj)
+    except OSError as e:
+      if "cannot send" in str(e) or "already closed" in str(e) or "Bad file descriptor" in str(e):
+        pass
+      else:
+        raise e
+
+  @staticmethod
+  def _worker_wrapper(conn, target):
+    init_worker_process_group()
+    while True:
+      try:
+        if conn.poll(timeout=1.0):
+          msg = conn.recv()
+          if msg is None: break
+          res = target(*msg[0], **msg[1])
+          IpcWorkerPool._send_with_timeout(conn, res, 1.0)
+      except EOFError:
+        break
+      except Exception as e:
+        try: IpcWorkerPool._send_with_timeout(conn, e, 1.0)
+        except (TimeoutError, OSError): pass
+
+  def submit(self, worker_idx, *args, **kwargs):
+    conn = self.workers[worker_idx]["conn"]
+    self._send_with_timeout(conn, (args, kwargs), 5.0)
+
+  def get_result(self, worker_idx, timeout=None):
+    conn = self.workers[worker_idx]["conn"]
+    if conn.poll(timeout):
+      res = conn.recv()
+      if isinstance(res, Exception): raise res
+      return res
+    raise TimeoutError(f"IPC Worker {worker_idx} execution timed out.")
+
+  def shutdown(self):
+    for w in self.workers:
+      try: self._send_with_timeout(w["conn"], None, 1.0)
+      except (TimeoutError, OSError): pass
+
+      try: w["process"].kill()
+      except ProcessLookupError: pass
+      _ipc_active_pids.discard(w["pid"])
+      w["process"].join(timeout=1)
+
+  def __del__(self):
+    try: self.shutdown()
+    except (AttributeError, KeyError, TypeError, ValueError): pass
+    if hasattr(self, 'workers'):
+      for w in self.workers:
+        try: w["conn"].close()
+        except (ProcessLookupError, FileNotFoundError): pass
+        except OSError as e:
+          if "already closed" not in str(e) and getattr(e, 'errno', None) != 9: raise

@@ -5,6 +5,9 @@ from tinygrad.dtype import PtrDType, ImageDType
 from tinygrad.uop.ops import Ops, resolve, AxisType
 from tinygrad.codegen.opt.postrange import Scheduler
 
+class OutOfMemoryError(Exception): pass
+CORALNPU_L1_LIMIT = 12 * 1024
+
 def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   if k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU":
     can_split_k = k.ren.has_local

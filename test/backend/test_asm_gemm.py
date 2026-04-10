@@ -37,6 +37,7 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
   Tensor.realize(ref, a_ref.grad, b_ref.grad)
 
   atol, rtol = (2e-1, 1e-2) if dtype == dtypes.bfloat16 else (1e-2, 1e-3)
+  grad_atol, grad_rtol = atol, rtol
   with Context(DEBUG=0):
     # enable for debugging, slow for larger gemms
     if getenv("USE_NPY"):

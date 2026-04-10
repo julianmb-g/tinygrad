@@ -9,7 +9,7 @@ import struct
 import subprocess
 import tempfile
 
-from tinygrad.device import Allocator, BufferSpec, Compiled, CompilerSet
+from tinygrad.device import Allocator, BufferSpec, Compiled
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 
 
@@ -336,4 +336,4 @@ class CoralNPUProgram:
 
 class CoralNPUDevice(Compiled):
   def __init__(self, device:str):
-    super().__init__(device, CoralNPUAllocator(self), CompilerSet([CoralNPURenderer]), functools.partial(CoralNPUProgram, self))
+    super().__init__(device, CoralNPUAllocator(self), [CoralNPURenderer], functools.partial(CoralNPUProgram, self))
