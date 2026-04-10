@@ -4,3 +4,7 @@
 * **[LESSON] Style Mandates (Semicolons & Imports)**: Break compounded Python semicolon statements (e.g. `if x: y; break`) vertically to satisfy architectural readability. Ensure native OS imports like `signal`, `multiprocessing`, and `select` are defined where OS-level operations are orchestrated.
 * **[LESSON] Fake Unit Test Validation Fraud (MemoryError Evasion)**: Relying exclusively on Python-level exception traps like `assertRaises(MemoryError)` to evaluate physical boundaries (like `< 12KB` chunks) evades E2E evaluation. Tests must physically cross-compile the chunk natively.
 * **[LESSON] Pytest Argument Voids**: Unrecognized arguments like `--timeout=30` in pytest configurations cause a 100% test collection void. Ensure dependencies like `pytest-timeout` are properly installed before executing overarching suites.
+
+# Tinygrad SDLC Lessons
+
+* **[LESSON] Git Tree Corruption Resolution:** Running `git fsck && git fetch --all` effectively resolves `fatal: unable to read tree` errors in the tinygrad repository.
