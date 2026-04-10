@@ -44,6 +44,22 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.alu = UOp(Ops.ADD, dtypes.float, (self.ld, self.ld), None)
     self.uops = [self.buf0, self.idx, self.ld, self.alu]
 
+  def test_renderer_api_compliance(self):
+    renderer = CoralNPURenderer()
+    # Enforce compliance with the ML compiler's expected interface natively
+    self.assertTrue(hasattr(renderer, "device"), "Renderer MUST expose 'device' attribute")
+    self.assertEqual(renderer.device, "CORALNPU")
+    self.assertTrue(hasattr(renderer, "render_kernel"), "Renderer MUST expose 'render_kernel' method")
+    self.assertTrue(hasattr(renderer, "MAX_VR_COUNT"), "Renderer MUST expose 'MAX_VR_COUNT'")
+
+  def test_clang_jit_renderer_api_compliance(self):
+    from tinygrad.renderer.cstyle import ClangJITRenderer
+    from tinygrad.device import Target
+    renderer = ClangJITRenderer(Target(device="CLANG"))
+    self.assertTrue(hasattr(renderer, "device"), "ClangJITRenderer MUST expose 'device' attribute natively")
+    self.assertEqual(renderer.device, "CLANG")
+    self.assertTrue(hasattr(renderer, "render_kernel"), "ClangJITRenderer MUST expose 'render_kernel'")
+
   def test_extract_features(self):
     feats = extract_features(self.uops)
     self.assertIn('alu_ratio', feats)
