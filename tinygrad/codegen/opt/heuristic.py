@@ -116,7 +116,6 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
             except KernelOptError: pass
             if MV_BLOCKSIZE > 1: k.apply_opt(Opt(OptOps.LOCAL, global_idx, MV_BLOCKSIZE))
             if MV_ROWS_PER_THREAD > 1: k.apply_opt(Opt(OptOps.UPCAST, global_idx, MV_ROWS_PER_THREAD))
-            return k
 
   # are we grouping? (requires local shape support)
   if resolve(prod(k.output_shape[i] for i in k.upcastable_dims) <= (240 if NOLOCALS else 2048), False):
@@ -234,6 +233,11 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
           except KernelOptError: pass
           break
       if k.applied_opts and k.applied_opts[-1].op is OptOps.THREAD: break
+
+  if is_coralnpu:
+    total_itemsize = sum((b.dtype.itemsize for b in k.bufs))
+    if resolve((k.upcast_size() * total_itemsize) > CORALNPU_L1_LIMIT, False):
+      raise OutOfMemoryError("Unsplittable tensor chunk exceeds 12KB limit")
 
   return k
 

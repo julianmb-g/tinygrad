@@ -13,7 +13,7 @@ from multiprocessing import shared_memory
 from tinygrad.helpers import IpcWorkerPool
 
 from tinygrad.device import BufferSpec
-from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, SimTimeoutError
+from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
 from tinygrad.tensor import Tensor
 
 def has_compiler(): return shutil.which("riscv64-unknown-elf-gcc") is not None
@@ -109,16 +109,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        from tinygrad.renderer.coralnpu import CoralNPURenderer
-        from tinygrad.uop.ops import Ops, UOp
-        from tinygrad.dtype import dtypes
-        uops = [
-            UOp(Ops.CUSTOM, dtypes.int, (), "({{ while(1); 0; }})"),
-        ]
-        r = CoralNPURenderer()
-        name, kernel, bufs = r._render(uops)
-        src = r.render_kernel(name, kernel, bufs, uops)
-        prog = CoralNPUProgram(self.device, name, src.encode('utf-8'))
+        prog = CoralNPUProgram(self.device, "kernel", b"void kernel() { while(1); }")
 
         with self.assertRaises((SimTimeoutError, subprocess.TimeoutExpired, RuntimeError)):
             # Allow the simulator to organically evaluate the infinite loop
@@ -160,7 +151,9 @@ def _shared_worker(handle, shm_name, shape_size):
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _hanging_worker(handle, shm_name, shape_size):
-    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
+    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
+    from multiprocessing import shared_memory
+    import atexit
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
     device.allocator.shms[handle] = shm
