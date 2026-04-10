@@ -108,12 +108,6 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
             except KernelOptError: pass
             if MV_BLOCKSIZE > 1: k.apply_opt(Opt(OptOps.LOCAL, global_idx, MV_BLOCKSIZE))
             if MV_ROWS_PER_THREAD > 1: k.apply_opt(Opt(OptOps.UPCAST, global_idx, MV_ROWS_PER_THREAD))
-  if is_coralnpu:
-    total_itemsize = sum((b.dtype.itemsize for b in k.bufs))
-    if resolve((k.upcast_size() * total_itemsize) > CORALNPU_L1_LIMIT, False):
-      raise OutOfMemoryError("Unsplittable tensor chunk exceeds 12KB limit")
-
-  return k
 
   # are we grouping? (requires local shape support)
   if resolve(prod(k.output_shape[i] for i in k.upcastable_dims) <= (240 if NOLOCALS else 2048), False):
@@ -140,7 +134,7 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   for axis in to_upcast[::-1]: k.apply_opt(Opt(OptOps.UPCAST, axis, 0))
 
   # potentially do more upcasts of non reduce axes based on a heuristic
-  is_dsp = k.ren is not None and k.ren.device == "DSP"
+  is_dsp = k.ren is not None and getattr(k.ren, 'device', None) == "DSP"
   is_coralnpu = k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU"
   max_upcast = getattr(k.ren, "max_upcast", 31) if k.ren is not None else 31
   upcasted_axis: set[int] = set()
@@ -226,5 +220,10 @@ def hand_coded_optimizations(k:Scheduler) -> Scheduler:
           except KernelOptError: pass
           break
       if k.applied_opts and k.applied_opts[-1].op is OptOps.THREAD: break
+
+  if is_coralnpu:
+    total_itemsize = sum((b.dtype.itemsize for b in k.bufs))
+    if resolve((k.upcast_size() * total_itemsize) > CORALNPU_L1_LIMIT, False):
+      raise OutOfMemoryError("Unsplittable tensor chunk exceeds 12KB limit")
 
   return k
