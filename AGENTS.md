@@ -9,3 +9,5 @@
 
 * **[LESSON] Git Tree Corruption Resolution:** Running `git fsck && git fetch --all` effectively resolves `fatal: unable to read tree` errors in the tinygrad repository.
 * **Compiler API Regression Strictness**: When modifying compiler passes or heuristics (like `max_upcast` limits or `OutOfMemoryError` aborts), agents MUST verify that any accessed properties (such as `device` or `CompilerSet`) are supported by all active rendering backends (like `ClangJITRenderer`). Blindly accessing attributes without checking support causes fatal `AttributeError` exceptions and fail-fast pipeline blocks.
+* **[LESSON] 2026-04-10: API Boundary Drift**: When updating compilers or renderers (like `ClangJITRenderer`), ensure cross-component caller compatibility. Missing attributes like `device` cause fail-fast blocks.
+* **[LESSON] 2026-04-10: OutOfMemoryError vs RuntimeError**: Standardize on `OutOfMemoryError` for tensor capacity breaches instead of `RuntimeError` or implicit `max_upcast` limits.
