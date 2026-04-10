@@ -150,6 +150,9 @@ follow_imports = "skip"
 
 
 [tool.pytest.ini_options]
+markers = [
+  "prototype: marks test as prototype",
+]
 addopts = "-n 4"
 norecursedirs = [
   "extra",
