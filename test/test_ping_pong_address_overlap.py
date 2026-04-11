@@ -7,6 +7,7 @@ from tinygrad.renderer.coralnpu import CoralNPURenderer
 from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
 from tinygrad.uop.ops import Ops, UOp
 from tinygrad.dtype import dtypes
+from tinygrad.codegen.opt.heuristic import OutOfMemoryError
 
 class TestPingPongAddressOverlap(unittest.TestCase):
     def test_e2e_compiled_ping_pong_execution(self):
@@ -48,8 +49,7 @@ class TestPingPongAddressOverlap(unittest.TestCase):
                         "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
                         "-T", ld_script, src_file, "-o", elf_file
                     ], stderr=subprocess.DEVNULL)
-        except Exception:
-            # If render_kernel raises memory error natively, that's also acceptable bounds checking
+        except (MemoryError, OutOfMemoryError, subprocess.CalledProcessError):
             pass
 
         # Valid execution natively on simulator
@@ -61,7 +61,7 @@ class TestPingPongAddressOverlap(unittest.TestCase):
             if si.ast.op.name == "SINK":
                 from tinygrad.engine.realize import get_runner
                 runner = get_runner("CORALNPU", si.ast)
-                src = runner.p.prg
+                src = runner.p.src
 
                 with tempfile.TemporaryDirectory() as temp_dir:
                     src_file = os.path.join(temp_dir, "kernel.c")

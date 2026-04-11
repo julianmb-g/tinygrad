@@ -27,31 +27,9 @@ class CoralNPUAllocator(Allocator):
 
     self.lock = multiprocessing.Lock()
 
-    # Dynamically parse .elf for _end symbol (strictly NOT 0x80000000)
-    self.vmm_base = None
-    elf_path = os.environ.get("CORALNPU_ELF", "coralnpu.elf")
-
-    if os.path.exists(elf_path):
-        with open(elf_path, "rb") as f: lib = f.read()
-        if lib[:4] == b'\x7fELF' and lib[4] == 1:
-            e_shoff, _, _, _, _, e_shentsize, e_shnum, e_shstrndx = struct.unpack_from("<II6H", lib, 32)
-            for i in range(e_shnum):
-                hdr_offset = e_shoff + i * e_shentsize
-                sh_name, sh_type, _, _, sh_offset, sh_size, sh_link, sh_info, sh_addralign, sh_entsize = struct.unpack_from("<10I", lib, hdr_offset)
-                if sh_type == 2: # SHT_SYMTAB
-                    strtab_hdr_offset = e_shoff + sh_link * e_shentsize
-                    strtab_offset = struct.unpack_from("<I", lib, strtab_hdr_offset + 16)[0]
-                    for j in range(sh_size // sh_entsize):
-                        sym_offset = sh_offset + j * sh_entsize
-                        st_name, st_value, st_size, st_info, st_other, st_shndx = struct.unpack_from("<IIIBBH", lib, sym_offset)
-                        if st_name != 0:
-                            name = lib[strtab_offset + st_name:].split(b'\x00')[0]
-                            if name == b'_end':
-                                self.vmm_base = st_value + 0x200000  # Bump by 2MB to avoid ELF overlap
-                                break
-
-    if self.vmm_base is None:
-        raise RuntimeError(f"VMM base address (_end) not found from .elf at {elf_path}")
+    # Rely on fixed architecture memory maps (EXTMEM starting at 0x20000000)
+    # instead of parsing transient or missing global .elf files.
+    self.vmm_base = 0x20000000
 
     self.alloc_refcounts = {}
     self.vmm_limit = 32768 # Strictly bound allocation limit to 32KB
