@@ -1,1 +1,0 @@
-- [LESSON] 2026-04-11: When Phase 1 of PLAN.md contains unchecked Tier 1 blockers, prioritize the build phase to clear the critical path before executing subsequent QA or Review phases.
