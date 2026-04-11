@@ -1,11 +1,11 @@
 import os
+import shutil
 import tempfile
 import unittest
 import multiprocessing
 if multiprocessing.get_start_method(allow_none=True) != 'spawn':
     multiprocessing.set_start_method('spawn', force=True)
 from unittest.mock import patch
-import unittest.mock
 import subprocess
 from tinygrad.helpers import IpcWorkerPool
 
@@ -76,12 +76,12 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         finally:
             self.allocator._free(handle, dummy_options)
 
-    @unittest.skipIf(shutil.which('riscv64-unknown-elf-gcc') is not None, "Compiler is present, cannot test missing compiler")
     def test_missing_compiler_raises_file_not_found(self):
         """Test that missing cross-compiler authentically raises FileNotFoundError."""
-        with self.assertRaises(FileNotFoundError):
-            t = Tensor([1.0], device="CORALNPU")
-            (t + 1).realize()
+        with patch.dict(os.environ, {"PATH": ""}):
+            with self.assertRaises(FileNotFoundError):
+                t = Tensor([1.0], device="CORALNPU")
+                (t + 1).realize()
 
     def test_compiler_failure_raises_called_process_error(self):
         """Test that a failing compiler authentically raises RuntimeError wrapping CalledProcessError."""
@@ -195,8 +195,6 @@ def _blocking_worker(handle, shm_name, shape_size):
                     try: runner.p(*list(si.bufs), timeout=60.0)
                     except (FileNotFoundError, ProcessLookupError, RuntimeError) as e:
                         if type(e).__name__ == "SimTimeoutError":
-                            raise AssertionError(f"IPC Teardown Limit Reached: {e}")
-                        elif isinstance(e, (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError)):
                             raise AssertionError(f"IPC Teardown Limit Reached: {e}")
                         raise
         return True

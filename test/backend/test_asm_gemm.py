@@ -1,6 +1,5 @@
 import unittest
 from tinygrad import Tensor, Device, dtypes, Context
-from tinygrad.device import is_dtype_supported
 from tinygrad.helpers import DEV, getenv, system
 from extra.gemm.cdna_asm_gemm import asm_gemm
 from test.helpers import needs_second_gpu

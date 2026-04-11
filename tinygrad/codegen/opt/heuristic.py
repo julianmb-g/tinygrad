@@ -136,14 +136,10 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
 
   # potentially do more upcasts of non reduce axes based on a heuristic
   is_dsp = False
-  is_coralnpu = False
-  max_upcast = 31
   if k.ren is not None:
     try:
       dev = getattr(k.ren, "device", None)
       is_dsp = dev == "DSP"
-      is_coralnpu = dev == "CORALNPU"
-      max_upcast = getattr(k.ren, "max_upcast", 31)
     except (AttributeError, RuntimeError):
       pass
   upcasted_axis: set[int] = set()
@@ -175,7 +171,6 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
   # if last reduce dim is small(ish), loop unroll the reduce
   # NOTE: this can fail on multireduce with mismatching dimensions, this is okay
   try:
-    is_coralnpu = k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU"
     max_unroll = getattr(k.ren, "max_upcast", 63) if k.ren is not None else 63
     max_small_unroll = getattr(k.ren, "max_upcast", 32) if k.ren is not None else 32
     if k.unrollable_dims and (k.upcast_size() <= 4 or not k.axes_of(AxisType.UNROLL)) and (k.upcast_size() <= max_unroll):
