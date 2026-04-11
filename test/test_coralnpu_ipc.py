@@ -202,20 +202,25 @@ def _blocking_worker(handle, shm_name, shape_size):
     lock[0] = 0
     atexit.register(lambda: [shm.close(), shm.unlink()])
     try:
-        uops = [
-            UOp(Ops.CUSTOM, dtypes.int, (), "({{ while(1); 0; }})"),
-        ]
-        r = CoralNPURenderer()
-        name, kernel, bufs = r._render(uops)
-        src = r.render_kernel(name, kernel, bufs, uops)
-        prog = CoralNPUProgram(device, name, src.encode('utf-8'))
-        while True:
-            if lock[0] == 1:
-                break
-            try:
-                prog(timeout=1.0) # Short timeout so it checks the sentinel frequently
-            except (TimeoutError, OSError, BufferError, SimTimeoutError):
-                pass
+        from tinygrad.tensor import Tensor
+        import numpy as np
+        t1 = Tensor(np.ones((256, 256), dtype=np.float32), device="CORALNPU")
+        t2 = Tensor(np.ones((256, 256), dtype=np.float32), device="CORALNPU")
+
+        schedule = (t1.matmul(t2)).schedule()
+        for si in schedule:
+            if si.ast.op.name == "SINK":
+                from tinygrad.engine.realize import get_runner
+                runner = get_runner("CORALNPU", si.ast)
+                for _ in range(100):
+                    try: runner.p(*[b for b in si.bufs], timeout=60.0)
+                    except (FileNotFoundError, ProcessLookupError, RuntimeError) as e:
+                        if type(e).__name__ == "SimTimeoutError":
+                            raise AssertionError(f"IPC Teardown Limit Reached: {e}")
+                        elif isinstance(e, (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError)):
+                            raise AssertionError(f"IPC Teardown Limit Reached: {e}")
+                        raise
+        return True
     finally:
         lock.release()
         try: shm.close()
