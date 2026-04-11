@@ -1,0 +1,1 @@
+- [LESSON] 2026-04-11: 32KB allocation limit `OutOfMemoryError` during python-side test execution masks actual physical limits and pipeline management. OOM Panics must be handled natively by sequential matrix pipelining rather than crashing the framework.
