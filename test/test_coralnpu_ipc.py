@@ -191,7 +191,7 @@ def _blocking_worker(handle, shm_name, shape_size):
                 runner = get_runner("CORALNPU", si.ast)
                 for _ in range(100):
                     try: runner.p(*[b for b in si.bufs], timeout=60.0)
-                    except (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError, Exception) as e:
+                    except (FileNotFoundError, ProcessLookupError, RuntimeError) as e:
                         if type(e).__name__ == "SimTimeoutError":
                             raise AssertionError(f"IPC Teardown Limit Reached: {e}")
                         elif isinstance(e, (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError)):

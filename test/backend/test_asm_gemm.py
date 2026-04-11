@@ -1,13 +1,13 @@
 import unittest
 from tinygrad import Tensor, Device, dtypes, Context
 from tinygrad.device import is_dtype_supported
-from tinygrad.helpers import getenv, system
+from tinygrad.helpers import DEV, getenv, system
 from extra.gemm.cdna_asm_gemm import asm_gemm
 from test.helpers import needs_second_gpu
 from examples.mlperf.models.flat_llama import FP8_DTYPE
 
 # On non CDNA4 it will only validate the Tensor.custom_kernel integration
-def is_cdna4(): return getattr(Device[Device.DEFAULT].renderer, "device", "") == "CORALNPU"
+def is_cdna4(): return getattr(Device[DEV.value].renderer, "device", "") == "CORALNPU"
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
   Tensor.manual_seed(0)
@@ -16,7 +16,7 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
   with Context(DEBUG=0):
     Tensor.realize(a_rand, b_rand)
 
-  devs = tuple(f"{Device.DEFAULT}:{i}" for i in range(gpus)) if (multi:=gpus>1) else None
+  devs = tuple(f"{DEV.value}:{i}" for i in range(gpus)) if (multi:=gpus>1) else None
 
   a, b = a_rand.clone().requires_grad_(), b_rand.clone().requires_grad_()
   if multi: a, b = a.shard(devs, axis=a_shard), b.shard(devs, axis=b_shard)

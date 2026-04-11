@@ -77,7 +77,8 @@ class TestGemmaDecomposition(unittest.TestCase):
     try:
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
-      Device.DEFAULT = "CORALNPU"
+      from tinygrad.helpers import DEV
+      DEV.value = "CORALNPU"
       x = x_cpu.to("CORALNPU")
       rmsnorm = GemmaRMSNorm(dim)
       rmsnorm.weight = rmsnorm_cpu.weight.to("CORALNPU")
@@ -85,7 +86,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       out.realize()
       np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
     finally:
-      Device.DEFAULT = old_default
+      DEV.value = old_default
       if "CORALNPU_ELF" in os.environ:
         del os.environ["CORALNPU_ELF"]
       if c_name and os.path.exists(c_name): os.unlink(c_name)
@@ -112,7 +113,8 @@ class TestGemmaDecomposition(unittest.TestCase):
     try:
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
-      Device.DEFAULT = "CORALNPU"
+      from tinygrad.helpers import DEV
+      DEV.value = "CORALNPU"
       x = x_cpu.to("CORALNPU")
       mlp = GemmaMLP(hidden_dim, ff_dim)
       mlp.gate_proj = mlp_gate_cpu.to("CORALNPU")
@@ -123,7 +125,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       out.realize()
       np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-1)
     finally:
-      Device.DEFAULT = old_default
+      DEV.value = old_default
       if "CORALNPU_ELF" in os.environ:
         del os.environ["CORALNPU_ELF"]
       if c_name and os.path.exists(c_name): os.unlink(c_name)
@@ -147,14 +149,15 @@ class TestGemmaDecomposition(unittest.TestCase):
     try:
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
-      Device.DEFAULT = "CORALNPU"
+      from tinygrad.helpers import DEV
+      DEV.value = "CORALNPU"
       x = x_cpu.to("CORALNPU")
       freqs_cis = freqs_cis_cpu.to("CORALNPU")
       out = apply_rotary_emb(x, freqs_cis)
       out.realize()
       np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-4)
     finally:
-      Device.DEFAULT = old_default
+      DEV.value = old_default
       if "CORALNPU_ELF" in os.environ:
         del os.environ["CORALNPU_ELF"]
       if c_name and os.path.exists(c_name): os.unlink(c_name)
@@ -184,7 +187,8 @@ class TestGemmaDecomposition(unittest.TestCase):
     try:
       if elf_name:
         os.environ["CORALNPU_ELF"] = elf_name
-      Device.DEFAULT = "CORALNPU"
+      from tinygrad.helpers import DEV
+      DEV.value = "CORALNPU"
       x = x_cpu.to("CORALNPU")
       freqs_cis = freqs_cis_cpu.to("CORALNPU")
       attn = GemmaAttention(hidden_dim, num_heads, num_kv_heads, head_dim)
@@ -197,7 +201,7 @@ class TestGemmaDecomposition(unittest.TestCase):
       out.realize()
       np.testing.assert_allclose(out.numpy(), expected_out, atol=1e-1)
     finally:
-      Device.DEFAULT = old_default
+      DEV.value = old_default
       if "CORALNPU_ELF" in os.environ:
         del os.environ["CORALNPU_ELF"]
       if c_name and os.path.exists(c_name): os.unlink(c_name)
