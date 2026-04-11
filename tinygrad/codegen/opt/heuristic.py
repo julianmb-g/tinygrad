@@ -135,9 +135,17 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
   for axis in to_upcast[::-1]: k.apply_opt(Opt(OptOps.UPCAST, axis, 0))
 
   # potentially do more upcasts of non reduce axes based on a heuristic
-  is_dsp = k.ren is not None and getattr(k.ren, 'device', None) == "DSP"
-  is_coralnpu = k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU"
-  max_upcast = getattr(k.ren, "max_upcast", 31) if k.ren is not None else 31
+  is_dsp = False
+  is_coralnpu = False
+  max_upcast = 31
+  if k.ren is not None:
+    try:
+      dev = getattr(k.ren, "device", "")
+      is_dsp = dev == "DSP"
+      is_coralnpu = dev == "CORALNPU"
+      max_upcast = getattr(k.ren, "max_upcast", 31)
+    except Exception:
+      pass
   upcasted_axis: set[int] = set()
   while resolve(prod(k.output_shape[i] for i in k.upcastable_dims) >= 1024) and (k.upcast_size() < 32):
     xb_choices = []
