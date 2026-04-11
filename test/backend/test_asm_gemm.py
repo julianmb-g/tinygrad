@@ -50,27 +50,27 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
     if is_cdna4(): assert b.grad.allclose(b_ref.grad.cast(b.grad.dtype), atol=grad_atol, rtol=grad_rtol), "grad_b mismatch"
 
 def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=1, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): batch, M, N, K = max(batch, gpus), 256, 256, 64
+  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
   run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
 def verify_asm_gemm_k_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=8, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): M, N, K = 256, 256, gpus*64
+  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
   run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
 
 def verify_asm_gemm_n_sharded(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): batch, M, N, K = max(batch, 1), 256, gpus*256, 64
+  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
   run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
 def verify_asm_gemm_m_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): M, N, K = gpus*256, 256, 64
+  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
   run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
 def verify_asm_gemm_n_sharded_2d(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): M, N, K = 256, gpus*256, 64
+  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
   run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
 def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): batch, M, N, K = max(batch, 1), 256, 256, gpus*64
+  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
   run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
 
 # 128x smaller than usual

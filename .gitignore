@@ -74,3 +74,4 @@ diagnostics/
 test_script*.py
 .os_build/
 bazel-out/
+*.log
