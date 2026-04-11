@@ -125,8 +125,10 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             try:
                 shm.close()
                 shm.unlink()
-            except (ProcessLookupError, BufferError):
+            except FileNotFoundError:
                 pass
+            except (ProcessLookupError, BufferError) as e:
+                raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 if __name__ == '__main__':
     unittest.main()
