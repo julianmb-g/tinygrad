@@ -140,7 +140,7 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
   max_upcast = 31
   if k.ren is not None:
     try:
-      dev = getattr(k.ren, "device", "")
+      dev = getattr(k.ren, "device", None)
       is_dsp = dev == "DSP"
       is_coralnpu = dev == "CORALNPU"
       max_upcast = getattr(k.ren, "max_upcast", 31)
