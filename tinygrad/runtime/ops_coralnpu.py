@@ -17,6 +17,8 @@ kDefaultCompilationTimeoutS = 15.0  # SLA: 15.0s prevents CI pipeline deadlocks 
 
 active_pids = set()
 
+class SimTimeoutError(Exception): pass
+
 class CoralNPUAllocator(Allocator):
   def __init__(self, device):
     self.device = device
@@ -327,7 +329,7 @@ class CoralNPUProgram:
     active_pids.discard(p.pid)
 
     if p.returncode == 124 or timeout_hit:
-      raise TimeoutError(f"Hardware execution timed out natively after {timeout}s")
+      raise SimTimeoutError(f"Hardware execution timed out natively after {timeout}s")
 
     if p.returncode != 0:
       return math.inf

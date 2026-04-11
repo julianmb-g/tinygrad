@@ -10,7 +10,7 @@ import subprocess
 from tinygrad.helpers import IpcWorkerPool
 
 from tinygrad.device import BufferSpec
-from tinygrad.runtime.ops_coralnpu import CoralNPUAllocator, CoralNPUDevice, CoralNPUProgram
+from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, SimTimeoutError
 from tinygrad.tensor import Tensor
 
 class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
@@ -18,7 +18,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         from tinygrad.renderer.coralnpu import CoralNPURenderer
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
-        from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
 
         # Authentically generate a valid payload to test initialization bounds
         uops = [
@@ -89,7 +88,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         from tinygrad.renderer.coralnpu import CoralNPURenderer
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
-        from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
 
         uops = [
             UOp(Ops.SPECIAL, dtypes.int, (UOp(Ops.CONST, dtypes.int, (), 1),), "invalid_syntax!@#"),
@@ -106,10 +104,9 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
         prog = CoralNPUProgram(self.device, "kernel", b"void kernel() { while(1); }")
 
-        with self.assertRaises((TimeoutError, subprocess.TimeoutExpired, RuntimeError)):
+        with self.assertRaises((SimTimeoutError, subprocess.TimeoutExpired, RuntimeError)):
             # Allow the simulator to organically evaluate the infinite loop
             prog(timeout=0.01) # Hit timeout
 
@@ -158,7 +155,7 @@ def _shared_worker(handle, shm_name, shape_size):
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _hanging_worker(handle, shm_name, shape_size):
-    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
+    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
     from multiprocessing import shared_memory
     import atexit
     device = CoralNPUDevice("CORALNPU")
@@ -186,7 +183,7 @@ def _blocking_worker(handle, shm_name, shape_size):
         import numpy as np
         t1 = Tensor(np.ones((256, 256), dtype=np.float32), device="CORALNPU")
         t2 = Tensor(np.ones((256, 256), dtype=np.float32), device="CORALNPU")
-        
+
         schedule = (t1.matmul(t2)).schedule()
         for si in schedule:
             if si.ast.op.name == "SINK":
@@ -194,8 +191,12 @@ def _blocking_worker(handle, shm_name, shape_size):
                 runner = get_runner("CORALNPU", si.ast)
                 for _ in range(100):
                     try: runner.p(*[b for b in si.bufs], timeout=60.0)
-                    except (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError) as e:
-                        raise AssertionError(f"IPC Teardown Limit Reached: {e}")
+                    except (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError, Exception) as e:
+                        if type(e).__name__ == "SimTimeoutError":
+                            raise AssertionError(f"IPC Teardown Limit Reached: {e}")
+                        elif isinstance(e, (FileNotFoundError, ProcessLookupError, TimeoutError, RuntimeError)):
+                            raise AssertionError(f"IPC Teardown Limit Reached: {e}")
+                        raise
         return True
     finally:
         try: shm.close()
@@ -217,7 +218,6 @@ class TestIpcWorkerPool(unittest.TestCase):
         from tinygrad.renderer.coralnpu import CoralNPURenderer
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
-        from tinygrad.runtime.ops_coralnpu import CoralNPUProgram
 
         # Authentically generate a valid payload to test initialization bounds
         uops = [
@@ -278,7 +278,6 @@ class TestIpcWorkerPool(unittest.TestCase):
     def test_worker_timeout(self):
         """Test that a hanging worker correctly triggers a TimeoutError on the parent without deadlocking."""
         from tinygrad.device import BufferSpec
-        from tinygrad.helpers import IpcWorkerPool
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.device.allocator._alloc(100 * 4, dummy_options)
         try:
@@ -297,7 +296,6 @@ class TestIpcWorkerPool(unittest.TestCase):
     def test_worker_deadlock_prevention(self):
         """Test that massive unread payloads fill the pipe and trigger the POLLOUT watchdog instead of deadlocking."""
         from tinygrad.device import BufferSpec
-        from tinygrad.helpers import IpcWorkerPool
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.device.allocator._alloc(100 * 4, dummy_options)
         try:
