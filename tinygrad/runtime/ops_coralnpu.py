@@ -202,6 +202,7 @@ class CoralNPUProgram:
       self.beam_cost = float(match.group(1)) if match else float(len(src))
 
   def _compile_on_host(self, src):
+    src = "#define __builtin_bit_cast(T, V) ((union { typeof(V) __in; T __out; }){ .__in = (V) }.__out)\n#define INFINITY (__builtin_inff())\ntypedef _Float16 half;\n" + src
     with tempfile.NamedTemporaryFile(delete=False, suffix='.c', mode='w') as f:
       f.write(src)
       src_path = f.name
@@ -211,7 +212,7 @@ class CoralNPUProgram:
       f.write(CORALNPU_DTCM_LINKER_SCRIPT)
     try:
       subprocess.check_output(
-          ['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', ld_path, src_path, '-o', elf_path],
+          ['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', ld_path, src_path, '-o', elf_path, '-lgcc'],
           stderr=subprocess.STDOUT)
     except subprocess.TimeoutExpired as e:
       raise RuntimeError(f"Cross-compilation timed out: {e}")
