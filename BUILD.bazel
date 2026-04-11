@@ -36,6 +36,30 @@ py_test(
 )
 
 py_test(
+    name = "test_w8a8_late_dequantization",
+    srcs = ["test/test_w8a8_late_dequantization.py"],
+    deps = [":tinygrad"],
+)
+
+py_test(
+    name = "test_coral_macros",
+    srcs = ["test/test_coral_macros.py"],
+    deps = [":tinygrad"],
+)
+
+py_test(
+    name = "test_tuner_gradients",
+    srcs = ["test/test_tuner_gradients.py"],
+    deps = [":tinygrad"],
+)
+
+py_test(
+    name = "test_sequential_dependencies",
+    srcs = ["test/test_sequential_dependencies.py"],
+    deps = [":tinygrad"],
+)
+
+py_test(
     name = "all_tests",
     srcs = ["run_all_tests.py"],
     main = "run_all_tests.py",
