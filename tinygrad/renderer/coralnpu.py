@@ -653,7 +653,11 @@ class CoralNPURenderer(CStyleLanguage):
     )), _vdot_rewrite)
   ])
 
-  def __init__(self):
+  def __init__(self, target=None):
+    if target is not None:
+      super().__init__(target)
+    else:
+      self.target = None
     self.compiler = CoralNPUCompiler()
 
   def render(self, uops:list[UOp]) -> str:

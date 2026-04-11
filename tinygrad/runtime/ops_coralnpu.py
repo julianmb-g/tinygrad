@@ -30,6 +30,7 @@ class CoralNPUAllocator(Allocator):
     # Dynamically parse .elf for _end symbol (strictly NOT 0x80000000)
     self.vmm_base = None
     elf_path = os.environ.get("CORALNPU_ELF", "coralnpu.elf")
+
     if os.path.exists(elf_path):
         with open(elf_path, "rb") as f: lib = f.read()
         if lib[:4] == b'\x7fELF' and lib[4] == 1:
@@ -98,7 +99,8 @@ class CoralNPUAllocator(Allocator):
                 break
 
         if handle is None:
-            raise RuntimeError(f"OOM: 32KB allocation limit exceeded (base={hex(self.vmm_base or 0)}, requested={size})")
+            from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+            raise OutOfMemoryError(f"OOM: 32KB allocation limit exceeded (base={hex(self.vmm_base or 0)}, requested={size})")
 
         if handle in self.alloc_refcounts:
             self.alloc_refcounts[handle] += 1
