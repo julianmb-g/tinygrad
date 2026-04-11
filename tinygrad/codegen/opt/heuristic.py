@@ -144,7 +144,7 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
       is_dsp = dev == "DSP"
       is_coralnpu = dev == "CORALNPU"
       max_upcast = getattr(k.ren, "max_upcast", 31)
-    except Exception:
+    except (AttributeError, RuntimeError):
       pass
   upcasted_axis: set[int] = set()
   while resolve(prod(k.output_shape[i] for i in k.upcastable_dims) >= 1024) and (k.upcast_size() < 32):
