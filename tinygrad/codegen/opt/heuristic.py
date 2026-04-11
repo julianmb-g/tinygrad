@@ -8,8 +8,16 @@ from tinygrad.codegen.opt.postrange import Scheduler
 class OutOfMemoryError(Exception): pass
 CORALNPU_L1_LIMIT = 12 * 1024
 
+def _get_device(ren) -> str:
+  if ren is None: return ""
+  try:
+    dev = getattr(ren, "device", "")
+    return dev if isinstance(dev, str) else ""
+  except AttributeError:
+    return ""
+
 def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
-  if k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU":
+  if k.ren is not None and _get_device(k.ren) == "CORALNPU":
     can_split_k = k.ren.has_local
     reduction_axes = k.axes_of(AxisType.REDUCE)
     contiguous_shapes = []
@@ -137,11 +145,7 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
   # potentially do more upcasts of non reduce axes based on a heuristic
   is_dsp = False
   if k.ren is not None:
-    try:
-      dev = getattr(k.ren, "device", None)
-      is_dsp = dev == "DSP"
-    except (AttributeError, RuntimeError):
-      pass
+    is_dsp = _get_device(k.ren) == "DSP"
   upcasted_axis: set[int] = set()
   while resolve(prod(k.output_shape[i] for i in k.upcastable_dims) >= 1024) and (k.upcast_size() < 32):
     xb_choices = []
@@ -229,7 +233,7 @@ def _hand_coded_optimizations(k:Scheduler) -> Scheduler:
 
 def hand_coded_optimizations(k:Scheduler) -> Scheduler:
   k = _hand_coded_optimizations(k)
-  if k.ren is not None and getattr(k.ren, "device", "") == "CORALNPU":
+  if k.ren is not None and _get_device(k.ren) == "CORALNPU":
     total_itemsize = sum((b.dtype.itemsize for b in k.bufs))
     if resolve((k.upcast_size() * total_itemsize) > CORALNPU_L1_LIMIT, False):
       raise OutOfMemoryError("Unsplittable tensor chunk exceeds 12KB limit")

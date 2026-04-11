@@ -13,6 +13,8 @@ from tinygrad.device import BufferSpec
 from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, SimTimeoutError
 from tinygrad.tensor import Tensor
 
+def has_compiler(): return shutil.which("riscv64-unknown-elf-gcc") is not None
+
 class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
     def setUp(self):
         from tinygrad.renderer.coralnpu import CoralNPURenderer
