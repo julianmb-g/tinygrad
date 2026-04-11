@@ -1,0 +1,1 @@
+- In tests, avoid using `allow_scale=True` to shrink matrix dimensions down for non-CDNA4 execution, as it structurally bypasses assertion failures and fakes passing boundaries.
