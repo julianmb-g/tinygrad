@@ -34,6 +34,8 @@ from tinygrad.renderer.coralnpu import (
 )
 from tinygrad.tensor import Tensor
 from tinygrad.uop.ops import Ops, UOp
+from tinygrad.renderer.cstyle import ClangJITRenderer
+from tinygrad.device import Target
 
 
 class TestCoralNPURenderer(unittest.TestCase):
@@ -53,12 +55,27 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertTrue(hasattr(renderer, "MAX_VR_COUNT"), "Renderer MUST expose 'MAX_VR_COUNT'")
 
   def test_clang_jit_renderer_api_compliance(self):
-    from tinygrad.renderer.cstyle import ClangJITRenderer
-    from tinygrad.device import Target
-    renderer = ClangJITRenderer(Target(device="CLANG"))
+    renderer = ClangJITRenderer(Target("CLANG"))
     self.assertTrue(hasattr(renderer, "device"), "ClangJITRenderer MUST expose 'device' attribute natively")
     self.assertEqual(renderer.device, "CLANG")
     self.assertTrue(hasattr(renderer, "render_kernel"), "ClangJITRenderer MUST expose 'render_kernel'")
+    
+    # Prove it conforms to ML compiler expected interfaces natively by compiling an AST
+    # Generate a basic UOps graph natively and organically
+    a = Tensor([1, 2, 3]).realize()
+    b = Tensor([4, 5, 6]).realize()
+    c = (a + b)
+    si = c.schedule()[-1]
+    
+    from tinygrad.engine.realize import get_runner
+    runner = get_runner(a.device, si.ast)
+    
+    name, kernel, bufs = renderer._render(runner.p.uops)
+    src = renderer.render_kernel(name, kernel, bufs, runner.p.uops)
+    
+    # Ensure cross-component compilation graph validation
+    lib = renderer.compiler.compile(src)
+    self.assertTrue(len(lib) > 0, "ClangJITRenderer failed to compile a functional shared object.")
 
   def test_extract_features(self):
     feats = extract_features(self.uops)
