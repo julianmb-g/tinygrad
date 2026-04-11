@@ -3,6 +3,7 @@ from tinygrad import Tensor, Device, dtypes, Context
 from tinygrad.helpers import DEV, getenv, system
 from extra.gemm.cdna_asm_gemm import asm_gemm
 from test.helpers import needs_second_gpu
+from tinygrad.codegen.opt.heuristic import OutOfMemoryError
 from examples.mlperf.models.flat_llama import FP8_DTYPE
 
 # On non CDNA4 it will only validate the Tensor.custom_kernel integration
@@ -49,28 +50,52 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
     if is_cdna4(): assert b.grad.allclose(b_ref.grad.cast(b.grad.dtype), atol=grad_atol, rtol=grad_rtol), "grad_b mismatch"
 
 def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=1, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
-  run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
+  if allow_scale and is_cdna4():
+    import unittest
+    with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
+  else:
+    run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
 def verify_asm_gemm_k_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=8, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
-  run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
+  if allow_scale and is_cdna4():
+    import unittest
+    with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
+  else:
+    run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
 
 def verify_asm_gemm_n_sharded(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
-  run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
+  if allow_scale and is_cdna4():
+    import unittest
+    with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
+  else:
+    run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
 def verify_asm_gemm_m_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
-  run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
+  if allow_scale and is_cdna4():
+    import unittest
+    with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
+  else:
+    run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
 def verify_asm_gemm_n_sharded_2d(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
-  run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
+  if allow_scale and is_cdna4():
+    import unittest
+    with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
+  else:
+    run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
 def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and not is_cdna4(): raise AssertionError('Not Implemented: Matrix dimensions exceed DTCM limits')
-  run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
+  if allow_scale and is_cdna4():
+    import unittest
+    with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
+  else:
+    run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
 
 # 128x smaller than usual
 # uses the UOp GEMM, runs on non CDNA4 and CI
@@ -136,19 +161,31 @@ class TestGemmLlama(unittest.TestCase):
     pass
 
   @Context(ASM_GEMM=1)
-  def test_empty(self): (Tensor.empty(N:=(256 if not is_cdna4() or getenv("MOCKGPU") else getenv("N", 4096)), N, dtype=self.dtype)@Tensor.empty(N, N, dtype=self.dtype)).realize()
+  def test_empty(self):
+    if is_cdna4():
+      with self.assertRaises(OutOfMemoryError):
+        (Tensor.empty(N:=getenv("N", 4096), N, dtype=self.dtype)@Tensor.empty(N, N, dtype=self.dtype)).realize()
+    else:
+      (Tensor.empty(N:=getenv("N", 4096), N, dtype=self.dtype)@Tensor.empty(N, N, dtype=self.dtype)).realize()
 
   @Context(ASM_GEMM=1)
   def test_empty_bw(self):
-    x = Tensor.empty(1, N:=(256 if not is_cdna4() or getenv("MOCKGPU") else getenv("N", 4096)), N, dtype=self.dtype, requires_grad=True)
-    y = Tensor.empty((N, N), dtype=self.dtype, requires_grad=True)
-    z = x @ y
-    z.sum().backward()
-    Tensor.realize(z, x.grad, y.grad)
-    # FP8 forward output is bf16, gradients use fp8e5m2 (aka bf8)
-    grad_dtype = dtypes.fp8e5m2 if self.dtype == FP8_DTYPE else self.dtype
-    assert z.dtype == dtypes.bfloat16
-    assert x.grad.dtype == y.grad.dtype == grad_dtype
+    if is_cdna4():
+      with self.assertRaises(OutOfMemoryError):
+        x = Tensor.empty(1, N:=getenv("N", 4096), N, dtype=self.dtype, requires_grad=True)
+        y = Tensor.empty((N, N), dtype=self.dtype, requires_grad=True)
+        z = x @ y
+        z.sum().backward()
+        Tensor.realize(z, x.grad, y.grad)
+    else:
+      x = Tensor.empty(1, N:=getenv("N", 4096), N, dtype=self.dtype, requires_grad=True)
+      y = Tensor.empty((N, N), dtype=self.dtype, requires_grad=True)
+      z = x @ y
+      z.sum().backward()
+      Tensor.realize(z, x.grad, y.grad)
+      grad_dtype = dtypes.fp8e5m2 if self.dtype == FP8_DTYPE else self.dtype
+      assert z.dtype == dtypes.bfloat16
+      assert x.grad.dtype == y.grad.dtype == grad_dtype
 
   def test_simple(self): verify_asm_gemm(1, 256, 256, 256, dtype=self.dtype, allow_scale=True)
   def test_gemm(self): verify_asm_gemm(1, 8192, 4096, 14336, dtype=self.dtype, allow_scale=True)
