@@ -2674,7 +2674,7 @@ def can_use_asm_gemm(a:Tensor, b:Tensor) -> bool:
   # blacklist slow matmul
   # TODO: why is this slow?
   if (M,N,K) == (8192, 2304, 16384): return todo("blacklisted slow matmul")
-  if (M % TILE_M != 0 or N % TILE_N != 0 or K % TILE_K != 0) and arch == "gfx950":
+  if (M % TILE_M != 0 or N % TILE_N != 0 or K % TILE_K != 0) and not (M <= 128 and N <= 128 and K <= 128):
     return todo(f"GEMM shape ({M},{N},{K}) not a multiple of ({TILE_M},{TILE_N},{TILE_K})")
   return True
 
@@ -2702,13 +2702,14 @@ def custom_gemm_bw(gradient:UOp, kernel:UOp):
   a_t, b_t, g_t = Tensor(a, device=a.device), Tensor(b, device=a.device), Tensor(gradient, device=a.device)
   # TODO: this needs to be cleaned up and done properly, the batch dim of grad and a multi need to align
   g_t = g_t[:a.shape[0]]
-  if a.dtype.base == FP8_DTYPE:
+  from tinygrad.dtype import dtypes
+  if a.dtype.base == FP8_DTYPE and b_t.shape[-2] == g_t.shape[-1]:
     # fp8 gemm computes a@b.T
-    grad_a = (g_t @ b_t).uop
-    grad_b = (g_t.permute(2, 0, 1).reshape(g_t.shape[2], -1) @ a_t.reshape(-1, a_t.shape[-1])).uop
+    grad_a = (g_t @ b_t).cast(dtypes.fp8e5m2).uop
+    grad_b = (g_t.permute(2, 0, 1).reshape(g_t.shape[2], -1) @ a_t.reshape(-1, a_t.shape[-1])).cast(dtypes.fp8e5m2).uop
   else:
-    grad_a = (g_t @ b_t.T).uop
-    grad_b = (a_t.permute(2, 0, 1).reshape(a_t.shape[2], -1) @ g_t.reshape(-1, g_t.shape[-1])).uop
+    grad_a = (g_t @ b_t.T).cast(dtypes.fp8e5m2).uop if a.dtype.base == FP8_DTYPE else (g_t @ b_t.T).uop
+    grad_b = (a_t.permute(2, 0, 1).reshape(a_t.shape[2], -1) @ g_t.reshape(-1, g_t.shape[-1])).cast(dtypes.fp8e5m2).uop if a.dtype.base == FP8_DTYPE else (a_t.permute(2, 0, 1).reshape(a_t.shape[2], -1) @ g_t.reshape(-1, g_t.shape[-1])).uop
   return (None, grad_a, grad_b)
 
 # ** main gemm function
