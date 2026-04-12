@@ -1,3 +1,4 @@
+from tinygrad.codegen.opt.heuristic import OutOfMemoryError
 import re
 
 from tinygrad.device import Compiler
@@ -667,7 +668,7 @@ class CoralNPURenderer(CStyleLanguage):
     # Enforce AST limit: max_upcast
     for u in uops:
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
-        raise MemoryError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
+        raise OutOfMemoryError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
 
     # Task 3.3.3.2: Floating Point Allocation Cap
     depths = [0] * len(uops)
@@ -685,7 +686,7 @@ class CoralNPURenderer(CStyleLanguage):
 
     active_fp_count = max(fp_depth_counts.values()) if fp_depth_counts else 0
     if active_fp_count > 32:
-      raise MemoryError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
+      raise OutOfMemoryError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
 
     # Target-Aware Asynchronous Tracker using buffer_mask intersections
     buffer_masks = {}
@@ -897,7 +898,6 @@ class CoralNPURenderer(CStyleLanguage):
           break
 
       if not allocated:
-        from tinygrad.codegen.opt.heuristic import OutOfMemoryError
         raise OutOfMemoryError(f"DTCM Tiling exceeded 28KB subdivided limit: failed to allocate {size_bytes} bytes")
 
     # .bss oblieration check
@@ -905,7 +905,6 @@ class CoralNPURenderer(CStyleLanguage):
       if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None):
         size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
         if size > 4096:
-          from tinygrad.codegen.opt.heuristic import OutOfMemoryError
           raise OutOfMemoryError("BSS section bounds exceeded")
 
     return self.render_kernel(*self._render(uops), uops)
@@ -916,7 +915,7 @@ class CoralNPURenderer(CStyleLanguage):
     # Enforce AST limit: max_upcast
     for u in uops:
       if getattr(u.dtype, 'count', 1) > self.max_upcast:
-        raise MemoryError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
+        raise OutOfMemoryError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
 
     # DTCM Tiling check
     local_lifetimes = {}
@@ -970,7 +969,6 @@ class CoralNPURenderer(CStyleLanguage):
           break
 
       if not allocated:
-        from tinygrad.codegen.opt.heuristic import OutOfMemoryError
         raise OutOfMemoryError(f"DTCM Tiling exceeded 28KB subdivided limit: failed to allocate {size_bytes} bytes")
 
     # .bss oblieration check
@@ -978,7 +976,6 @@ class CoralNPURenderer(CStyleLanguage):
       if u.op is Ops.DEFINE_LOCAL and getattr(u, 'arg', None):
         size = u.arg[1] if isinstance(u.arg, tuple) else u.arg
         if size > 4096:
-          from tinygrad.codegen.opt.heuristic import OutOfMemoryError
           raise OutOfMemoryError("BSS section bounds exceeded")
 
     # Task 3.3.3.2: Floating Point Allocation Cap
@@ -997,10 +994,11 @@ class CoralNPURenderer(CStyleLanguage):
 
     active_fp_count = max(fp_depth_counts.values()) if fp_depth_counts else 0
     if active_fp_count > 32:
-      raise MemoryError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
+      raise OutOfMemoryError(f"Active floating-point variable allocations exceeded cap: {active_fp_count} > 32")
 
     prefix.append("#include <stdint.h>")
     prefix.append("#ifndef CORAL_DMA_ASYNC")
+    prefix.append("#define CORALNPU_DMA_ALIGN_MASK 0x3FF")
     prefix.append("#define CORAL_DMA_ASYNC(dest, src, size) __builtin_memcpy(dest, src, size)")
     prefix.append("#ifdef __riscv")
     prefix.append("#define SLVERR 2")
@@ -1130,7 +1128,7 @@ class CoralNPURenderer(CStyleLanguage):
     # For a 32-bit bus, max burst is 1024 bytes.
     return f"""{threshold_check}
 for (int _dma_off = 0; _dma_off < ({size_str}); ) {{
-  int _dma_chunk = 1024 - ((((uintptr_t)({src})) + _dma_off) & 0x3FF);
+  int _dma_chunk = 1024 - ((((uintptr_t)({src})) + _dma_off) & CORALNPU_DMA_ALIGN_MASK);
   if (_dma_chunk > ({size_str}) - _dma_off) _dma_chunk = ({size_str}) - _dma_off;
   CORAL_DMA_ASYNC(((uint8_t*)({dest})) + _dma_off, ((uint8_t*)({src})) + _dma_off, _dma_chunk);
   _dma_off += _dma_chunk;

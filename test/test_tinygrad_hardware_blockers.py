@@ -18,7 +18,7 @@ class TestTinygradHardwareBlockers(unittest.TestCase):
         # Use authentic UOp instead of a Python class mock
         uop = UOp(Ops.DEFINE_LOCAL, dtypes.float.vec(29), (), ("temp_vec", 1))
 
-        with self.assertRaises(MemoryError):
+        with self.assertRaises(OutOfMemoryError):
             renderer.render([uop])
 
     def test_register_pressure_fp_allocation_cap(self):
@@ -29,7 +29,7 @@ class TestTinygradHardwareBlockers(unittest.TestCase):
             alu = UOp(Ops.ADD, dtypes.float, (cst, cst), None)
             uops.append(alu)
 
-        with self.assertRaises(MemoryError):
+        with self.assertRaises(OutOfMemoryError):
             renderer.render(uops)
 
 if __name__ == '__main__':

@@ -1,3 +1,4 @@
+from tinygrad.codegen.opt.heuristic import OutOfMemoryError
 from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import os
 import subprocess
@@ -98,7 +99,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     vec = UOp(Ops.VECTORIZE, dtypes.float.vec(29), tuple(vec_srcs), None)
     uops = [buf0, idx] + vec_srcs + [vec]
 
-    with self.assertRaises(MemoryError):
+    with self.assertRaises(OutOfMemoryError):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_dtcm_tiling_limit(self):
@@ -406,7 +407,7 @@ class TestCoralNPURenderer(unittest.TestCase):
       uops.extend([idx, ld])
 
     renderer = CoralNPURenderer()
-    with self.assertRaises(MemoryError):
+    with self.assertRaises(OutOfMemoryError):
       renderer.render_kernel("test_kernel", [], [("buf0", (dtypes.float, True))], uops)
 
   def test_compiler_save_beam_dir(self):
