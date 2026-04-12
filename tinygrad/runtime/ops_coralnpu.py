@@ -23,27 +23,23 @@ def _safe_release_ipc(obj, name="unknown"):
   import logging
   if hasattr(obj, 'release'):
     try: obj.release()
-    except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion ({name}): {e}")
-    except (FileNotFoundError, OSError) as e: logging.error(f"IPC Release Error ({name}): {e}")
-    except Exception as e: logging.error(f"IPC Release Unknown Error ({name}): {e}")
+    except (ProcessLookupError, BufferError, FileNotFoundError, OSError): raise
+    except Exception as e: logging.error(f"IPC Release Error ({name}): {e}")
     
   if hasattr(obj, 'close'):
     try: obj.close()
-    except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion ({name}): {e}")
-    except (FileNotFoundError, OSError) as e: logging.error(f"IPC Close Error ({name}): {e}")
-    except Exception as e: logging.error(f"IPC Close Unknown Error ({name}): {e}")
+    except (ProcessLookupError, BufferError, FileNotFoundError, OSError): raise
+    except Exception as e: logging.error(f"IPC Close Error ({name}): {e}")
     
   if hasattr(obj, 'unlink'):
     try: obj.unlink()
-    except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion ({name}): {e}")
-    except (FileNotFoundError, OSError) as e: logging.error(f"IPC Unlink Error ({name}): {e}")
-    except Exception as e: logging.error(f"IPC Unlink Unknown Error ({name}): {e}")
+    except (ProcessLookupError, BufferError, FileNotFoundError, OSError): raise
+    except Exception as e: logging.error(f"IPC Unlink Error ({name}): {e}")
     
   if hasattr(obj, 'buf') and hasattr(obj.buf, 'release'):
     try: obj.buf.release()
-    except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion ({name}): {e}")
-    except (FileNotFoundError, OSError) as e: logging.error(f"IPC Buffer Release Error ({name}): {e}")
-    except Exception as e: logging.error(f"IPC Buffer Release Unknown Error ({name}): {e}")
+    except (ProcessLookupError, BufferError, FileNotFoundError, OSError): raise
+    except Exception as e: logging.error(f"IPC Buffer Release Error ({name}): {e}")
     
 
 class CoralNPUAllocator(Allocator):
