@@ -62,13 +62,13 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Prove it conforms to ML compiler expected interfaces natively by compiling an AST
     # Generate a basic UOps graph natively and organically
-    a = Tensor([1, 2, 3]).realize()
-    b = Tensor([4, 5, 6]).realize()
+    a = Tensor([1, 2, 3], device="CPU").realize()
+    b = Tensor([4, 5, 6], device="CPU").realize()
     c = (a + b)
     si = c.schedule()[-1]
 
     from tinygrad.engine.realize import get_runner
-    runner = get_runner(a.device, si.ast)
+    runner = get_runner("CPU", si.ast)
 
     name, kernel, bufs = renderer._render(runner.p.uops)
     src = renderer.render_kernel(name, kernel, bufs, runner.p.uops)
