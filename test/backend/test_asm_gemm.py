@@ -11,7 +11,7 @@ from examples.mlperf.models.flat_llama import FP8_DTYPE
 def is_cdna4(): return getattr(Device[DEV.value.device or 'CORALNPU'].renderer, "arch", "").startswith("gfx950")
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
-  if (DEV.value.device or "CORALNPU") == "CORALNPU":
+  if True:
     a = Tensor.empty(a_shape, dtype=dtype, device="CORALNPU").requires_grad_()
     b = Tensor.empty(b_shape, dtype=dtype, device="CORALNPU").requires_grad_()
     devs = tuple(f"CORALNPU:{i}" for i in range(gpus)) if (multi:=gpus>1) else None
