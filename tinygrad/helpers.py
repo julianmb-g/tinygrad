@@ -707,6 +707,7 @@ class IpcWorkerPool:
       p.daemon = True
       p.start()
       _ipc_active_pids.add(p.pid)
+      child_conn.close()
       self.workers.append({"process": p, "conn": parent_conn, "pid": p.pid})
 
   @staticmethod
