@@ -7,6 +7,9 @@ if multiprocessing.get_start_method(allow_none=True) != 'spawn':
     multiprocessing.set_start_method('spawn', force=True)
 from unittest.mock import patch
 import subprocess
+import atexit
+import numpy as np
+from multiprocessing import shared_memory
 from tinygrad.helpers import IpcWorkerPool
 
 from tinygrad.device import BufferSpec
@@ -136,10 +139,7 @@ if __name__ == '__main__':
     unittest.main()
 
 def _shared_worker(handle, shm_name, shape_size):
-    import numpy as np
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
-    from multiprocessing import shared_memory
-    import atexit
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
     atexit.register(lambda: [shm.close(), shm.unlink()])
@@ -160,8 +160,6 @@ def _shared_worker(handle, shm_name, shape_size):
 
 def _hanging_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
-    from multiprocessing import shared_memory
-    import atexit
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
     atexit.register(lambda: [shm.close(), shm.unlink()])
