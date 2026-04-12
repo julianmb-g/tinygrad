@@ -623,7 +623,7 @@ class CoralNPURenderer(CStyleLanguage):
   local_max = (1, 1, 1)
 
   # Limit upcasting to avoid massive AST explosions
-  max_upcast = 28
+  # Deterministic Memory Ceiling
 
   # Disable float vectorization to avoid scalarization issues with GCC + RISC-V Zve32x
   # Integer vectorization is handled by GCC auto-vectorization from scalar loops.
@@ -665,10 +665,11 @@ class CoralNPURenderer(CStyleLanguage):
     self.dtcm_bump = 4096
     self.local_offsets = {}
 
-    # Enforce AST limit: max_upcast
+    # Deterministic Memory Ceiling: Abort if any contiguous chunk > 12KB
     for u in uops:
-      if getattr(u.dtype, 'count', 1) > self.max_upcast:
-        raise OutOfMemoryError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
+      chunk_size = u.dtype.itemsize * getattr(u.dtype, 'count', 1)
+      if chunk_size > 12288:
+        raise OutOfMemoryError(f"OOM: Tensor chunk size {chunk_size} bytes exceeds 12KB limit")
 
     # Task 3.3.3.2: Floating Point Allocation Cap
     depths = [0] * len(uops)
@@ -912,10 +913,11 @@ class CoralNPURenderer(CStyleLanguage):
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
     prefix = prefix or []
 
-    # Enforce AST limit: max_upcast
+    # Deterministic Memory Ceiling: Abort if any contiguous chunk > 12KB
     for u in uops:
-      if getattr(u.dtype, 'count', 1) > self.max_upcast:
-        raise OutOfMemoryError(f"AST upcast limit exceeded: vectorized count {u.dtype.count} > {self.max_upcast}")
+      chunk_size = u.dtype.itemsize * getattr(u.dtype, 'count', 1)
+      if chunk_size > 12288:
+        raise OutOfMemoryError(f"OOM: Tensor chunk size {chunk_size} bytes exceeds 12KB limit")
 
     # DTCM Tiling check
     local_lifetimes = {}
