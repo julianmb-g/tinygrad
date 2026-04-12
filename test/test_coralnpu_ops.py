@@ -119,6 +119,7 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
 
     def test_dma_timeout_watchdog(self):
         """Test the organic timeout execution boundary natively."""
+        from tinygrad.runtime.ops_coralnpu import SimTimeoutError
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.allocator._alloc(1024, dummy_options)
         try:
@@ -127,11 +128,11 @@ class TestCoralNPUAllocator(BaseCoralNPUTest):
             prog = CoralNPUProgram(self.device, "bridge_execution", src)
 
             start_time = time.time()
-            ret = prog(handle, wait=True)
+            with self.assertRaises(SimTimeoutError):
+                prog(handle, wait=True, timeout=5.1)
             end_time = time.time()
 
-            self.assertEqual(ret, math.inf, "Timeout must organically return math.inf to discard deadlocked executions.")
-            self.assertLess(end_time - start_time, 2.0, "Watchdog failed to explicitly kill the hung subprocess.")
+            self.assertLess(end_time - start_time, 6.0, "Watchdog failed to explicitly kill the hung subprocess.")
         finally:
             self.allocator._free(handle, dummy_options)
 

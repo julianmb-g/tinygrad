@@ -29,7 +29,7 @@ class CoralNPUAllocator(Allocator):
 
     # Rely on fixed architecture memory maps (EXTMEM starting at 0x20000000)
     # instead of parsing transient or missing global .elf files.
-    self.vmm_base = 0x20000000
+    self.vmm_base = 0x20000000 + 1024 * 1024 # 1MB offset for text/data
 
     self.alloc_refcounts = {}
     self.vmm_limit = 256 * 1024 * 1024 # Expand EXTMEM to 256MB
