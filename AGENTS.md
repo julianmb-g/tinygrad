@@ -1,0 +1,1 @@
+- [LESSON] 2026-04-12: The Review Agent must run 8 subagents concurrently and deduplicate statefully in REVIEW.md without destroying un-resolved items.
