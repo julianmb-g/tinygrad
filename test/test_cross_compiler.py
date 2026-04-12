@@ -23,11 +23,11 @@ _start:
     la sp, __stack_end__
     li t0, 0x6000
     csrs mstatus, t0
-    
+
     # a0 contains the buffer pointer
     li t1, 42
     sw t1, 0(a0)
-    
+
     ebreak
             """)
 

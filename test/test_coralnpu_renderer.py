@@ -62,13 +62,13 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Prove it conforms to ML compiler expected interfaces natively by compiling an AST
     # Generate a basic UOps graph natively and organically
-    a = Tensor([1, 2, 3], device="CPU").realize()
-    b = Tensor([4, 5, 6], device="CPU").realize()
+    a = Tensor([1, 2, 3], device="CLANG").realize()
+    b = Tensor([4, 5, 6], device="CLANG").realize()
     c = (a + b)
     si = c.schedule()[-1]
 
     from tinygrad.engine.realize import get_runner
-    runner = get_runner("CPU", si.ast)
+    runner = get_runner("CLANG", si.ast)
 
     name, kernel, bufs = renderer._render(runner.p.uops)
     src = renderer.render_kernel(name, kernel, bufs, runner.p.uops)
@@ -82,7 +82,6 @@ class TestCoralNPURenderer(unittest.TestCase):
     self.assertIn('alu_ratio', feats)
     self.assertIn('mem_ratio', feats)
     self.assertTrue(feats['log_total_uops'] > 0)
-
 
   def test_dtcm_tiling_limit(self):
     renderer = CoralNPURenderer()

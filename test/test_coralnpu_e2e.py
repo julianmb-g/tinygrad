@@ -53,7 +53,10 @@ _start:
     ebreak
 """)
 
-            subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path])
+            subprocess.check_call([
+                'riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f',
+                '-O3', '-nostdlib', '-T', cls.ld_path, cls.src_path, '-o', cls.elf_path
+            ])
 
             sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim"))
             env_dict = {"CORALNPU_ELF": cls.elf_path}
@@ -130,7 +133,10 @@ _start:
         res = out.numpy()
 
         # Mathematical correctness validation
-        np.testing.assert_allclose(res, [np.sqrt(1.5)+3.1, np.sqrt(4.2)+3.1], atol=1e-5, rtol=1e-5, err_msg="Scheduler Dependency Chaining mathematical failure")
+        np.testing.assert_allclose(
+            res, [np.sqrt(1.5)+3.1, np.sqrt(4.2)+3.1],
+            atol=1e-5, rtol=1e-5, err_msg="Scheduler Dependency Chaining mathematical failure"
+        )
 
 if __name__ == '__main__':
     unittest.main()

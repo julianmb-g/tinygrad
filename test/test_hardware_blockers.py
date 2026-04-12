@@ -1,12 +1,9 @@
-import unittest
 import pytest
 
 @pytest.mark.prototype
-class TestHardwareBlockers(unittest.TestCase):
-    """Prototype tests for hardware blocking boundaries."""
-    @pytest.mark.prototype
-    def test_hardware_blockers(self):
-        self.fail("Not implemented")
+def test_hardware_blocker_1():
+    pytest.fail("Not Implemented")
 
-if __name__ == '__main__':
-    unittest.main()
+@pytest.mark.prototype
+def test_hardware_blocker_2():
+    pytest.fail("Not Implemented")

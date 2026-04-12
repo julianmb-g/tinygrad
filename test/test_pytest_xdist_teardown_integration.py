@@ -67,9 +67,9 @@ _start:
 
     subprocess.check_call(['riscv64-unknown-elf-gcc', '-march=rv32imf_zve32x', '-mabi=ilp32f', '-O3', '-nostdlib', '-T', ld_path, src_path, '-o', elf_path])
     os.environ["CORALNPU_ELF"] = elf_path
-    
+
     yield
-    
+
     os.close(src_fd)
     os.close(ld_fd)
     if os.path.exists(src_path): os.unlink(src_path)

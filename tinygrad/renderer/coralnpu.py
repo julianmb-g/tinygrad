@@ -462,7 +462,7 @@ def optimize_memory_layout(uops):
 def ping_pong_tile(uops):
   """
   Implement ping_pong_tile transformation loop logic.
-  This pass analyzes the AST to schedule DMA transfers using Ping and Pong 
+  This pass analyzes the AST to schedule DMA transfers using Ping and Pong
   memory pools, enabling execution overlap and strict hardware DTCM bounds handling.
   """
   tiles = 0
@@ -1057,7 +1057,20 @@ class CoralNPURenderer(CStyleLanguage):
     buf_names = [name for name, _ in bufs]
     prefix.append(f"// BUF_NAMES: {','.join(buf_names)}")
 
-    prefix.append("#include <stdint.h>\nstatic inline float coralnpu_exp2(float x) {\n  x = x < -126.0f ? -126.0f : x;\n  union { float f; uint32_t i; } v;\n  v.i = (uint32_t)((1 << 23) * (x + 126.94269504f));\n  return v.f;\n}\n#ifdef __riscv\nstatic inline float coralnpu_sqrt(float x) { float res; asm(\"fsqrt.s %0, %1\" : \"=f\"(res) : \"f\"(x)); return res; }\n#else\nstatic inline float coralnpu_sqrt(float x) { return x; }\n#endif\n")
+    prefix.append(
+        "#include <stdint.h>\n"
+        "static inline float coralnpu_exp2(float x) {\n"
+        "  x = x < -126.0f ? -126.0f : x;\n"
+        "  union { float f; uint32_t i; } v;\n"
+        "  v.i = (uint32_t)((1 << 23) * (x + 126.94269504f));\n"
+        "  return v.f;\n"
+        "}\n"
+        "#ifdef __riscv\n"
+        "static inline float coralnpu_sqrt(float x) { float res; asm(\"fsqrt.s %0, %1\" : \"=f\"(res) : \"f\"(x)); return res; }\n"
+        "#else\n"
+        "static inline float coralnpu_sqrt(float x) { return x; }\n"
+        "#endif\n"
+    )
     # Add vector typedefs for GCC
     for dt in uops_to_dtypes(uops):
       if dt.count > 1:
@@ -1098,7 +1111,11 @@ class CoralNPURenderer(CStyleLanguage):
         src = src.replace("extern \"C\" void", "void")
 
     # Inject baremetal hardware initialization stub
-    src += f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\nvoid _start() {{\n  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\ncsrs mstatus, t0\\ncall {function_name}\\nebreak");\n}}\n#endif\n'
+    src += (
+        f'\n#ifdef __riscv\nvoid _start() __attribute__((naked));\n'
+        f'void _start() {{\n  asm volatile("la sp, __stack_end__\\nli t0, 0x6000\\n'
+        f'csrs mstatus, t0\\ncall {function_name}\\nebreak");\n}}\n#endif\n'
+    )
 
     return src
 
@@ -1139,7 +1156,8 @@ for (int _dma_off = 0; _dma_off < ({size_str}); ) {{
 }}"""
 
   string_rewrite = PatternMatcher([
-    (UPat(Ops.DEFINE_REG, name="x"), lambda ctx, x: f"static {ctx.render_dtype(x.dtype.base)} {ctx[x]}[{x.dtype.size}] __attribute__((section(\".noinit\")));"),
+    (UPat(Ops.DEFINE_REG, name="x"), lambda ctx, x: f"static {ctx.render_dtype(x.dtype.base)} "
+     f"{ctx[x]}[{x.dtype.size}] __attribute__((section(\".noinit\")));"),
     (UPat(Ops.DEFINE_LOCAL, name="x"), _define_local_rewrite),
     (UPat(Ops.COPY, name="x"), emit_dma_async),
     (UPat(Ops.BARRIER, name="x"), lambda ctx, x: "WAIT_DMA_READY();"),
