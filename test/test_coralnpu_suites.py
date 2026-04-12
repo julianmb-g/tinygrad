@@ -28,7 +28,7 @@ class BareMetalPingPongDmaSuite(unittest.TestCase):
     def test_baremetal_pingpong_dma(self):
         """
         Verify the 32KB DTCM equation natively.
-        12KB (Ping) + 12KB (Pong) + 4KB (Accumulator) + 4KB (Stack/BSS) = 32KB DTCM.
+        [Weights: 2x 6KB : Activations: 8KB : Accumulators: 8KB] = 28KB + 4KB (Stack/BSS) = 32KB DTCM.
         """
         with Context(DEV="CORALNPU"):
             a = Tensor.arange(3072, dtype=dtypes.float32).realize()

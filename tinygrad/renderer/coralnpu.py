@@ -863,9 +863,10 @@ class CoralNPURenderer(CStyleLanguage):
 
     # Assign offsets using a simple linear scan allocator
     pools = [
-      (0x00010000, 12288), # Ping
-      (0x00013000, 12288), # Pong
-      (0x00016000, 4096)   # Accum
+      (0x00010000, 6144),  # Weights 0 (6KB)
+      (0x00011800, 6144),  # Weights 1 (6KB)
+      (0x00013000, 8192),  # Activations (8KB)
+      (0x00015000, 8192)   # Accumulators (8KB)
     ]
     active_allocs = {p[0]: [] for p in pools}
     self.local_offsets = {}
@@ -935,9 +936,10 @@ class CoralNPURenderer(CStyleLanguage):
         local_lifetimes[dl][1] = max(local_lifetimes[dl][1], i)
 
     pools = [
-      (0x00010000, 12288), # Ping
-      (0x00013000, 12288), # Pong
-      (0x00016000, 4096)   # Accum
+      (0x00010000, 6144),  # Weights 0 (6KB)
+      (0x00011800, 6144),  # Weights 1 (6KB)
+      (0x00013000, 8192),  # Activations (8KB)
+      (0x00015000, 8192)   # Accumulators (8KB)
     ]
     active_allocs = {p[0]: [] for p in pools}
     self.local_offsets = {}
