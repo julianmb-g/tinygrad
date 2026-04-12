@@ -110,7 +110,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
         with self.assertRaises((SimTimeoutError, subprocess.TimeoutExpired, RuntimeError)):
             # Allow the simulator to organically evaluate the infinite loop
-            prog(timeout=5.1) # Hit timeout
+            prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
 
     def test_ipc_teardown_fidelity(self):
         """Test that active locks correctly trigger BufferError during teardown."""
@@ -168,16 +168,18 @@ def _hanging_worker(handle, shm_name, shape_size):
     device.allocator.shms[handle] = shm
     try:
         prog = CoralNPUProgram(device, "kernel", b"void kernel() { while(1); }")
-        prog(timeout=5.1) # Hit timeout
+        prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
         return True
     finally:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _blocking_worker(handle, shm_name, shape_size):
-    import time
-    time.sleep(100)
+    pass
+    while True: pass
     return True
+
+
 def _safe_release_resource(shms):
     errors = []
     for shm in list(shms):

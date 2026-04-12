@@ -762,7 +762,7 @@ class IpcWorkerPool:
       try: self._send_with_timeout(w["conn"], None, 1.0)
       except (TimeoutError, OSError): pass
 
-      try: w["process"].kill()
+      try: w["process"].terminate()
       except ProcessLookupError: pass
       _ipc_active_pids.discard(w["pid"])
       w["process"].join(timeout=1)

@@ -32,7 +32,7 @@ class CoralNPUAllocator(Allocator):
     self.vmm_base = 0x20000000
 
     self.alloc_refcounts = {}
-    self.vmm_limit = 32768 # Strictly bound allocation limit to 32KB
+    self.vmm_limit = 256 * 1024 * 1024 # Expand EXTMEM to 256MB
     self.free_blocks = [(self.vmm_base, self.vmm_limit)]
     super().__init__(device)
 
@@ -78,7 +78,7 @@ class CoralNPUAllocator(Allocator):
 
         if handle is None:
             from tinygrad.codegen.opt.heuristic import OutOfMemoryError
-            raise OutOfMemoryError(f"OOM: 32KB allocation limit exceeded (base={hex(self.vmm_base or 0)}, requested={size})")
+            raise OutOfMemoryError(f"OOM: 256MB allocation limit exceeded (base={hex(self.vmm_base or 0)}, requested={size})")
 
         if handle in self.alloc_refcounts:
             self.alloc_refcounts[handle] += 1

@@ -49,7 +49,7 @@ class TestPingPongAddressOverlap(unittest.TestCase):
                         "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
                         "-T", ld_script, src_file, "-o", elf_file
                     ], stderr=subprocess.DEVNULL)
-        except (MemoryError, OutOfMemoryError, subprocess.CalledProcessError):
+        except OutOfMemoryError:
             pass
 
         # Valid execution natively on simulator
