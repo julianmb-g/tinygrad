@@ -19,6 +19,21 @@ active_pids = set()
 
 class SimTimeoutError(Exception): pass
 
+def _safe_release_ipc(obj, name="unknown"):
+  import logging
+  if hasattr(obj, 'release'):
+    try: obj.release()
+    except Exception as e: logging.error(f"IPC Release Error ({name}): {e}")
+  if hasattr(obj, 'close'):
+    try: obj.close()
+    except Exception as e: logging.error(f"IPC Close Error ({name}): {e}")
+  if hasattr(obj, 'unlink'):
+    try: obj.unlink()
+    except Exception as e: logging.error(f"IPC Unlink Error ({name}): {e}")
+  if hasattr(obj, 'buf') and hasattr(obj.buf, 'release'):
+    try: obj.buf.release()
+    except Exception as e: logging.error(f"IPC Buffer Release Error ({name}): {e}")
+
 class CoralNPUAllocator(Allocator):
   def __init__(self, device):
     self.device = device
@@ -37,31 +52,18 @@ class CoralNPUAllocator(Allocator):
     super().__init__(device)
 
   def __del__(self):
-        errors = []
-        try:
-          for mem in getattr(self, 'mem', {}).values():
-              try: mem.release()
-              except (AttributeError, KeyError): pass
-              except FileNotFoundError: pass
-              except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-              except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
-          for shm in getattr(self, 'shms', {}).values():
-              try:
-                if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
-                    shm.buf.release()
-                    import os
-                    os.unlink(f"/dev/shm/{shm.name}")
-                shm.close()
-                shm.unlink()
-              except (AttributeError, KeyError): pass
-              except FileNotFoundError: pass
-              except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-              except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
-        except (AttributeError, KeyError): pass
-        except FileNotFoundError: pass
-        except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-        except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
-        if errors: raise errors[0]
+        for mem in getattr(self, 'mem', {}).values():
+            _safe_release_ipc(mem, "mem")
+        for shm in getattr(self, 'shms', {}).values():
+            if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
+                try: shm.buf.release()
+                except Exception as e:
+                    import logging
+                    logging.error(f"IPC Buffer Release Error (shm._mmap): {e}")
+                import os
+                try: os.unlink(f"/dev/shm/{shm.name}")
+                except Exception: pass
+            _safe_release_ipc(shm, "shm")
 
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:
@@ -88,18 +90,7 @@ class CoralNPUAllocator(Allocator):
     shm = multiprocessing.shared_memory.SharedMemory(create=True, size=size)
 
     def cleanup_shm(s):
-        errors = []
-        try:
-            try: s.close()
-            except (AttributeError, KeyError): pass
-            except FileNotFoundError: pass
-            except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-        finally:
-            try: s.unlink()
-            except (AttributeError, KeyError): pass
-            except FileNotFoundError: pass
-            except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-        if errors: raise errors[0]
+        _safe_release_ipc(s, "shm_cleanup")
 
     atexit.register(lambda: cleanup_shm(shm))
 
@@ -131,27 +122,7 @@ class CoralNPUAllocator(Allocator):
                     self.mem[opaque].release()
                     del self.mem[opaque]
                     shm = self.shms.pop(opaque)
-                    errors = []
-                    try:
-                        try:
-                            view = memoryview(shm.buf)
-                            view.release()
-                        except (AttributeError, KeyError): pass
-                        except FileNotFoundError: pass
-                        except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-                        except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
-                        try: shm.close()
-                        except (AttributeError, KeyError): pass
-                        except FileNotFoundError: pass
-                        except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-                        except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
-                    finally:
-                        try: shm.unlink()
-                        except (AttributeError, KeyError): pass
-                        except FileNotFoundError: pass
-                        except ProcessLookupError as e: errors.append(AssertionError(f"IPC Process Lookup Error: {e}"))
-                        except BufferError as e: errors.append(AssertionError(f"IPC Lock Exhaustion: {e}"))
-                    if errors: raise errors[0]
+                    _safe_release_ipc(shm, "shm_free")
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()
@@ -202,7 +173,8 @@ class CoralNPUProgram:
       self.beam_cost = float(match.group(1)) if match else float(len(src))
 
   def _compile_on_host(self, src):
-    src = "#define __builtin_bit_cast(T, V) ((union { typeof(V) __in; T __out; }){ .__in = (V) }.__out)\n#define INFINITY (__builtin_inff())\ntypedef _Float16 half;\n" + src
+    src = "#define __builtin_bit_cast(T, V) ((union { typeof(V) __in; T __out; }){ .__in = (V) }.__out)\n" \
+          "#define INFINITY (__builtin_inff())\ntypedef _Float16 half;\n" + src
     with tempfile.NamedTemporaryFile(delete=False, suffix='.c', mode='w') as f:
       f.write(src)
       src_path = f.name
