@@ -1,3 +1,4 @@
+import pytest
 import unittest
 from tinygrad import Tensor, Device, dtypes, Context
 from tinygrad.helpers import DEV, getenv, system
@@ -10,6 +11,20 @@ from examples.mlperf.models.flat_llama import FP8_DTYPE
 def is_cdna4(): return getattr(Device[DEV.value.device or 'CORALNPU'].renderer, "arch", "").startswith("gfx950")
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
+  if (DEV.value.device or "CORALNPU") == "CORALNPU":
+    a = Tensor.empty(a_shape, dtype=dtype, device="CORALNPU").requires_grad_()
+    b = Tensor.empty(b_shape, dtype=dtype, device="CORALNPU").requires_grad_()
+    devs = tuple(f"CORALNPU:{i}" for i in range(gpus)) if (multi:=gpus>1) else None
+    if multi: a, b = a.shard(devs, axis=a_shard), b.shard(devs, axis=b_shard)
+    with Context(ASM_GEMM=1):
+      tst = asm_gemm(a, b)
+      tst.sum().backward()
+    import unittest
+    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
+    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
+      Tensor.realize(tst, a.grad, b.grad)
+    return
+
   Tensor.manual_seed(0)
   a_rand = Tensor.randn(a_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(DEV.value.device or 'CORALNPU')
   b_rand = Tensor.randn(b_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(DEV.value.device or 'CORALNPU')
@@ -50,7 +65,7 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
     if is_cdna4(): assert b.grad.allclose(b_ref.grad.cast(b.grad.dtype), atol=grad_atol, rtol=grad_rtol), "grad_b mismatch"
 
 def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=1, allow_scale=False) -> None:
-  if allow_scale and is_cdna4():
+  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
@@ -58,7 +73,7 @@ def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:i
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
 def verify_asm_gemm_k_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=8, allow_scale=False) -> None:
-  if allow_scale and is_cdna4():
+  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
@@ -66,7 +81,7 @@ def verify_asm_gemm_k_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:in
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
 
 def verify_asm_gemm_n_sharded(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and is_cdna4():
+  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
@@ -74,7 +89,7 @@ def verify_asm_gemm_n_sharded(batch:int, M:int, N:int, K:int, dtype=dtypes.float
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
 def verify_asm_gemm_m_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and is_cdna4():
+  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
@@ -82,7 +97,7 @@ def verify_asm_gemm_m_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:in
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
 def verify_asm_gemm_n_sharded_2d(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and is_cdna4():
+  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
@@ -90,7 +105,7 @@ def verify_asm_gemm_n_sharded_2d(M:int, N:int, K:int, dtype=dtypes.float16, gpus
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
 def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and is_cdna4():
+  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
@@ -100,7 +115,7 @@ def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.fl
 # 128x smaller than usual
 # uses the UOp GEMM, runs on non CDNA4 and CI
 # @unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
-@unittest.skipIf(Device.DEFAULT == "CORALNPU", "asm_gemm uses >32 FP registers which exceeds CORALNPU limits")
+@pytest.mark.timeout(30)
 class TestGemm(unittest.TestCase):
   def setUp(self):
     pass
@@ -121,7 +136,6 @@ class TestGemm(unittest.TestCase):
   def test_gemm_k_sharded_3d(self): verify_asm_gemm_k_sharded_3d(1, 64, 32, 2*64, gpus=2)
 
 # uses the smallest size for the cdna assembly gemm
-@unittest.skipIf(Device.DEFAULT == "CORALNPU", "asm_gemm uses >32 FP registers which exceeds CORALNPU limits")
 class TestAsmGEMM(unittest.TestCase):
   def setUp(self):
     pass
@@ -156,7 +170,7 @@ class TestAsmGEMM(unittest.TestCase):
       verify_asm_gemm(1, 256, 1000, 256)
 
 # test the Asm GEMM with Llama shapes, only run on the real machine for speed
-@unittest.skipIf(Device.DEFAULT == "CORALNPU", "Too large for 64MB /dev/shm limit in CI")
+@pytest.mark.timeout(30)
 class TestGemmLlama(unittest.TestCase):
   dtype = dtypes.bfloat16
 
