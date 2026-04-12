@@ -1,7 +1,7 @@
 import unittest
 import pytest
 from tinygrad import Tensor, dtypes
-from tinygrad.helpers import Context, DEV, getenv
+from tinygrad.helpers import Context
 import shutil
 
 def has_compiler(): return shutil.which("riscv64-unknown-elf-gcc") is not None
