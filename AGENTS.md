@@ -29,3 +29,4 @@
 - [LESSON] 2026-04-13: **Fake Unit Test Fraud**: test_asm_gemm.py execution evasion via early returns and bypassing mathematical correctness validation is testing fraud.
 - [LESSON] 2026-04-13: **Out-of-Scope Reversions**: Reverting out-of-scope cosmetic violations in apps, viz, and examples is a critical prerequisite to restoring test stability and preventing drive-by refactoring pollution.
 - [LESSON] 2026-04-13: **Harness.yaml Execution Configuration**: Ensure `test_cmd` is flattened into a single line, prepended with `rm -f /dev/shm/coralnpu_* &&` to proactively clear IPC leaks, and logically split into Strict Baseline and Informational Prototype runs to prevent overarching watchdogs from deadlocking on Detonating Stubs.
+- [LESSON] $(date -u +%Y-%m-%d): **Overarching Watchdog Deadlock Avoidance**: Do not rely on orchestrator watchdogs; isolate deadlocks natively (e.g. `pytest -x -n 0`) before concluding build mitigations.
