@@ -27,3 +27,4 @@
 - [LESSON] 2026-04-13: **GEMM Validation Sabotage**: Forcing early returns (`if DEV == "CORALNPU": return`) bypasses mathematical correctness validations and hardware FP register limits. It is forbidden.
 - [LESSON] 2026-04-13: **Deeply Nested Exception Masking**: Blanket exception masking (`except Exception: pass`) actively swallows IPC teardown lock exhaustion limits. Assert expected IPC teardown exceptions like `FileNotFoundError` or `BufferError` explicitly.
 - [LESSON] 2026-04-13: **Fake Unit Test Fraud**: test_asm_gemm.py execution evasion via early returns and bypassing mathematical correctness validation is testing fraud.
+- [LESSON] 2026-04-13: **Out-of-Scope Reversions**: Reverting out-of-scope cosmetic violations in apps, viz, and examples is a critical prerequisite to restoring test stability and preventing drive-by refactoring pollution.
