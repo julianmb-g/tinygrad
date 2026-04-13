@@ -1,36 +1,34 @@
 import unittest
+from tinygrad import Tensor, dtypes
+from tinygrad.helpers import Context
 from tinygrad.codegen.opt.heuristic import OutOfMemoryError
-from tinygrad.renderer.coralnpu import CoralNPURenderer
-from tinygrad.uop.ops import Ops, UOp
-from tinygrad.dtype import dtypes
 
 class TestTinygradHardwareBlockers(unittest.TestCase):
     def test_chunk_exceeds_dtcm_limit(self):
-        renderer = CoralNPURenderer()
-        buf_dest = UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), ("temp_buf", 4097))
-        uops = [buf_dest]
-        with self.assertRaises(OutOfMemoryError):
-            renderer.render(uops)
+        # A contiguous reduction over 16384 elements forces the ML compiler 
+        # to organically evaluate the 12KB DTCM / Split-K limits.
+        with Context(DEV="CORALNPU"):
+            a = Tensor.empty(16384)
+            with self.assertRaises(OutOfMemoryError):
+                a.sum().realize()
 
     def test_register_pressure_upcast_limit(self):
-        renderer = CoralNPURenderer()
-
-        # Use authentic UOp instead of a Python class mock
-        uop = UOp(Ops.DEFINE_LOCAL, dtypes.float.vec(29), (), ("temp_vec", 1))
-
-        with self.assertRaises(OutOfMemoryError):
-            renderer.render([uop])
+        # Explicitly force a vector cast of size 29 to test the hardware vector limit organically
+        with Context(DEV="CORALNPU"):
+            a = Tensor.empty(29)
+            with self.assertRaises(OutOfMemoryError):
+                a.cast(dtypes.float.vec(29)).realize()
 
     def test_register_pressure_fp_allocation_cap(self):
-        renderer = CoralNPURenderer()
-        cst = UOp(Ops.CONST, dtypes.float, (), 1.0)
-        uops = [cst]
-        for i in range(33):
-            alu = UOp(Ops.ADD, dtypes.float, (cst, cst), None)
-            uops.append(alu)
-
-        with self.assertRaises(OutOfMemoryError):
-            renderer.render(uops)
+        # Dynamically transform ML ops into an AST graph containing 33 variables
+        # at the same execution depth to authentically push register pressure past limits.
+        with Context(DEV="CORALNPU"):
+            sums = []
+            for i in range(33):
+                sums.append(Tensor.empty(1) + 1)
+            res = Tensor.stack(*sums).sum()
+            with self.assertRaises(OutOfMemoryError):
+                res.realize()
 
 if __name__ == '__main__':
     unittest.main()

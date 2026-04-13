@@ -667,9 +667,13 @@ class CoralNPURenderer(CStyleLanguage):
 
     # Deterministic Memory Ceiling: Abort if any contiguous chunk > 12KB
     for u in uops:
-      chunk_size = u.dtype.itemsize * getattr(u.dtype, 'count', 1)
-      if chunk_size > 12288:
-        raise OutOfMemoryError(f"OOM: Tensor chunk size {chunk_size} bytes exceeds 12KB limit")
+      if u.op is Ops.DEFINE_LOCAL:
+        chunk_size = u.dtype.itemsize * getattr(u.dtype, 'count', 1)
+        if chunk_size > 12288:
+          raise OutOfMemoryError(f"OOM: Tensor chunk size {chunk_size} bytes exceeds 12KB limit")
+      if u.op in {Ops.DEFINE_LOCAL, Ops.DEFINE_VAR, Ops.PARAM}:
+        if getattr(u.dtype, 'count', 1) > 28:
+          raise OutOfMemoryError(f"OOM: Vector upcast count {getattr(u.dtype, 'count', 1)} exceeds hardware limit of 28")
 
     # Task 3.3.3.2: Floating Point Allocation Cap
     depths = [0] * len(uops)
@@ -913,12 +917,6 @@ class CoralNPURenderer(CStyleLanguage):
 
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
     prefix = prefix or []
-
-    # Deterministic Memory Ceiling: Abort if any contiguous chunk > 12KB
-    for u in uops:
-      chunk_size = u.dtype.itemsize * getattr(u.dtype, 'count', 1)
-      if chunk_size > 12288:
-        raise OutOfMemoryError(f"OOM: Tensor chunk size {chunk_size} bytes exceeds 12KB limit")
 
     # DTCM Tiling check
     local_lifetimes = {}
