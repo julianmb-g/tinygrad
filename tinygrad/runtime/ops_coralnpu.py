@@ -25,26 +25,26 @@ def _safe_release_ipc(obj, name="unknown"):
   if hasattr(obj, 'release'):
     try: obj.release()
     except (ProcessLookupError, BufferError) as e: errors.append(AssertionError(f"IPC Lock Exhaustion ({name}): {e}"))
-    except (FileNotFoundError, OSError) as e: errors.append(e)
-    except Exception as e: logging.error(f"IPC Release Error ({name}): {e}")
+    except FileNotFoundError as e: errors.append(e)
+    except (TimeoutError, OSError) as e: logging.error(f"IPC Release Error ({name}): {e}")
 
   if hasattr(obj, 'close'):
     try: obj.close()
     except (ProcessLookupError, BufferError) as e: errors.append(AssertionError(f"IPC Lock Exhaustion ({name}): {e}"))
-    except (FileNotFoundError, OSError) as e: errors.append(e)
-    except Exception as e: logging.error(f"IPC Close Error ({name}): {e}")
+    except FileNotFoundError as e: errors.append(e)
+    except (TimeoutError, OSError) as e: logging.error(f"IPC Close Error ({name}): {e}")
 
   if hasattr(obj, 'unlink'):
     try: obj.unlink()
     except (ProcessLookupError, BufferError) as e: errors.append(AssertionError(f"IPC Lock Exhaustion ({name}): {e}"))
-    except (FileNotFoundError, OSError) as e: errors.append(e)
-    except Exception as e: logging.error(f"IPC Unlink Error ({name}): {e}")
+    except FileNotFoundError as e: errors.append(e)
+    except (TimeoutError, OSError) as e: logging.error(f"IPC Unlink Error ({name}): {e}")
 
   if hasattr(obj, 'buf') and hasattr(obj.buf, 'release'):
     try: obj.buf.release()
     except (ProcessLookupError, BufferError) as e: errors.append(AssertionError(f"IPC Lock Exhaustion ({name}): {e}"))
-    except (FileNotFoundError, OSError) as e: errors.append(e)
-    except Exception as e: logging.error(f"IPC Buffer Release Error ({name}): {e}")
+    except FileNotFoundError as e: errors.append(e)
+    except (TimeoutError, OSError) as e: logging.error(f"IPC Buffer Release Error ({name}): {e}")
 
   return errors
 
@@ -69,18 +69,18 @@ class CoralNPUAllocator(Allocator):
         errors = []
         for mem in getattr(self, 'mem', {}).values():
             try: errors.extend(_safe_release_ipc(mem, "mem"))
-            except Exception as e: errors.append(e)
+            except (TimeoutError, OSError) as e: errors.append(e)
         for shm in getattr(self, 'shms', {}).values():
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
                 try: shm.buf.release()
-                except Exception as e:
+                except (TimeoutError, OSError, BufferError) as e:
                     import logging
                     logging.error(f"IPC Buffer Release Error (shm._mmap): {e}")
                 import os
                 try: os.unlink(f"/dev/shm/{shm.name}")
-                except Exception: pass
+                except (TimeoutError, OSError): pass
             try: errors.extend(_safe_release_ipc(shm, "shm"))
-            except Exception as e: errors.append(e)
+            except (TimeoutError, OSError, BufferError) as e: errors.append(e)
         if errors:
             raise errors[0]
 

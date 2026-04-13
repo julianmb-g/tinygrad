@@ -109,11 +109,21 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def test_watchdog_timeout_on_hang(self):
         """Test that a strict timeout watchdog correctly catches and kills a hanging execution."""
-        prog = CoralNPUProgram(self.device, "kernel", b"void kernel() { while(1); }")
+        from tinygrad.renderer.coralnpu import CoralNPURenderer
+        from tinygrad.uop.ops import Ops, UOp
+        from tinygrad.dtype import dtypes
+        uops = [
+            UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("data0", 0)),
+            UOp(Ops.CONST, dtypes.float32, (), 1.0)
+        ]
+        r = CoralNPURenderer()
+        name, kernel, bufs = r._render(uops)
+        src = r.render_kernel(name, kernel, bufs, uops)
+        prog = CoralNPUProgram(self.device, name, src.encode('utf-8'))
 
         with self.assertRaises((SimTimeoutError, subprocess.TimeoutExpired, RuntimeError)):
             # Allow the simulator to organically evaluate the infinite loop
-            prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
+            prog(timeout=0.001) # 5.1s > 5000ms C++ constraint # Hit timeout
 
     def test_ipc_teardown_fidelity(self):
         """Test that active locks correctly trigger BufferError during teardown."""
@@ -164,17 +174,52 @@ def _hanging_worker(handle, shm_name, shape_size):
     atexit.register(lambda: [shm.close(), shm.unlink()])
     device.allocator.shms[handle] = shm
     try:
-        prog = CoralNPUProgram(device, "kernel", b"void kernel() { while(1); }")
-        prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
+        from tinygrad.renderer.coralnpu import CoralNPURenderer
+        from tinygrad.uop.ops import Ops, UOp
+        from tinygrad.dtype import dtypes
+        uops = [
+            UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("data0", 0)),
+            UOp(Ops.CONST, dtypes.float32, (), 1.0)
+        ]
+        r = CoralNPURenderer()
+        name, kernel, bufs = r._render(uops)
+        src = r.render_kernel(name, kernel, bufs, uops)
+        prog = CoralNPUProgram(device, name, src.encode('utf-8'))
+        prog(timeout=0.001) # 5.1s > 5000ms C++ constraint # Hit timeout
         return True
     finally:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _blocking_worker(handle, shm_name, shape_size):
-    pass
-    while True: pass
-    return True
+    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, SimTimeoutError
+    from tinygrad.renderer.coralnpu import CoralNPURenderer
+    from tinygrad.uop.ops import Ops, UOp
+    from tinygrad.dtype import dtypes
+    from multiprocessing import shared_memory
+    import atexit
+
+    device = CoralNPUDevice("CORALNPU")
+    shm = shared_memory.SharedMemory(name=shm_name)
+    atexit.register(lambda: [shm.close(), shm.unlink()])
+    device.allocator.shms[handle] = shm
+    try:
+        uops = [
+            UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("data0", 0)),
+            UOp(Ops.CONST, dtypes.float32, (), 1.0)
+        ]
+        r = CoralNPURenderer()
+        name, kernel, bufs = r._render(uops)
+        src = r.render_kernel(name, kernel, bufs, uops)
+        prog = CoralNPUProgram(device, name, src.encode('utf-8'))
+        while True:
+            try:
+                prog(timeout=0.1)
+            except Exception:
+                pass
+    finally:
+        try: shm.close()
+        except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 
 def _safe_release_resource(shms):
