@@ -27,27 +27,26 @@ def _safe_release_ipc(obj, name="unknown"):
     except (ProcessLookupError, BufferError) as e: errors.append(AssertionError(f"IPC Lock Exhaustion ({name}): {e}"))
     except (FileNotFoundError, OSError) as e: errors.append(e)
     except Exception as e: logging.error(f"IPC Release Error ({name}): {e}")
-    
+
   if hasattr(obj, 'close'):
     try: obj.close()
     except (ProcessLookupError, BufferError) as e: errors.append(AssertionError(f"IPC Lock Exhaustion ({name}): {e}"))
     except (FileNotFoundError, OSError) as e: errors.append(e)
     except Exception as e: logging.error(f"IPC Close Error ({name}): {e}")
-    
+
   if hasattr(obj, 'unlink'):
     try: obj.unlink()
     except (ProcessLookupError, BufferError) as e: errors.append(AssertionError(f"IPC Lock Exhaustion ({name}): {e}"))
     except (FileNotFoundError, OSError) as e: errors.append(e)
     except Exception as e: logging.error(f"IPC Unlink Error ({name}): {e}")
-    
+
   if hasattr(obj, 'buf') and hasattr(obj.buf, 'release'):
     try: obj.buf.release()
     except (ProcessLookupError, BufferError) as e: errors.append(AssertionError(f"IPC Lock Exhaustion ({name}): {e}"))
     except (FileNotFoundError, OSError) as e: errors.append(e)
     except Exception as e: logging.error(f"IPC Buffer Release Error ({name}): {e}")
-    
-  if errors:
-    raise errors[0]
+
+  return errors
 
 class CoralNPUAllocator(Allocator):
   def __init__(self, device):
@@ -69,7 +68,7 @@ class CoralNPUAllocator(Allocator):
   def __del__(self):
         errors = []
         for mem in getattr(self, 'mem', {}).values():
-            try: _safe_release_ipc(mem, "mem")
+            try: errors.extend(_safe_release_ipc(mem, "mem"))
             except Exception as e: errors.append(e)
         for shm in getattr(self, 'shms', {}).values():
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
@@ -80,7 +79,7 @@ class CoralNPUAllocator(Allocator):
                 import os
                 try: os.unlink(f"/dev/shm/{shm.name}")
                 except Exception: pass
-            try: _safe_release_ipc(shm, "shm")
+            try: errors.extend(_safe_release_ipc(shm, "shm"))
             except Exception as e: errors.append(e)
         if errors:
             raise errors[0]
@@ -142,7 +141,8 @@ class CoralNPUAllocator(Allocator):
                     self.mem[opaque].release()
                     del self.mem[opaque]
                     shm = self.shms.pop(opaque)
-                    _safe_release_ipc(shm, "shm_free")
+                    errs = _safe_release_ipc(shm, "shm_free")
+                    if errs: raise errs[0]
 
                     self.free_blocks.append((opaque, size_aligned))
                     self.free_blocks.sort()

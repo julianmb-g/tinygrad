@@ -11,20 +11,6 @@ from examples.mlperf.models.flat_llama import FP8_DTYPE
 def is_cdna4(): return getattr(Device[DEV.value.device or 'CORALNPU'].renderer, "arch", "").startswith("gfx950")
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
-  if (DEV.value.device or "CORALNPU") == "CORALNPU":
-    a = Tensor.empty(a_shape, dtype=dtype, device="CORALNPU").requires_grad_()
-    b = Tensor.empty(b_shape, dtype=dtype, device="CORALNPU").requires_grad_()
-    devs = tuple(f"CORALNPU:{i}" for i in range(gpus)) if (multi:=gpus>1) else None
-    if multi: a, b = a.shard(devs, axis=a_shard), b.shard(devs, axis=b_shard)
-    with Context(ASM_GEMM=1):
-      tst = asm_gemm(a, b)
-      tst.sum().backward()
-    import unittest
-    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
-    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      Tensor.realize(tst, a.grad, b.grad)
-    return
-
   Tensor.manual_seed(0)
   a_rand = Tensor.randn(a_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(DEV.value.device or 'CORALNPU')
   b_rand = Tensor.randn(b_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(DEV.value.device or 'CORALNPU')
@@ -60,54 +46,103 @@ def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=N
       np.testing.assert_allclose(tst.numpy(), ref.numpy(), atol=atol, rtol=rtol)
       np.testing.assert_allclose(a.grad.numpy(), a_ref.grad.numpy(), atol=grad_atol, rtol=grad_rtol)
       np.testing.assert_allclose(b.grad.numpy(), b_ref.grad.numpy(), atol=grad_atol, rtol=grad_rtol)
-    if is_cdna4(): assert tst.allclose(ref, atol=atol, rtol=rtol), "forward mismatch"
-    if is_cdna4(): assert a.grad.allclose(a_ref.grad.cast(a.grad.dtype), atol=grad_atol, rtol=grad_rtol), "grad_a mismatch"
-    if is_cdna4(): assert b.grad.allclose(b_ref.grad.cast(b.grad.dtype), atol=grad_atol, rtol=grad_rtol), "grad_b mismatch"
+    if is_cdna4() or (DEV.value.device or "CORALNPU") == "CORALNPU":
+      assert tst.allclose(ref, atol=atol, rtol=rtol), "forward mismatch"
+      assert a.grad.allclose(a_ref.grad.cast(a.grad.dtype), atol=grad_atol, rtol=grad_rtol), "grad_a mismatch"
+      assert b.grad.allclose(b_ref.grad.cast(b.grad.dtype), atol=grad_atol, rtol=grad_rtol), "grad_b mismatch"
+
+def _is_coral(): return (DEV.value.device or "CORALNPU") == "CORALNPU"
+
+def _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+  sz_a = batch * M * K * dtype.itemsize if batch > 1 else M * K * dtype.itemsize
+  sz_b = batch * K * N * dtype.itemsize if batch > 1 else K * N * dtype.itemsize
+  sz_c = batch * M * N * dtype.itemsize if batch > 1 else M * N * dtype.itemsize
+  if gpus > 1:
+    sz_a //= gpus
+    sz_b //= gpus
+    sz_c //= gpus
+  return (sz_a + sz_b + sz_c) > 28 * 1024
 
 def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=1, allow_scale=False) -> None:
-  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
+  if allow_scale and is_cdna4():
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
+  elif allow_scale and _is_coral() and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+    from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
+    import unittest
+    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
 def verify_asm_gemm_k_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=8, allow_scale=False) -> None:
-  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
+  if allow_scale and is_cdna4():
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
+  elif allow_scale and _is_coral() and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+    from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
+    import unittest
+    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
 
 def verify_asm_gemm_n_sharded(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
+  if allow_scale and is_cdna4():
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
+  elif allow_scale and _is_coral() and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+    from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
+    import unittest
+    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
 def verify_asm_gemm_m_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
+  if allow_scale and is_cdna4():
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
+  elif allow_scale and _is_coral() and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+    from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
+    import unittest
+    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
 def verify_asm_gemm_n_sharded_2d(M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
+  if allow_scale and is_cdna4():
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
+  elif allow_scale and _is_coral() and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+    from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
+    import unittest
+    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
 def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=2, allow_scale=False) -> None:
-  if allow_scale and is_cdna4(): # handled in run_asm_gemm for CORALNPU
+  if allow_scale and is_cdna4():
     import unittest
     with unittest.TestCase().assertRaises(OutOfMemoryError):
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
+  elif allow_scale and _is_coral() and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+    from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
+    import unittest
+    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)

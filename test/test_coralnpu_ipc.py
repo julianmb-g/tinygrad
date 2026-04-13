@@ -129,11 +129,10 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             del lock
             try:
                 shm.close()
-                shm.unlink()
-            except FileNotFoundError:
-                pass
-            except (ProcessLookupError, BufferError) as e:
-                raise AssertionError(f"IPC Lock Exhaustion: {e}")
+                if os.path.exists(f"/dev/shm/{shm.name}"):
+                    shm.unlink()
+            except (ProcessLookupError, BufferError):
+                raise AssertionError("IPC Lock Exhaustion")
 
 if __name__ == '__main__':
     unittest.main()
