@@ -8,7 +8,10 @@ from tinygrad.codegen.opt.heuristic import OutOfMemoryError
 from examples.mlperf.models.flat_llama import FP8_DTYPE
 
 # On non CDNA4 it will only validate the Tensor.custom_kernel integration
-def is_cdna4(): return getattr(Device[DEV.value.device or 'CORALNPU'].renderer, "arch", "").startswith("gfx950")
+def is_cdna4():
+  dev = DEV.value.device or 'CORALNPU'
+  if dev != "AMD": return False
+  return getattr(Device[dev].renderer, "arch", "").startswith("gfx950")
 
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1) -> None:
   Tensor.manual_seed(0)
