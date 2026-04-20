@@ -12,6 +12,13 @@ class TestLLMServer(unittest.TestCase):
     cls.mock_tok.decode = Mock(return_value="Hello")
     cls.mock_tok.end_turn = Mock(return_value=[998])
 
+    def stream_decoder_mock():
+      tok_map = {300: "Hel", 301: "lo", 302: " Wo", 303: "rld", 999: ""}
+      def _decode(tid=None):
+        return tok_map.get(tid, "") if tid is not None else ""
+      return _decode
+    cls.mock_tok.stream_decoder = stream_decoder_mock
+
     cls.mock_model = Mock()
     cls.mock_model.generate = Mock(side_effect=lambda ids, **kwargs: iter([300, 301, 999]))
     cls.mock_model.get_start_pos = Mock(return_value=0)
