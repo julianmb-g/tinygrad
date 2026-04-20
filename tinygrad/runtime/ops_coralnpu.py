@@ -72,15 +72,21 @@ class CoralNPUAllocator(Allocator):
             except (TimeoutError, OSError) as e: errors.append(e)
         for shm in getattr(self, 'shms', {}).values():
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
-                try: shm.buf.release()
+                try: 
+                    _lock = memoryview(shm.buf)
+                    shm.buf.release()
                 except (TimeoutError, OSError, BufferError) as e:
-                    import logging
-                    logging.error(f"IPC Buffer Release Error (shm._mmap): {e}")
+                    errors.append(e)
                 import os
-                try: os.unlink(f"/dev/shm/{shm.name}")
-                except (TimeoutError, OSError): pass
+                try: 
+                    os.unlink(f"/dev/shm/{shm.name}")
+                except FileNotFoundError as e:
+                    errors.append(e)
+                except (TimeoutError, OSError) as e:
+                    errors.append(e)
             try: errors.extend(_safe_release_ipc(shm, "shm"))
             except (TimeoutError, OSError, BufferError) as e: errors.append(e)
+            except FileNotFoundError as e: errors.append(e)
         if errors:
             raise errors[0]
 
