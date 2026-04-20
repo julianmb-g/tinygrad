@@ -113,8 +113,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
         uops = [
-            UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("data0", 0)),
-            UOp(Ops.CONST, dtypes.float32, (), 1.0)
+            UOp(Ops.SPECIAL, dtypes.int, (UOp(Ops.CONST, dtypes.int, (), 1),), "while(1);"),
         ]
         r = CoralNPURenderer()
         name, kernel, bufs = r._render(uops)
@@ -123,7 +122,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
         with self.assertRaises((SimTimeoutError, subprocess.TimeoutExpired, RuntimeError)):
             # Allow the simulator to organically evaluate the infinite loop
-            prog(timeout=0.001) # 5.1s > 5000ms C++ constraint # Hit timeout
+            prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
 
     def test_ipc_teardown_fidelity(self):
         """Test that active locks correctly trigger BufferError during teardown."""
@@ -168,7 +167,7 @@ def _shared_worker(handle, shm_name, shape_size):
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _hanging_worker(handle, shm_name, shape_size):
-    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
+    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
     atexit.register(lambda: [shm.close(), shm.unlink()])
@@ -178,14 +177,13 @@ def _hanging_worker(handle, shm_name, shape_size):
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
         uops = [
-            UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("data0", 0)),
-            UOp(Ops.CONST, dtypes.float32, (), 1.0)
+            UOp(Ops.SPECIAL, dtypes.int, (UOp(Ops.CONST, dtypes.int, (), 1),), "while(1);"),
         ]
         r = CoralNPURenderer()
         name, kernel, bufs = r._render(uops)
         src = r.render_kernel(name, kernel, bufs, uops)
         prog = CoralNPUProgram(device, name, src.encode('utf-8'))
-        prog(timeout=0.001) # 5.1s > 5000ms C++ constraint # Hit timeout
+        prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
         return True
     finally:
         try: shm.close()
