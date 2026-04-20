@@ -1,25 +1,23 @@
 import os
+import subprocess
 import tempfile
 import unittest
-import unittest.mock
 
 from tinygrad.dtype import dtypes
-from tinygrad.renderer.coralnpu import CoralNPUCompiler, CoralNPURenderer
+from tinygrad.renderer.coralnpu import CoralNPURenderer
 from tinygrad.uop.ops import Ops, UOp
+from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
 
 
 class TestCoralNPUBssPreservation(unittest.TestCase):
     def test_global_io_buffers_noinit_attribute(self):
+        device = CoralNPUDevice("CORALNPU")
         renderer = CoralNPURenderer()
 
-        # 1. Create an organic UOp graph utilizing Ops.PARAM to represent global arrays
-        # data0 (float32 pointer), data1 (half pointer), and an output int32 array.
         p0 = UOp(Ops.PARAM, dtypes.float32.ptr(), (), 0)
         p1 = UOp(Ops.PARAM, dtypes.float16.ptr(), (), 1)
         p2 = UOp(Ops.PARAM, dtypes.int32.ptr(), (), 2)
 
-        # We need a SINK or STORE to ensure they are parsed as writable if needed,
-        # but just parsing them through `_render` organically creates `bufs`.
         idx = UOp(Ops.CONST, dtypes.int, (), 0)
         val = UOp(Ops.CONST, dtypes.float32, (), 42.0)
 
@@ -29,33 +27,36 @@ class TestCoralNPUBssPreservation(unittest.TestCase):
         sink = UOp(Ops.SINK, dtypes.void, (p0, p1, p2, st))
         uops = [p0, p1, p2, idx, bidx, val, st, sink]
 
-        # Organically extract the name, kernel text, and parsed buffers via the renderer
         name, kernel, bufs = renderer._render(uops)
-
-        # Pass to the target specific compiler stage
         src = renderer.render_kernel(name, kernel, bufs, uops)
 
-        # Assert that the .noinit section attribute was applied to each global buffer
-        # In tinygrad renderer data0 is float32, data1 is half, data2 is int32_t.
-        self.assertIn('__attribute__((section(".noinit"))) float data0[32768 / sizeof(float)];', src)
-        self.assertIn('__attribute__((section(".noinit"))) half data1[32768 / sizeof(half)];', src)
-        self.assertIn('__attribute__((section(".noinit"))) int32_t data2[32768 / sizeof(int32_t)];', src)
+        prog = CoralNPUProgram(device, name, src.encode('utf-8'))
+        
+        try:
+            elf_path = prog._compile_on_host(src)
+        except FileNotFoundError:
+            self.fail("Cross-compiler riscv64-unknown-elf-gcc is missing from the environment. Authentic testing requires the compiler.")
 
-        # 2. Check linker script generation hermetically using mock.patch.dict
-        compiler = CoralNPUCompiler()
-        with tempfile.TemporaryDirectory() as temp_dir:
-            with unittest.mock.patch.dict(os.environ, {"SAVE_BEAM_DIR": temp_dir}):
-                # This should organically write the kernel.cc and kernel.ld files
-                compiler.compile(src)
+        self.assertTrue(os.path.exists(elf_path))
 
-                # Check that .noinit (NOLOAD) is present in the linker script
-                ld_path = os.path.join(temp_dir, f"kernel_{compiler.kernel_counter - 1}.ld")
-                self.assertTrue(os.path.exists(ld_path))
-
-                with open(ld_path, "r") as f:
-                    ld_content = f.read()
-
-                self.assertIn(".noinit (NOLOAD) : { . = ALIGN(16); *(.noinit*) } > EXTMEM", ld_content)
-
+        # Check readelf output
+        output = subprocess.check_output(["riscv64-unknown-elf-readelf", "-S", elf_path]).decode("utf-8")
+        
+        found_noinit = False
+        for line in output.split('\n'):
+            if ".noinit" in line:
+                found_noinit = True
+                parts = line.split()
+                # find the index of .noinit
+                addr_idx = parts.index(".noinit") + 2
+                addr = parts[addr_idx]
+                
+                # EXTMEM is mapped to 0x20000000
+                addr_int = int(addr, 16)
+                self.assertTrue(addr_int >= 0x20000000, f"Expected .noinit to be in EXTMEM (>= 0x20000000), but found it at {hex(addr_int)}")
+                break
+                
+        self.assertTrue(found_noinit, "Could not find .noinit section in compiled ELF")
+        
 if __name__ == '__main__':
     unittest.main()
