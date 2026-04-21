@@ -667,11 +667,13 @@ class CoralNPURenderer(CStyleLanguage):
 
     # Deterministic Memory Ceiling: Abort if any contiguous chunk > 12KB
     for u in uops:
-      if u.op is Ops.DEFINE_LOCAL:
-        chunk_size = u.dtype.itemsize * getattr(u.dtype, 'count', 1)
+      if u.op in {Ops.DEFINE_LOCAL, Ops.PARAM, getattr(Ops, 'DEFINE_GLOBAL', None)}:
+        chunk_size = getattr(u.dtype, 'itemsize', 1) * getattr(u.dtype, 'count', 1)
+        if isinstance(u.arg, tuple) and len(u.arg) > 1:
+          chunk_size = u.arg[1] * getattr(u.dtype, 'itemsize', 1)
         if chunk_size > 12288:
           raise OutOfMemoryError(f"OOM: Tensor chunk size {chunk_size} bytes exceeds 12KB limit")
-      if u.op in {Ops.DEFINE_LOCAL, Ops.DEFINE_VAR, Ops.PARAM}:
+      if u.op in {Ops.DEFINE_LOCAL, Ops.PARAM, Ops.DEFINE_VAR}:
         if getattr(u.dtype, 'count', 1) > 28:
           raise OutOfMemoryError(f"OOM: Vector upcast count {getattr(u.dtype, 'count', 1)} exceeds hardware limit of 28")
 
