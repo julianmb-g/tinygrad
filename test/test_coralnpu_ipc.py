@@ -193,11 +193,10 @@ def _blocking_worker(handle, shm_name, shape_size):
         name, kernel, bufs = r._render(uops)
         src = r.render_kernel(name, kernel, bufs, uops)
         prog = CoralNPUProgram(device, name, src.encode('utf-8'))
-        while True:
-            try:
-                import time; time.sleep(1)
-            except Exception:
-                pass
+        try:
+            prog()
+        except (TimeoutError, OSError, BufferError):
+            pass
     finally:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
@@ -211,7 +210,7 @@ def _lock_worker(handle, shm_name, shape_size):
     lock = memoryview(shm.buf)
     try:
         shm.close()
-    except Exception as e:
+    except (ValueError, OSError, BufferError) as e:
         return e
     return None
 
@@ -219,9 +218,9 @@ def _safe_release_resource(shms):
     errors = []
     for shm in list(shms):
         try: shm.close()
-        except (ProcessLookupError, BufferError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
+        except (ProcessLookupError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
         try: shm.unlink()
-        except (ProcessLookupError, BufferError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
+        except (ProcessLookupError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
     if errors:
         raise AssertionError("\n".join(errors))
 
