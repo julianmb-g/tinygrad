@@ -73,7 +73,6 @@ class CoralNPUAllocator(Allocator):
         for shm in getattr(self, 'shms', {}).values():
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
                 try: 
-                    _lock = memoryview(shm.buf)
                     shm.buf.release()
                 except (TimeoutError, OSError, BufferError) as e:
                     errors.append(e)
@@ -88,7 +87,9 @@ class CoralNPUAllocator(Allocator):
             except (TimeoutError, OSError, BufferError) as e: errors.append(e)
             except FileNotFoundError as e: errors.append(e)
         if errors:
-            raise errors[0]
+            import logging
+            logging.error(f"CoralNPUAllocator __del__ errors: {errors}")
+            # Do not raise in __del__ as it causes python GC panics leading to hangs/aborts.
 
   def _alloc(self, size:int, options:BufferSpec):
     with self.lock:

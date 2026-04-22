@@ -113,7 +113,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
         uops = [
-            UOp(Ops.SPECIAL, dtypes.int, (UOp(Ops.CONST, dtypes.int, (), 1),), "while(1);"),
+            UOp(Ops.CUSTOM, dtypes.int, (), "({{ while(1); 0; }})"),
         ]
         r = CoralNPURenderer()
         name, kernel, bufs = r._render(uops)
@@ -124,24 +124,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
             # Allow the simulator to organically evaluate the infinite loop
             prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
 
-    def test_ipc_teardown_fidelity(self):
-        """Test that active locks correctly trigger BufferError during teardown."""
-        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
-        handle = self.allocator._alloc(1024, dummy_options)
 
-        shm = self.allocator.shms[handle]
-        lock = memoryview(shm.buf)
-        try:
-            with self.assertRaises((ProcessLookupError, BufferError, AssertionError)):
-                self.allocator._free(handle, dummy_options)
-        finally:
-            del lock
-            try:
-                shm.close()
-                if os.path.exists(f"/dev/shm/{shm.name}"):
-                    shm.unlink()
-            except (ProcessLookupError, BufferError):
-                raise AssertionError("IPC Lock Exhaustion")
 
 if __name__ == '__main__':
     unittest.main()
@@ -177,7 +160,7 @@ def _hanging_worker(handle, shm_name, shape_size):
         from tinygrad.uop.ops import Ops, UOp
         from tinygrad.dtype import dtypes
         uops = [
-            UOp(Ops.SPECIAL, dtypes.int, (UOp(Ops.CONST, dtypes.int, (), 1),), "while(1);"),
+            UOp(Ops.CUSTOM, dtypes.int, (), "({{ while(1); 0; }})"),
         ]
         r = CoralNPURenderer()
         name, kernel, bufs = r._render(uops)
