@@ -50,6 +50,7 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def tearDown(self):
         for shm in list(self.allocator.shms.values()):
+            try:
             try: shm.close()
             except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
             try: shm.unlink()
@@ -146,6 +147,7 @@ def _shared_worker(handle, shm_name, shape_size):
         arr[:] = res[:]
         return True
     finally:
+        try:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -169,6 +171,7 @@ def _hanging_worker(handle, shm_name, shape_size):
         prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
         return True
     finally:
+        try:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -196,9 +199,10 @@ def _blocking_worker(handle, shm_name, shape_size):
         while True:
             try:
                 prog(timeout=0.1)
-            except Exception:
+            except (SimTimeoutError, RuntimeError, subprocess.TimeoutExpired):
                 pass
     finally:
+        try:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -206,6 +210,7 @@ def _blocking_worker(handle, shm_name, shape_size):
 def _safe_release_resource(shms):
     errors = []
     for shm in list(shms):
+        try:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
         try: shm.unlink()

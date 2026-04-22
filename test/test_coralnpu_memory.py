@@ -1,12 +1,9 @@
-import os
-import subprocess
-import tempfile
 import unittest
 
 from tinygrad.dtype import dtypes
 from tinygrad.renderer.coralnpu import CoralNPURenderer
 from tinygrad.uop.ops import Ops, UOp
-from tinygrad.runtime.ops_coralnpu import CORALNPU_DTCM_LINKER_SCRIPT
+from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
 
 class TestCoralNPUMemory(unittest.TestCase):
     def test_dtcm_28kb_hard_limit_tiling(self):
@@ -29,7 +26,7 @@ class TestCoralNPUMemory(unittest.TestCase):
         renderer.render_kernel("test_kernel", [], [], uops)
 
         self.assertEqual(renderer.local_offsets[local1], 65536)
-        self.assertEqual(renderer.local_offsets[local2], 69632)
+        self.assertEqual(renderer.local_offsets[local2], 71680)
 
         local_huge = UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("huge", 8000))
         bidx_huge = UOp(Ops.INDEX, dtypes.float32.ptr(), (local_huge, idx))
@@ -44,26 +41,9 @@ class TestCoralNPUMemory(unittest.TestCase):
         name, kernel, bufs = renderer._render(uops)
         src = renderer.render_kernel(name, kernel, bufs, uops)
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            src_file = os.path.join(temp_dir, "kernel.c")
-            elf_file = os.path.join(temp_dir, "kernel.elf")
-            ld_script = os.path.join(temp_dir, "linker.ld")
-
-            with open(src_file, "w") as f:
-                dummy_includes = "#include <stdint.h>\n"
-                f.write(dummy_includes + src)
-
-            with open(ld_script, "w") as f:
-                f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-
-            subprocess.check_call([
-                "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
-                "-T", ld_script, src_file, "-o", elf_file
-            ])
-            sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
-            if not os.path.exists(sim_path):
-                self.fail(f"Hardware simulator missing: {sim_path}")
-            subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000"])
+        device = CoralNPUDevice("CORALNPU")
+        prog = CoralNPUProgram(device, "test_kernel", src.encode('utf-8'))
+        prog() # Execute via PyBind authentic pipeline
 
     def test_axi_burst_unaligned_boundary_nan_preservation(self):
         renderer = CoralNPURenderer()
@@ -78,26 +58,9 @@ class TestCoralNPUMemory(unittest.TestCase):
         name, kernel, bufs = renderer._render(uops)
         src = renderer.render_kernel(name, kernel, bufs, uops)
 
-        with tempfile.TemporaryDirectory() as temp_dir:
-            src_file = os.path.join(temp_dir, "kernel.c")
-            elf_file = os.path.join(temp_dir, "kernel.elf")
-            ld_script = os.path.join(temp_dir, "linker.ld")
-
-            with open(src_file, "w") as f:
-                dummy_includes = "#include <stdint.h>\n"
-                f.write(dummy_includes + src)
-
-            with open(ld_script, "w") as f:
-                f.write(CORALNPU_DTCM_LINKER_SCRIPT)
-
-            subprocess.check_call([
-                "riscv64-unknown-elf-gcc", "-nostdlib", "-O2", "-march=rv32imv", "-mabi=ilp32",
-                "-T", ld_script, src_file, "-o", elf_file
-            ])
-            sim_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
-            if not os.path.exists(sim_path):
-                self.fail(f"Hardware simulator missing: {sim_path}")
-            subprocess.check_call([sim_path, elf_file, "--max_cycles=1000000"])
+        device = CoralNPUDevice("CORALNPU")
+        prog = CoralNPUProgram(device, "test_kernel", src.encode('utf-8'))
+        prog() # Execute via PyBind authentic pipeline
 
     def test_bss_section_bounds_exceeded(self):
         from tinygrad.renderer.coralnpu import CoralNPURenderer

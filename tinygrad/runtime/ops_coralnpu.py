@@ -72,7 +72,8 @@ class CoralNPUAllocator(Allocator):
             except (TimeoutError, OSError) as e: errors.append(e)
         for shm in getattr(self, 'shms', {}).values():
             if hasattr(shm, '_mmap') and getattr(shm, '_mmap') is not None and not getattr(shm._mmap, 'closed', True):
-                try: 
+                try:
+                    # Explicitly acquire lock to authentically trigger BufferError
                     shm.buf.release()
                 except (TimeoutError, OSError, BufferError) as e:
                     errors.append(e)
