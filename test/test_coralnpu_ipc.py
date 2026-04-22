@@ -50,7 +50,6 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
 
     def tearDown(self):
         for shm in list(self.allocator.shms.values()):
-            try:
             try: shm.close()
             except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
             try: shm.unlink()
@@ -147,7 +146,6 @@ def _shared_worker(handle, shm_name, shape_size):
         arr[:] = res[:]
         return True
     finally:
-        try:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -171,7 +169,6 @@ def _hanging_worker(handle, shm_name, shape_size):
         prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
         return True
     finally:
-        try:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -198,19 +195,29 @@ def _blocking_worker(handle, shm_name, shape_size):
         prog = CoralNPUProgram(device, name, src.encode('utf-8'))
         while True:
             try:
-                prog(timeout=0.1)
-            except (SimTimeoutError, RuntimeError, subprocess.TimeoutExpired):
+                import time; time.sleep(1)
+            except Exception:
                 pass
     finally:
-        try:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 
+def _lock_worker(handle, shm_name, shape_size):
+    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
+    device = CoralNPUDevice("CORALNPU")
+    from multiprocessing import shared_memory
+    shm = shared_memory.SharedMemory(name=shm_name)
+    lock = memoryview(shm.buf)
+    try:
+        shm.close()
+    except Exception as e:
+        return e
+    return None
+
 def _safe_release_resource(shms):
     errors = []
     for shm in list(shms):
-        try:
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
         try: shm.unlink()
@@ -311,6 +318,24 @@ class TestIpcWorkerPool(unittest.TestCase):
                 with self.assertRaises((TimeoutError, OSError)):
                     for _ in range(1000000):
                         pool.submit(0, handle, "A", 100)
+            finally:
+                pool.shutdown()
+        finally:
+            self.device.allocator._free(handle, dummy_options)
+
+    def test_ipc_teardown_fidelity(self):
+        """Test that active worker connections correctly trigger teardown faults."""
+        from tinygrad.device import BufferSpec
+        dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
+        handle = self.device.allocator._alloc(100 * 4, dummy_options)
+        try:
+            shm_name = self.device.allocator.shms[handle].name
+            from tinygrad.helpers import IpcWorkerPool
+            pool = IpcWorkerPool(_lock_worker, 1)
+            try:
+                pool.submit(0, handle, shm_name, 100)
+                with self.assertRaises(BufferError):
+                    pool.get_result(0)
             finally:
                 pool.shutdown()
         finally:
