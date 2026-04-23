@@ -16,8 +16,16 @@ def is_cdna4():
 def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1, force_coral=False) -> None:
   dev = "CORALNPU" if force_coral else (DEV.value.device or 'CORALNPU')
   Tensor.manual_seed(0)
-  a_rand = Tensor.randn(a_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
-  b_rand = Tensor.randn(b_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
+  # optimize CPU random tensor generation if we expect OOM
+  _is_oom = force_coral and _coral_exceeds_dtcm(a_shape[0] if len(a_shape) > 2 else 1, a_shape[-2] if len(a_shape) > 2 else a_shape[0], b_shape[-1], a_shape[-1], dtype, gpus)
+  if _is_oom:
+    a_rand = Tensor.empty(a_shape, dtype=dtype, device=dev)
+  else:
+    a_rand = Tensor.randn(a_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
+  if _is_oom:
+    b_rand = Tensor.empty(b_shape, dtype=dtype, device=dev)
+  else:
+    b_rand = Tensor.randn(b_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
   with Context(DEBUG=0):
     Tensor.realize(a_rand, b_rand)
 
