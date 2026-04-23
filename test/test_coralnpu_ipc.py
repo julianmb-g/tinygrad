@@ -203,11 +203,10 @@ def _blocking_worker(handle, shm_name, shape_size):
 
 
 def _lock_worker(handle, shm_name, shape_size):
-    from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
-    device = CoralNPUDevice("CORALNPU")
     from multiprocessing import shared_memory
     shm = shared_memory.SharedMemory(name=shm_name)
     lock = memoryview(shm.buf)
+    assert len(lock) > 0
     try:
         shm.close()
     except (ValueError, OSError, BufferError) as e:
