@@ -1,3 +1,4 @@
+from tinygrad.device import Device
 from tinygrad.codegen.opt.heuristic import OutOfMemoryError
 from tinygrad.runtime.ops_coralnpu import kDefaultCompilationTimeoutS
 import os
@@ -62,13 +63,13 @@ class TestCoralNPURenderer(unittest.TestCase):
 
     # Prove it conforms to ML compiler expected interfaces natively by compiling an AST
     # Generate a basic UOps graph natively and organically
-    a = Tensor([1, 2, 3], device="CPU").realize()
-    b = Tensor([4, 5, 6], device="CPU").realize()
+    a = Tensor([1, 2, 3], device=Device.DEFAULT).realize()
+    b = Tensor([4, 5, 6], device=Device.DEFAULT).realize()
     c = (a + b)
     si = c.schedule()[-1]
 
     from tinygrad.engine.realize import get_runner
-    runner = get_runner("CPU", si.ast)
+    runner = get_runner(Device.DEFAULT, si.ast)
 
     name, kernel, bufs = renderer._render(runner.p.uops)
     src = renderer.render_kernel(name, kernel, bufs, runner.p.uops)
