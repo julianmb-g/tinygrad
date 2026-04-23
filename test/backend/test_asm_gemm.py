@@ -73,6 +73,7 @@ def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:i
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
   elif allow_scale and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
@@ -86,6 +87,7 @@ def verify_asm_gemm_k_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:in
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
   elif allow_scale and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
@@ -99,6 +101,7 @@ def verify_asm_gemm_n_sharded(batch:int, M:int, N:int, K:int, dtype=dtypes.float
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
   elif allow_scale and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
@@ -112,6 +115,7 @@ def verify_asm_gemm_m_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:in
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
   elif allow_scale and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
@@ -125,6 +129,7 @@ def verify_asm_gemm_n_sharded_2d(M:int, N:int, K:int, dtype=dtypes.float16, gpus
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
   elif allow_scale and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
@@ -138,6 +143,7 @@ def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.fl
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
   elif allow_scale and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
