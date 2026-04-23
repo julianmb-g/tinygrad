@@ -621,7 +621,8 @@ class TinygradAutoTunerIPC:
           elf_path = f.name
 
         try:
-          cmd = ['coralnpu_v2_sim', elf_path, '--max_cycles=1000000']
+          sim_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
+          cmd = [sim_path if os.path.exists(sim_path) else 'coralnpu_v2_sim', elf_path, '--max_cycles=1000000']
           p = subprocess.run(cmd, preexec_fn=os.setpgrp, capture_output=True, text=True)
 
           # Intercept mcause != 0 hardware traps
