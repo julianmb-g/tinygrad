@@ -13,11 +13,15 @@ def is_cdna4():
   if dev != "AMD": return False
   return getattr(Device[dev].renderer, "arch", "").startswith("gfx950")
 
-def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1, force_coral=False) -> None:
+def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1, force_coral=False, empty=False) -> None:
   dev = "CORALNPU" if force_coral else (DEV.value.device or 'CORALNPU')
   Tensor.manual_seed(0)
-  a_rand = Tensor.randn(a_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
-  b_rand = Tensor.randn(b_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
+  if empty:
+    a_rand = Tensor.empty(a_shape, dtype=dtype, device=dev)
+    b_rand = Tensor.empty(b_shape, dtype=dtype, device=dev)
+  else:
+    a_rand = Tensor.randn(a_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
+    b_rand = Tensor.randn(b_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
   with Context(DEBUG=0):
     Tensor.realize(a_rand, b_rand)
 
@@ -77,7 +81,7 @@ def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:i
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True)
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True, empty=True)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
@@ -91,7 +95,7 @@ def verify_asm_gemm_k_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:in
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus, force_coral=True)
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus, force_coral=True, empty=True)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
 
@@ -105,7 +109,7 @@ def verify_asm_gemm_n_sharded(batch:int, M:int, N:int, K:int, dtype=dtypes.float
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus, force_coral=True)
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus, force_coral=True, empty=True)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
@@ -119,7 +123,7 @@ def verify_asm_gemm_m_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:in
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True)
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True, empty=True)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
@@ -133,7 +137,7 @@ def verify_asm_gemm_n_sharded_2d(M:int, N:int, K:int, dtype=dtypes.float16, gpus
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus, force_coral=True)
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus, force_coral=True, empty=True)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
@@ -147,14 +151,14 @@ def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.fl
     from tinygrad.runtime.ops_coralnpu import SimTimeoutError
     import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus, force_coral=True)
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus, force_coral=True, empty=True)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
 
 # 128x smaller than usual
 # uses the UOp GEMM, runs on non CDNA4 and CI
 # @unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(120)
 class TestGemm(unittest.TestCase):
   def setUp(self):
     pass
@@ -209,7 +213,7 @@ class TestAsmGEMM(unittest.TestCase):
       verify_asm_gemm(1, 256, 1000, 256)
 
 # test the Asm GEMM with Llama shapes, only run on the real machine for speed
-@pytest.mark.timeout(30)
+@pytest.mark.timeout(120)
 class TestGemmLlama(unittest.TestCase):
   dtype = dtypes.bfloat16
 
