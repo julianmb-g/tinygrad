@@ -133,8 +133,10 @@ def _shared_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
-    atexit.register(lambda: [shm.close(), shm.unlink()])
     device.allocator.shms[handle] = shm
+    lock = memoryview(shm.buf)
+    assert len(lock) > 0
+    atexit.register(lambda: [shm.close(), shm.unlink()])
     try:
         from tinygrad.tensor import Tensor
         # Create a tensor mapped directly to the shared memory via its handle
@@ -146,6 +148,8 @@ def _shared_worker(handle, shm_name, shape_size):
         arr[:] = res[:]
         return True
     finally:
+        if 'arr' in locals(): del arr
+        lock.release()
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -153,8 +157,10 @@ def _hanging_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
-    atexit.register(lambda: [shm.close(), shm.unlink()])
     device.allocator.shms[handle] = shm
+    lock = memoryview(shm.buf)
+    assert len(lock) > 0
+    atexit.register(lambda: [shm.close(), shm.unlink()])
     try:
         from tinygrad.renderer.coralnpu import CoralNPURenderer
         from tinygrad.uop.ops import Ops, UOp
@@ -169,6 +175,7 @@ def _hanging_worker(handle, shm_name, shape_size):
         prog(timeout=5.1) # 5.1s > 5000ms C++ constraint # Hit timeout
         return True
     finally:
+        lock.release()
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -182,22 +189,29 @@ def _blocking_worker(handle, shm_name, shape_size):
 
     device = CoralNPUDevice("CORALNPU")
     shm = shared_memory.SharedMemory(name=shm_name)
-    atexit.register(lambda: [shm.close(), shm.unlink()])
     device.allocator.shms[handle] = shm
+    lock = memoryview(shm.buf)
+    assert len(lock) > 0
+    # Clear the sentinel byte
+    lock[0] = 0
+    atexit.register(lambda: [shm.close(), shm.unlink()])
     try:
         uops = [
-            UOp(Ops.DEFINE_LOCAL, dtypes.float32.ptr(), (), ("data0", 0)),
-            UOp(Ops.CONST, dtypes.float32, (), 1.0)
+            UOp(Ops.CUSTOM, dtypes.int, (), "({{ while(1); 0; }})"),
         ]
         r = CoralNPURenderer()
         name, kernel, bufs = r._render(uops)
         src = r.render_kernel(name, kernel, bufs, uops)
         prog = CoralNPUProgram(device, name, src.encode('utf-8'))
-        try:
-            prog()
-        except (TimeoutError, OSError, BufferError):
-            pass
+        while True:
+            if lock[0] == 1:
+                break
+            try:
+                prog(timeout=1.0) # Short timeout so it checks the sentinel frequently
+            except (TimeoutError, OSError, BufferError, SimTimeoutError):
+                pass
     finally:
+        lock.release()
         try: shm.close()
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
@@ -310,12 +324,16 @@ class TestIpcWorkerPool(unittest.TestCase):
         handle = self.device.allocator._alloc(100 * 4, dummy_options)
         try:
             shm_name = self.device.allocator.shms[handle].name
+            # Initialize sentinel
+            self.device.allocator.shms[handle].buf[0] = 0
             pool = IpcWorkerPool(_blocking_worker, 1)
             try:
                 pool.submit(0, handle, shm_name, 100)
                 with self.assertRaises((TimeoutError, OSError)):
                     for _ in range(1000000):
                         pool.submit(0, handle, "A", 100)
+                # Send sentinel to elegantly stop the worker's loop
+                self.device.allocator.shms[handle].buf[0] = 1
             finally:
                 pool.shutdown()
         finally:
