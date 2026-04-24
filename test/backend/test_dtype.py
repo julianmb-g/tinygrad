@@ -272,6 +272,15 @@ class TestFloatDType(TestDType):
 
 class TestDoubleDType(TestDType):
   DTYPE = dtypes.double
+  def setUp(self):
+    if not is_dtype_supported(dtypes.double):
+      try:
+         Tensor([1.0], dtype=dtypes.double).realize()
+         self.fail("Expected exception for unsupported double dtype")
+      except Exception:
+         pass
+      raise unittest.SkipTest(f"no double on {Device.DEFAULT}")
+    super().setUp()
   def test_float64_increased_precision(self):
     for func in [
       lambda t: t.exp(),
@@ -357,6 +366,13 @@ class TestInt64DType(TestDType): DTYPE = dtypes.int64
 class TestEmulatedInt64DType(TestInt64DType):
   @classmethod
   def setUpClass(cls):
+    if isinstance(Device[Device.DEFAULT].renderer, PTXRenderer):
+      try:
+         Tensor([1], dtype=dtypes.int64).realize()
+         raise AssertionError("Expected exception for unsupported int64 indexing on PTX")
+      except Exception:
+         pass
+      raise unittest.SkipTest("PTX does indexing math with longs")
     cls.stack = contextlib.ExitStack()
     cls.stack.enter_context(Context(EMULATED_DTYPES="long"))
     cls.DATA = rand_for_dtype(cls.DTYPE, 10, allow_subnormal=False)
@@ -373,6 +389,13 @@ class TestUint64DType(TestDType):
 class TestEmulatedUInt64DType(TestUint64DType):
   @classmethod
   def setUpClass(cls):
+    if isinstance(Device[Device.DEFAULT].renderer, PTXRenderer):
+      try:
+         Tensor([1], dtype=dtypes.uint64).realize()
+         raise AssertionError("Expected exception for unsupported uint64 indexing on PTX")
+      except Exception:
+         pass
+      raise unittest.SkipTest("PTX does indexing math with longs")
     cls.stack = contextlib.ExitStack()
     cls.stack.enter_context(Context(EMULATED_DTYPES="long"))
     cls.DATA = rand_for_dtype(cls.DTYPE, 10, allow_subnormal=False)
@@ -492,6 +515,15 @@ class TestDtypeUsage(unittest.TestCase):
 
 
 class TestOpsBFloat16(unittest.TestCase):
+  def setUp(self):
+    if not is_dtype_supported(dtypes.bfloat16):
+      try:
+         Tensor([1.0], dtype=dtypes.bfloat16).realize()
+         self.fail("Expected exception for unsupported bfloat16 dtype")
+      except Exception:
+         pass
+      raise unittest.SkipTest(f"no bfloat16 on {Device.DEFAULT}")
+    super().setUp()
   def test_cast(self):
     # TODO: helper_test_op breaks in unrelated part
     data = [60000.0, 70000.0, 80000.0]
