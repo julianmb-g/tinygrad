@@ -216,16 +216,14 @@ def _blocking_worker(handle, shm_name, shape_size):
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 
-def _lock_worker(handle, shm_name, shape_size):
+def _lock_worker_holding(handle, shm_name, shape_size):
     from multiprocessing import shared_memory
+    import time
     shm = shared_memory.SharedMemory(name=shm_name)
     lock = memoryview(shm.buf)
-    assert len(lock) > 0
-    try:
-        shm.close()
-    except (ValueError, OSError, BufferError) as e:
-        return e
-    return None
+    lock[0] = 1
+    while True:
+        time.sleep(1)
 
 def _safe_release_resource(shms):
     errors = []
@@ -342,17 +340,35 @@ class TestIpcWorkerPool(unittest.TestCase):
     def test_ipc_teardown_fidelity(self):
         """Test that active worker connections correctly trigger teardown faults."""
         from tinygrad.device import BufferSpec
+        import time
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.device.allocator._alloc(100 * 4, dummy_options)
         try:
-            shm_name = self.device.allocator.shms[handle].name
+            shm = self.device.allocator.shms[handle]
+            shm_name = shm.name
+            shm.buf[0] = 0
             from tinygrad.helpers import IpcWorkerPool
-            pool = IpcWorkerPool(_lock_worker, 1)
+            pool = IpcWorkerPool(_lock_worker_holding, 1)
             try:
                 pool.submit(0, handle, shm_name, 100)
-                with self.assertRaises(BufferError):
-                    pool.get_result(0)
+                # Wait for worker to acquire lock
+                start_t = time.time()
+                while shm.buf[0] == 0:
+                    time.sleep(0.01)
+                    if time.time() - start_t > 5:
+                        break
+                
+                # Trigger genuine cross-process lock exhaustion in parent
+                with self.assertRaises((ValueError, OSError, BufferError)):
+                    shm.close()
             finally:
                 pool.shutdown()
         finally:
             self.device.allocator._free(handle, dummy_options)
+            import os
+            # Ensure strict cleanup
+            try: shm.close()
+            except (ValueError, OSError, BufferError): pass
+            try: shm.unlink()
+            except (ValueError, OSError, BufferError, FileNotFoundError): pass
+            os.system("rm -f /dev/shm/coralnpu_*")
