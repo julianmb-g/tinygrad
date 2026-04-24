@@ -62,3 +62,4 @@
 - [LESSON] $(date -u +%Y-%m-%d): **Authentic IPC Teardown Validation**: In `test_ipc_teardown_fidelity`, tests must authentically spawn a multiprocessing worker using `IpcWorkerPool` to acquire the `memoryview(shm.buf)` lock. Only then should the parent process attempt to close the shared memory block, validating that genuine cross-process lock exhaustion throws `(ValueError, OSError, BufferError)`.
 
 - [LESSON] 2026-04-24: **Watchdog Deadlock Unmasking (`tinygrad`)**: Overarching watchdog deadlocks (e.g. 120s SIGKILLs) mask tracebacks and coverage. Failing targets (like `test_dtype.py`) MUST be isolated and run natively with fail-fast options (`pytest -x -n 0`) to organically expose the true hang.
+- [LESSON] 2026-04-24: **Orchestrator Deadlock Avoidance**: Isolating long-running tests like test_dtype.py directly in harness.yaml prevents overarching 120s SIGKILL orchestrator watchdogs from creating coverage extraction voids.
