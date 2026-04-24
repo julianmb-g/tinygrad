@@ -208,7 +208,10 @@ def load_cost_model():
   if _cost_model_loaded: return
   _cost_model_loaded = True
 
-  model_dir = os.environ.get("CORALNPU_COST_MODEL_DIR", "/workspace/louhi_ws/coralnpu/tests/tinygrad_test/cost_model_validation")
+  base_dir = os.path.dirname(os.path.abspath(__file__))
+  workspace_root = os.path.abspath(os.path.join(base_dir, "../../../"))
+  default_model_dir = os.path.join(workspace_root, "coralnpu", "tests", "tinygrad_test", "cost_model_validation")
+  model_dir = os.environ.get("CORALNPU_COST_MODEL_DIR", default_model_dir)
   weights_path = os.path.join(model_dir, "cost_model.safetensors")
   scaler_path = os.path.join(model_dir, "cost_model_scaler.npz")
 

@@ -36,7 +36,9 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         self.elf_path = self.prog._compile_on_host(src)
 
         self.tmp_dir = tempfile.TemporaryDirectory()
-        sim_path = "/workspace/louhi_ws/coralnpu-mpact/bazel-bin/sim"
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_root = os.path.abspath(os.path.join(base_dir, "../../"))
+        sim_path = os.path.join(workspace_root, "coralnpu-mpact", "bazel-bin", "sim")
         if not os.path.exists(os.path.join(sim_path, "coralnpu_v2_sim")):
             sim_path = None
         env_patch = {"CORALNPU_ELF": self.elf_path}
@@ -259,7 +261,9 @@ class TestIpcWorkerPool(unittest.TestCase):
         self.elf_path = self.prog._compile_on_host(src)
 
         self.tmp_dir = tempfile.TemporaryDirectory()
-        sim_path = "/workspace/louhi_ws/coralnpu-mpact/bazel-bin/sim"
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_root = os.path.abspath(os.path.join(base_dir, "../../"))
+        sim_path = os.path.join(workspace_root, "coralnpu-mpact", "bazel-bin", "sim")
         if not os.path.exists(os.path.join(sim_path, "coralnpu_v2_sim")):
             sim_path = None
         env_patch = {"CORALNPU_ELF": self.elf_path}

@@ -32,7 +32,9 @@ _start:
             """)
 
         # Instantiate linker script from coralnpu_tcm.ld.tpl
-        tpl_path = "/workspace/louhi_ws/coralnpu/toolchain/coralnpu_tcm.ld.tpl"
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_root = os.path.abspath(os.path.join(base_dir, "../../"))
+        tpl_path = os.path.join(workspace_root, "coralnpu", "toolchain", "coralnpu_tcm.ld.tpl")
         with open(tpl_path, "r") as f:
             ld_content = f.read()
 
@@ -67,7 +69,9 @@ _start:
         # We deliberately let FileNotFoundError propagate to prevent test evasion
         # Dynamically locate coralnpu_v2_sim to prevent predictable FileNotFoundError
         sim_path = None
-        for root, _, files in os.walk("/workspace/louhi_ws/bazel-bin"):
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        workspace_root = os.path.abspath(os.path.join(base_dir, "../../"))
+        for root, _, files in os.walk(os.path.join(workspace_root, "bazel-bin")):
             if "coralnpu_v2_sim" in files:
                 sim_path = os.path.dirname(os.path.join(root, "coralnpu_v2_sim"))
                 break
