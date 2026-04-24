@@ -5,6 +5,7 @@ from tinygrad.helpers import DEV, getenv, system
 from extra.gemm.cdna_asm_gemm import asm_gemm
 from test.helpers import needs_second_gpu
 from tinygrad.codegen.opt.heuristic import OutOfMemoryError
+from tinygrad.runtime.ops_coralnpu import SimTimeoutError
 from examples.mlperf.models.flat_llama import FP8_DTYPE
 
 # On non CDNA4 it will only validate the Tensor.custom_kernel integration
@@ -77,9 +78,6 @@ def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:i
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
   elif allow_scale and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
-
-    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
-    import unittest
     with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True, empty=True)
   else:

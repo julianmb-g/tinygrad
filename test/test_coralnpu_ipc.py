@@ -137,11 +137,17 @@ def _shared_worker(handle, shm_name, shape_size):
     atexit.register(lambda: [shm.close(), shm.unlink()])
     try:
         from tinygrad.tensor import Tensor
+        from tinygrad.device import Buffer, BufferSpec
+        from tinygrad.dtype import dtypes
         # Create a tensor mapped directly to the shared memory via its handle
         arr = np.ndarray((shape_size,), dtype=np.float32, buffer=shm.buf)
-        # We can just process it natively via Tensor
-        # Since it's IPC, we can just do math using the device
-        t = Tensor([2.0] * shape_size, device="CORALNPU")
+        
+        # Authentically bind the tensor to the IPC handle
+        buf = Buffer("CORALNPU", shape_size, dtypes.float32, options=BufferSpec(uncached=False, cpu_access=False, nolru=False))
+        buf._buf = handle
+        buf.allocator = device.allocator
+        t = Tensor(buf)
+        
         res = (t * 2.0).numpy()
         arr[:] = res[:]
         return True
