@@ -69,3 +69,5 @@
 - [LESSON] 2026-04-24: **Intra-Process Mocked IPC Teardown**: Evaluating IPC shared memory teardown by locking memoryview(shm.buf) inside the worker process is a testing illusion. Spawn an IpcWorkerPool worker that holds the lock organically while the parent tears it down.
 - [LESSON] 2026-04-24: **Overarching Watchdog Deadlock (test_asm_gemm.py)**: The GEMM tests wedge at large shapes (e.g., test_shape_k192), triggering overarching 120s SIGKILL watchdog deadlocks. Isolate natively using fail-fast runners.
 - [LESSON] 2026-04-24: **Detonating Stubs Hallucination**: Prototype tests utilizing self.fail("Not Implemented") must be implemented to provide structural bounds and prevent false test results.
+- [LESSON] $(date -u +%Y-%m-%d): **Overarching Watchdog Deadlock (test_asm_gemm.py)**: The GEMM tests wedge at large shapes (e.g., test_shape_k192), triggering overarching 120s SIGKILL watchdog deadlocks. Isolate natively using fail-fast runners.
+- [LESSON] $(date -u +%Y-%m-%d): **Detonating Stubs Hallucination**: Prototype tests utilizing `self.fail("Not Implemented")` must be implemented to provide structural bounds and prevent false test results.
