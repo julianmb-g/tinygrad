@@ -63,3 +63,4 @@
 
 - [LESSON] 2026-04-24: **Watchdog Deadlock Unmasking (`tinygrad`)**: Overarching watchdog deadlocks (e.g. 120s SIGKILLs) mask tracebacks and coverage. Failing targets (like `test_dtype.py`) MUST be isolated and run natively with fail-fast options (`pytest -x -n 0`) to organically expose the true hang.
 - [LESSON] 2026-04-24: **Orchestrator Deadlock Avoidance**: Isolating long-running tests like test_dtype.py directly in harness.yaml prevents overarching 120s SIGKILL orchestrator watchdogs from creating coverage extraction voids.
+- [LESSON] 2026-04-24: **Exception Boundary Drift via Scope Refactoring**: The removal of inline exception imports (like `OutOfMemoryError`) poses a risk of masking organic boundary exceptions if not properly mapped to the top-level scope.
