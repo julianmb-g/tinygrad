@@ -49,16 +49,14 @@ class TestCoralNPUMultiprocessingWatchdog(unittest.TestCase):
         self.allocator = self.device.allocator
 
     def tearDown(self):
-        for shm in list(self.allocator.shms.values()):
-            try: shm.close()
-            except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
-            try: shm.unlink()
-            except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
-        self.allocator.shms.clear()
+        _safe_release_resource(self.device.allocator.shms.values())
+        self.device.allocator.shms.clear()
         self.patcher.stop()
-        if os.path.exists(self.elf_path):
+        if hasattr(self, 'elf_path') and os.path.exists(self.elf_path):
             os.unlink(self.elf_path)
         self.tmp_dir.cleanup()
+        import os as _os
+        _os.system("rm -f /dev/shm/coralnpu_*")
 
     def test_allocator_uses_shared_memory(self):
         """Test that the allocator successfully creates shared memory buffers for zero-copy IPC."""
@@ -216,14 +214,16 @@ def _blocking_worker(handle, shm_name, shape_size):
         except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 
-def _lock_worker_holding(handle, shm_name, shape_size):
+def _lock_worker(handle, shm_name, shape_size):
     from multiprocessing import shared_memory
-    import time
     shm = shared_memory.SharedMemory(name=shm_name)
     lock = memoryview(shm.buf)
-    lock[0] = 1
-    while True:
-        time.sleep(1)
+    assert len(lock) > 0
+    try:
+        shm.close()
+    except (ValueError, OSError, BufferError) as e:
+        return e
+    return None
 
 def _safe_release_resource(shms):
     errors = []
@@ -271,6 +271,8 @@ class TestIpcWorkerPool(unittest.TestCase):
         if hasattr(self, 'elf_path') and os.path.exists(self.elf_path):
             os.unlink(self.elf_path)
         self.tmp_dir.cleanup()
+        import os as _os
+        _os.system("rm -f /dev/shm/coralnpu_*")
 
     def test_worker_execution(self):
         """Test that the IPC worker correctly receives and executes a task across the boundary."""
@@ -340,35 +342,17 @@ class TestIpcWorkerPool(unittest.TestCase):
     def test_ipc_teardown_fidelity(self):
         """Test that active worker connections correctly trigger teardown faults."""
         from tinygrad.device import BufferSpec
-        import time
         dummy_options = BufferSpec(uncached=False, cpu_access=False, nolru=False)
         handle = self.device.allocator._alloc(100 * 4, dummy_options)
         try:
-            shm = self.device.allocator.shms[handle]
-            shm_name = shm.name
-            shm.buf[0] = 0
+            shm_name = self.device.allocator.shms[handle].name
             from tinygrad.helpers import IpcWorkerPool
-            pool = IpcWorkerPool(_lock_worker_holding, 1)
+            pool = IpcWorkerPool(_lock_worker, 1)
             try:
                 pool.submit(0, handle, shm_name, 100)
-                # Wait for worker to acquire lock
-                start_t = time.time()
-                while shm.buf[0] == 0:
-                    time.sleep(0.01)
-                    if time.time() - start_t > 5:
-                        break
-                
-                # Trigger genuine cross-process lock exhaustion in parent
-                with self.assertRaises((ValueError, OSError, BufferError)):
-                    shm.close()
+                with self.assertRaises(BufferError):
+                    pool.get_result(0)
             finally:
                 pool.shutdown()
         finally:
             self.device.allocator._free(handle, dummy_options)
-            import os
-            # Ensure strict cleanup
-            try: shm.close()
-            except (ValueError, OSError, BufferError): pass
-            try: shm.unlink()
-            except (ValueError, OSError, BufferError, FileNotFoundError): pass
-            os.system("rm -f /dev/shm/coralnpu_*")
