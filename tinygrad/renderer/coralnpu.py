@@ -671,9 +671,10 @@ class CoralNPURenderer(CStyleLanguage):
     # Deterministic Memory Ceiling: Abort if any contiguous chunk > 12KB
     for u in uops:
       if u.op in {Ops.DEFINE_LOCAL, Ops.PARAM, getattr(Ops, 'DEFINE_GLOBAL', None)}:
-        chunk_size = getattr(u.dtype, 'itemsize', 1) * getattr(u.dtype, 'count', 1)
+        base_itemsize = getattr(getattr(u.dtype, 'base', u.dtype), 'itemsize', 1)
+        chunk_size = base_itemsize * getattr(u.dtype, 'count', 1)
         if isinstance(u.arg, tuple) and len(u.arg) > 1:
-          chunk_size = u.arg[1] * getattr(u.dtype, 'itemsize', 1)
+          chunk_size = u.arg[1] * base_itemsize
         if chunk_size > 12288:
           raise OutOfMemoryError(f"OOM: Tensor chunk size {chunk_size} bytes exceeds 12KB limit")
       if u.op in {Ops.DEFINE_LOCAL, Ops.PARAM, Ops.DEFINE_VAR}:
@@ -922,6 +923,14 @@ class CoralNPURenderer(CStyleLanguage):
 
   def render_kernel(self, function_name, kernel, bufs, uops, prefix=None) -> str:
     prefix = prefix or []
+
+    # Deterministic Memory Ceiling: Abort if any contiguous chunk > 12KB
+    for name, (dtype, is_output) in bufs:
+      # In Tinygrad, pointers have a 'size' attribute if they are ptr dtypes with size
+      if hasattr(dtype, 'size') and dtype.size is not None:
+        chunk_size = dtype.size * getattr(dtype.base, 'itemsize', 1)
+        if chunk_size > 12288:
+          raise OutOfMemoryError(f"OOM: Tensor chunk size {chunk_size} bytes exceeds 12KB limit")
 
     # DTCM Tiling check
     local_lifetimes = {}
