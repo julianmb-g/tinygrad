@@ -294,6 +294,7 @@ class TestGemmLlama(unittest.TestCase):
   # K edge cases: iters=1,2,3 exercise different loop paths
   def test_shape_k64(self): verify_asm_gemm(1, 256, 256, 64, allow_scale=True)
   def test_shape_k128(self): verify_asm_gemm(1, 256, 256, 128, allow_scale=True)
+  @pytest.mark.timeout(30)
   def test_shape_k192(self): verify_asm_gemm(1, 256, 256, 192, allow_scale=True)
 
   def test_llama3_out1(self): verify_asm_gemm(1, 8192, 128256, 4096, dtype=self.dtype, allow_scale=True)
