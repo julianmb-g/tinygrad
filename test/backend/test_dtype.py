@@ -94,8 +94,6 @@ class TestDType(unittest.TestCase):
       if dtype != dtypes.bool:
         _test_bitcast(Tensor(self.DATA[:8], dtype=self.DTYPE), dtype)
 
-  @unittest.skipIf(Device.DEFAULT == "PYTHON", "skip for now")
-  @unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, (PTXRenderer, NIRRenderer)), "skip for now")
   def test_uint_overflow(self):
     if not dtypes.is_unsigned(self.DTYPE): raise unittest.SkipTest("only for unsigned")
     v = self.DTYPE.max
@@ -271,11 +269,9 @@ class TestFloatDType(TestDType):
     _test_op(lambda: Tensor([-0.9, -0.3, 1.2], dtype=dtypes.float32).cast(dtypes.uint32), dtypes.uint32,
              [0, 0, 1])
 
-@unittest.skipUnless(is_dtype_supported(dtypes.double), f"no double on {Device.DEFAULT}")
+
 class TestDoubleDType(TestDType):
   DTYPE = dtypes.double
-  @unittest.skipIf((CI and Device.DEFAULT in {"CUDA", "NV"}) or \
-   isinstance(Device[Device.DEFAULT].renderer, (PTXRenderer, NIRRenderer)), "conversion not supported on CI CUDA, PTX, and NIR")  # TODO: why not?
   def test_float64_increased_precision(self):
     for func in [
       lambda t: t.exp(),
@@ -299,7 +295,7 @@ class TestDoubleDType(TestDType):
 
 class TestInt8DType(TestDType):
   DTYPE = dtypes.int8
-  @unittest.skipIf(Device.DEFAULT == "CUDA" or isinstance(Device[Device.DEFAULT].renderer, PTXRenderer), "cuda saturation works differently")
+
   def test_int8_to_uint8_negative(self):
     _test_op(lambda: Tensor([-1, -2, -3, -4], dtype=dtypes.int8).cast(dtypes.uint8), dtypes.uint8, [255, 254, 253, 252])
 
@@ -312,7 +308,7 @@ class TestInt8DType(TestDType):
 
 class TestUint8DType(TestDType):
   DTYPE = dtypes.uint8
-  @unittest.skipIf(Device.DEFAULT == "CUDA" or isinstance(Device[Device.DEFAULT].renderer, PTXRenderer), "cuda saturation works differently")
+
   def test_uint8_to_int8_overflow(self):
     _test_op(lambda: Tensor([255, 254, 253, 252], dtype=dtypes.uint8).cast(dtypes.int8), dtypes.int8, [-1, -2, -3, -4])
 
@@ -357,7 +353,7 @@ class TestUint32DType(TestDType): DTYPE = dtypes.uint32
 
 class TestInt64DType(TestDType): DTYPE = dtypes.int64
 
-@unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, PTXRenderer), "PTX does indexing math with longs")
+
 class TestEmulatedInt64DType(TestInt64DType):
   @classmethod
   def setUpClass(cls):
@@ -373,7 +369,7 @@ class TestUint64DType(TestDType):
   def test_uint64_load(self):
     assert Tensor(2**64 - 1, dtype=dtypes.uint64).numpy() == 2**64 - 1
 
-@unittest.skipIf(isinstance(Device[Device.DEFAULT].renderer, PTXRenderer), "PTX does indexing math with longs")
+
 class TestEmulatedUInt64DType(TestUint64DType):
   @classmethod
   def setUpClass(cls):
@@ -494,7 +490,7 @@ class TestDtypeUsage(unittest.TestCase):
         t = Tensor([[1, 2], [3, 4]], dtype=d)
         (t*t).max().item()
 
-@unittest.skipUnless(is_dtype_supported(dtypes.bfloat16), f"no bfloat16 on {Device.DEFAULT}")
+
 class TestOpsBFloat16(unittest.TestCase):
   def test_cast(self):
     # TODO: helper_test_op breaks in unrelated part
@@ -502,7 +498,7 @@ class TestOpsBFloat16(unittest.TestCase):
     np.testing.assert_allclose(Tensor(data).cast("bfloat16").numpy(), torch.tensor(data).type(torch.bfloat16).float().numpy())
 
   # some CPUs there is no native bfloat16 sqrt
-  @unittest.skipIf(Device.DEFAULT == "CPU", "no approximation")
+
   def test_no_approximation(self):
     data = [326.0, 339.0, 10603200512.0]
     expected = torch.tensor(data, dtype=torch.bfloat16).sqrt().float().numpy()
