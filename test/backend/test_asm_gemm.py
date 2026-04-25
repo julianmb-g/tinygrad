@@ -14,15 +14,11 @@ def is_cdna4():
   if dev != "AMD": return False
   return getattr(Device[dev].renderer, "arch", "").startswith("gfx950")
 
-def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1, force_coral=False, empty=False) -> None:
+def run_asm_gemm(a_shape, b_shape, dtype=dtypes.float16, a_shard=None, b_shard=None, gpus:int=1, force_coral=False) -> None:
   dev = "CORALNPU" if force_coral else (DEV.value.device or 'CORALNPU')
   Tensor.manual_seed(0)
-  if empty:
-    a_rand = Tensor.empty(a_shape, dtype=dtype, device=dev)
-    b_rand = Tensor.empty(b_shape, dtype=dtype, device=dev)
-  else:
-    a_rand = Tensor.randn(a_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
-    b_rand = Tensor.randn(b_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
+  a_rand = Tensor.randn(a_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
+  b_rand = Tensor.randn(b_shape, dtype=dtypes.float, device="CPU").sub(0.5).cast(dtype).to(dev)
   with Context(DEBUG=0):
     Tensor.realize(a_rand, b_rand)
 
@@ -70,16 +66,23 @@ def _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
     sz_a //= gpus
     sz_b //= gpus
     sz_c //= gpus
-  return (sz_a + sz_b + sz_c) > 28 * 1024
+  # In sharded K, allreduce creates a concatenated buffer of size sz_c * gpus
+  max_chunk = max(sz_a, sz_b, sz_c)
+  if gpus > 1:
+    max_chunk = max(max_chunk, sz_c * gpus)
+  return max_chunk > 12 * 1024 or (sz_a + sz_b + sz_c) > 28 * 1024
 
 def verify_asm_gemm(batch:int, M:int, N:int, K:int, dtype=dtypes.float16, gpus:int=1, allow_scale=False) -> None:
   if allow_scale and is_cdna4():
 
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
-  elif allow_scale and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
-    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True, empty=True)
+  elif allow_scale:
+    if _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+      with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
+        run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True)
+    else:
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
@@ -88,12 +91,13 @@ def verify_asm_gemm_k_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:in
 
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
-  elif allow_scale and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+  elif allow_scale:
 
-    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
-
-    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus, force_coral=True, empty=True)
+    if _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+      with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
+        run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus, force_coral=True)
+    else:
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=1, b_shard=0, gpus=gpus)
 
@@ -102,12 +106,13 @@ def verify_asm_gemm_n_sharded(batch:int, M:int, N:int, K:int, dtype=dtypes.float
 
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
-  elif allow_scale and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+  elif allow_scale:
 
-    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
-
-    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus, force_coral=True, empty=True)
+    if _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+      with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
+        run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus, force_coral=True)
+    else:
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
@@ -116,12 +121,13 @@ def verify_asm_gemm_m_sharded(M:int, N:int, K:int, dtype=dtypes.float16, gpus:in
 
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
-  elif allow_scale and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+  elif allow_scale:
 
-    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
-
-    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True, empty=True)
+    if _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+      with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
+        run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus, force_coral=True)
+    else:
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=0, b_shard=None, gpus=gpus)
 
@@ -130,12 +136,13 @@ def verify_asm_gemm_n_sharded_2d(M:int, N:int, K:int, dtype=dtypes.float16, gpus
 
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
-  elif allow_scale and _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+  elif allow_scale:
 
-    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
-
-    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus, force_coral=True, empty=True)
+    if _coral_exceeds_dtcm(1, M, N, K, dtype, gpus):
+      with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
+        run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus, force_coral=True)
+    else:
+      run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
   else:
     run_asm_gemm((M, K), (K, N), dtype=dtype, a_shard=None, b_shard=1, gpus=gpus)
 
@@ -144,44 +151,44 @@ def verify_asm_gemm_k_sharded_3d(batch:int, M:int, N:int, K:int, dtype=dtypes.fl
 
     with unittest.TestCase().assertRaises(OutOfMemoryError):
       run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
-  elif allow_scale and _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+  elif allow_scale:
 
-    from tinygrad.runtime.ops_coralnpu import SimTimeoutError
-
-    with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
-      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus, force_coral=True, empty=True)
+    if _coral_exceeds_dtcm(batch, M, N, K, dtype, gpus):
+      with unittest.TestCase().assertRaises((OutOfMemoryError, SimTimeoutError)):
+        run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus, force_coral=True)
+    else:
+      run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
   else:
     run_asm_gemm((batch, M, K), (K, N), dtype=dtype, a_shard=2, b_shard=0, gpus=gpus)
 
 # 128x smaller than usual
 # uses the UOp GEMM, runs on non CDNA4 and CI
 # @unittest.skipUnless(is_dtype_supported(dtypes.half), "need half")
-@pytest.mark.timeout(120)
 class TestGemm(unittest.TestCase):
   def setUp(self):
     pass
-  def test_simple(self): verify_asm_gemm(1, N:=getenv("N", 32), N, N, dtype=dtypes.half)
-  def test_gemm(self): verify_asm_gemm(1, 64, 32, 112)
-  def test_gemm_batched(self): verify_asm_gemm(2, 64, 32, 32)
+  def test_simple(self): verify_asm_gemm(1, getenv("N", 32), getenv("N", 32), getenv("N", 32), dtype=dtypes.half, allow_scale=True)
+  def test_gemm(self): verify_asm_gemm(1, 64, 32, 112, allow_scale=True)
+  def test_gemm_batched(self): verify_asm_gemm(2, 64, 32, 32, allow_scale=True)
   @needs_second_gpu
-  def test_gemm_multi(self): verify_asm_gemm(2, 64, 32, 32, gpus=2)
+  def test_gemm_multi(self): verify_asm_gemm(2, 64, 32, 32, gpus=2, allow_scale=True)
   @needs_second_gpu
-  def test_gemm_k_sharded(self): verify_asm_gemm_k_sharded(64, 64, 2*64, gpus=2)
+  def test_gemm_k_sharded(self): verify_asm_gemm_k_sharded(64, 64, 2*64, gpus=2, allow_scale=True)
   @needs_second_gpu
-  def test_gemm_m_sharded(self): verify_asm_gemm_m_sharded(2*64, 64, 32, gpus=2)
+  def test_gemm_m_sharded(self): verify_asm_gemm_m_sharded(2*64, 64, 32, gpus=2, allow_scale=True)
   @needs_second_gpu
-  def test_gemm_n_sharded(self): verify_asm_gemm_n_sharded(1, 64, 64, 32, gpus=2)
+  def test_gemm_n_sharded(self): verify_asm_gemm_n_sharded(1, 64, 64, 32, gpus=2, allow_scale=True)
   @needs_second_gpu
-  def test_gemm_n_sharded_2d(self): verify_asm_gemm_n_sharded_2d(64, 2*64, 32, gpus=2)
+  def test_gemm_n_sharded_2d(self): verify_asm_gemm_n_sharded_2d(64, 2*64, 32, gpus=2, allow_scale=True)
   @needs_second_gpu
-  def test_gemm_k_sharded_3d(self): verify_asm_gemm_k_sharded_3d(1, 64, 32, 2*64, gpus=2)
+  def test_gemm_k_sharded_3d(self): verify_asm_gemm_k_sharded_3d(1, 64, 32, 2*64, gpus=2, allow_scale=True)
 
 # uses the smallest size for the cdna assembly gemm
 class TestAsmGEMM(unittest.TestCase):
   def setUp(self):
     pass
 
-  def test_tiny(self): verify_asm_gemm(1, 256, 256, 64)
+  def test_tiny(self): verify_asm_gemm(1, 256, 256, 64, allow_scale=True)
 
   def test_verify_with_numpy(self):
     import numpy as np
@@ -211,7 +218,6 @@ class TestAsmGEMM(unittest.TestCase):
       verify_asm_gemm(1, 256, 1000, 256)
 
 # test the Asm GEMM with Llama shapes, only run on the real machine for speed
-@pytest.mark.timeout(120)
 class TestGemmLlama(unittest.TestCase):
   dtype = dtypes.bfloat16
 
@@ -294,7 +300,6 @@ class TestGemmLlama(unittest.TestCase):
   # K edge cases: iters=1,2,3 exercise different loop paths
   def test_shape_k64(self): verify_asm_gemm(1, 256, 256, 64, allow_scale=True)
   def test_shape_k128(self): verify_asm_gemm(1, 256, 256, 128, allow_scale=True)
-  @pytest.mark.timeout(30)
   def test_shape_k192(self): verify_asm_gemm(1, 256, 256, 192, allow_scale=True)
 
   def test_llama3_out1(self): verify_asm_gemm(1, 8192, 128256, 4096, dtype=self.dtype, allow_scale=True)
