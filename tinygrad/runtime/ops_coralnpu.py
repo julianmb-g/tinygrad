@@ -237,7 +237,7 @@ class CoralNPUProgram:
           return math.inf
         raise
 
-    cmd = ['coralnpu_v2_sim', self.elf_path, '--max_cycles=1000000', '--allow_memory_region', '0x0:0x80000000:rwx']
+    cmd = ['coralnpu_v2_sim', self.elf_path, '--allow_memory_region', '0x0:0x80000000:rwx']
     sim_path = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../../../coralnpu-mpact/bazel-bin/sim/coralnpu_v2_sim"))
     if os.path.exists(sim_path):
       cmd[0] = sim_path
