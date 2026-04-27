@@ -409,7 +409,7 @@ class TestCoralNPURenderer(unittest.TestCase):
     buf0 = UOp(Ops.PARAM, dtypes.float.ptr(), (), 0) if not hasattr(Ops, 'DEFINE_LOCAL') else UOp(Ops.DEFINE_LOCAL, dtypes.float.ptr(), (), 0)
     uops = [buf0]
     src = renderer.render_kernel("test_kernel", [], [("data0", (dtypes.float, True))], uops)
-    self.assertIn('__attribute__((section(".noinit"))) float data0[32768 / sizeof(float)];', src)
+    self.assertIn('__attribute__((section(".noinit"))) float data0[28672 / sizeof(float)];', src)
     self.assertIn('extern "C" void test_kernel() {', src)
 
   def test_compiler_emits_linker_script(self):

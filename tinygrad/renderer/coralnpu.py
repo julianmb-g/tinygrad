@@ -1093,8 +1093,8 @@ class CoralNPURenderer(CStyleLanguage):
         prefix.append(f"typedef {self.render_dtype(scalar)} {self.render_dtype(dt)} __attribute__((vector_size({itemsize})));")
     for name, (dtype, _) in bufs:
       c_type = self.render_dtype(dtype.base if hasattr(dtype, "base") else (dtype.scalar() if hasattr(dtype, "scalar") else dtype))
-      # Allocate maximum VMM limit (32KB) per buffer to prevent OOM
-      size_str = name.split("_")[-1] if "_" in name else "32768 / sizeof(" + c_type + ")"
+      # Allocate maximum VMM limit (28KB) per buffer to prevent OOM
+      size_str = name.split("_")[-1] if "_" in name else "28672 / sizeof(" + c_type + ")"
       prefix.append(f"__attribute__((section(\".noinit\"))) {c_type} {name}[{size_str}];")
 
     src = super().render_kernel(function_name, kernel, bufs, uops, prefix)
