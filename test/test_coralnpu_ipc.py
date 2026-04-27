@@ -148,7 +148,7 @@ def _shared_worker(handle, shm_name, shape_size):
         if 'arr' in locals(): del arr
         lock.release()
         try: shm.close()
-        except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+        except (ValueError, OSError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _hanging_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice
@@ -176,7 +176,7 @@ def _hanging_worker(handle, shm_name, shape_size):
     finally:
         lock.release()
         try: shm.close()
-        except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+        except (ValueError, OSError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 def _blocking_worker(handle, shm_name, shape_size):
     from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, SimTimeoutError
@@ -217,7 +217,7 @@ def _blocking_worker(handle, shm_name, shape_size):
     finally:
         lock.release()
         try: shm.close()
-        except (ProcessLookupError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
+        except (ValueError, OSError, BufferError) as e: raise AssertionError(f"IPC Lock Exhaustion: {e}")
 
 
 def _lock_worker(handle, shm_name, shape_size):
@@ -235,9 +235,9 @@ def _safe_release_resource(shms):
     errors = []
     for shm in list(shms):
         try: shm.close()
-        except (ProcessLookupError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
+        except (ValueError, OSError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
         try: shm.unlink()
-        except (ProcessLookupError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
+        except (ValueError, OSError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
     if errors:
         raise AssertionError("\n".join(errors))
 
