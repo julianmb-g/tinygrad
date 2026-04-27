@@ -234,10 +234,15 @@ def _lock_worker(handle, shm_name, shape_size):
 def _safe_release_resource(shms):
     errors = []
     for shm in list(shms):
-        try: shm.close()
-        except (ValueError, OSError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
-        try: shm.unlink()
-        except (ValueError, OSError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
+        try:
+            lock = memoryview(shm.buf)
+            lock.release()
+            try: shm.close()
+            except (ValueError, OSError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (close): {e}")
+            try: shm.unlink()
+            except (ValueError, OSError, BufferError, FileNotFoundError) as e: errors.append(f"IPC Lock Exhaustion (unlink): {e}")
+        except (ValueError, OSError, BufferError, FileNotFoundError) as e:
+            errors.append(f"IPC Lock Exhaustion (memoryview): {e}")
     if errors:
         raise AssertionError("\n".join(errors))
 
