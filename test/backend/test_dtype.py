@@ -276,10 +276,9 @@ class TestDoubleDType(TestDType):
     if not is_dtype_supported(dtypes.double):
       try:
          Tensor([1.0], dtype=dtypes.double).realize()
-         self.fail("Expected exception for unsupported double dtype")
       except Exception:
-         pass
-      raise unittest.SkipTest(f"no double on {Device.DEFAULT}")
+         raise unittest.SkipTest(f"no double on {Device.DEFAULT}")
+      raise AssertionError("Expected exception for unsupported double dtype")
     super().setUp()
   def test_float64_increased_precision(self):
     for func in [
@@ -519,10 +518,9 @@ class TestOpsBFloat16(unittest.TestCase):
     if not is_dtype_supported(dtypes.bfloat16):
       try:
          Tensor([1.0], dtype=dtypes.bfloat16).realize()
-         self.fail("Expected exception for unsupported bfloat16 dtype")
       except Exception:
-         pass
-      raise unittest.SkipTest(f"no bfloat16 on {Device.DEFAULT}")
+         raise unittest.SkipTest(f"no bfloat16 on {Device.DEFAULT}")
+      raise AssertionError("Expected exception for unsupported bfloat16 dtype")
     super().setUp()
   def test_cast(self):
     # TODO: helper_test_op breaks in unrelated part
