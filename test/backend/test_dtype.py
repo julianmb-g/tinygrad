@@ -3,10 +3,9 @@ import numpy as np
 import torch
 from typing import Any, List
 from tinygrad.device import is_dtype_supported
-from tinygrad.helpers import getenv, DEBUG, CI, EMULATED_DTYPES
+from tinygrad.helpers import getenv, DEBUG, EMULATED_DTYPES
 from tinygrad.dtype import DType, DTYPES_DICT, least_upper_dtype, fp8_to_float, float_to_fp8, _to_np_dtype, _to_torch_dtype, truncate
 from tinygrad.renderer.ptx import PTXRenderer
-from tinygrad.renderer.nir import NIRRenderer
 from tinygrad import Context, Device, Tensor, dtypes
 from hypothesis import given, settings, strategies as strat
 from test.helpers import rand_for_dtype
@@ -93,7 +92,7 @@ class TestDType(unittest.TestCase):
     for dtype in get_available_cast_dtypes(self.DTYPE):
       if dtype != dtypes.bool:
         _test_bitcast(Tensor(self.DATA[:8], dtype=self.DTYPE), dtype)
-
+ 
   def test_uint_overflow(self):
     if not dtypes.is_unsigned(self.DTYPE): raise unittest.SkipTest("only for unsigned")
     v = self.DTYPE.max
@@ -249,7 +248,15 @@ class TestBFloat16DTypeCast(unittest.TestCase):
     converted = random_values.cast(dtypes.bfloat16).cast(dtypes.float32)
     np.testing.assert_allclose(converted.numpy(), random_values.cast(dtypes.float32).numpy(), rtol=1e-2, atol=1e-3)
 
-class TestHalfDType(TestDType): DTYPE = dtypes.half
+class TestHalfDType(TestDType):
+  DTYPE = dtypes.half
+  def test_bitcast(self):
+    for dtype in get_available_cast_dtypes(self.DTYPE):
+      if dtype != dtypes.bool:
+        a = Tensor(self.DATA[:8], dtype=self.DTYPE)
+        target = torch.tensor(a.tolist(), dtype=_to_torch_storage_type(a.dtype)).view(_to_torch_dtype(dtype)).tolist()
+        if dtype in dtypes.fp8s: target = [fp8_to_float(x, dtype) for x in target]
+        np.testing.assert_equal(a.bitcast(dtype).numpy(), target)
 
 class TestEmulatedHalf(TestHalfDType):
   @classmethod
