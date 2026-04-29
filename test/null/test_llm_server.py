@@ -1,5 +1,4 @@
 import unittest, threading, time
-from unittest.mock import Mock
 
 class TestLLMServer(unittest.TestCase):
   """Integration tests using the real OpenAI client."""

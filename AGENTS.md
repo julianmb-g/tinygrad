@@ -67,3 +67,4 @@
 - [LESSON] 2026-04-29: test_coralnpu_renderer.py must execute against the genuine CORALNPU device instead of hardcoding device="CPU" to effectively test API boundaries.
 - [LESSON] 2026-04-29: test_dtype.py must not silently mask physical hardware constraint failures with unittest.SkipTest; it must organically handle and assert functional exceptions.
 - [LESSON] 2026-04-29: Mathematical DTCM capacity checking via AssertionError("Not Implemented: Matrix dimensions exceed DTCM limits") in test_asm_gemm.py is testing fraud. Authentic DTCM bounds must be asserted via physical tensor footprints.
+- [LESSON] 2026-04-29: **Testing Fraud via API Mocking**: Tests evaluating external API servers (like `test_llm_server.py`) MUST NOT test against Python `Mock` objects, as it completely isolates the wrapper from the hardware boundary and constitutes testing fraud.
