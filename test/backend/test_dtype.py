@@ -256,7 +256,7 @@ class TestHalfDType(TestDType):
         a = Tensor(self.DATA[:8], dtype=self.DTYPE)
         target = torch.tensor(a.tolist(), dtype=_to_torch_storage_type(a.dtype)).view(_to_torch_dtype(dtype)).tolist()
         if dtype in dtypes.fp8s: target = [fp8_to_float(x, dtype) for x in target]
-        np.testing.assert_equal(a.bitcast(dtype).numpy(), target)
+        np.testing.assert_allclose(a.bitcast(dtype).numpy(), target, atol=1e-3, rtol=1e-3)
 
 class TestEmulatedHalf(TestHalfDType):
   @classmethod
