@@ -57,3 +57,4 @@
 - [LESSON] $(date +%Y-%m-%d): **Test Collection Void (NameError)**: Always verify that `import unittest` is present when defining `unittest.TestCase` test suites (e.g., in `test_hardware_blockers.py`) to prevent 100% test collection voids during pytest execution.
 - [LESSON] 2026-04-28: **Numerical Precision Bitcast Validation**: When resolving FP16 bitcast logic issues (like half-precision corruption), tests must assert strict bitwise equivalence (0 tolerance mismatch) natively instead of artificially loosening testing bounds or scaling down matrix dimensions.
 - [LESSON] 2026-04-29: **Half Precision Bitcast Corruption**: TestHalfDType.test_bitcast failures with 50% element mismatch during 8-bit casting on the CORALNPU backend indicate an unhandled endianness or alignment boundary issue that MUST be addressed natively.
+## Execution & Verification Rules
