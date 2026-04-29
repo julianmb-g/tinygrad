@@ -61,3 +61,5 @@
 - **The Precision Corruption Illusion:** [LESSON] Never loosen precision tolerances (e.g., using assert_allclose instead of assert_equal) for bitwise structural transformations (like FP16 bitcasts), as it sanctions mathematical data-loss and masks hardware alignment corruption.
 - **Max Upcast Target Abstraction Masking:** [LESSON] Do not abstract explicit physical hardware limits (like DTCM capacity bounds) behind generic renderer attributes (like max_upcast) without native E2E cross-compiled ELF tests asserting the physical limits.
 - [LESSON] 2026-04-29: Ensure API boundaries are strictly enforced and tested organically without abstract mocking.
+- [LESSON] 2026-04-29: Tasks modifying test environments must evaluate boundaries natively rather than mocking components via `subprocess.run`.
+- [LESSON] 2026-04-29: Avoid using `@unittest.skipIf` for unsupported hardware constraints; natively expect exceptions instead.
