@@ -92,7 +92,7 @@ class TestDType(unittest.TestCase):
     for dtype in get_available_cast_dtypes(self.DTYPE):
       if dtype != dtypes.bool:
         _test_bitcast(Tensor(self.DATA[:8], dtype=self.DTYPE), dtype)
- 
+
   def test_uint_overflow(self):
     if not dtypes.is_unsigned(self.DTYPE): raise unittest.SkipTest("only for unsigned")
     v = self.DTYPE.max
@@ -375,10 +375,9 @@ class TestEmulatedInt64DType(TestInt64DType):
     if isinstance(Device[Device.DEFAULT].renderer, PTXRenderer):
       try:
          Tensor([1], dtype=dtypes.int64).realize()
-         raise AssertionError("Expected exception for unsupported int64 indexing on PTX")
       except Exception:
-         pass
-      raise unittest.SkipTest("PTX does indexing math with longs")
+         raise unittest.SkipTest("PTX does indexing math with longs")
+      raise AssertionError("Expected exception for unsupported int64 indexing on PTX")
     cls.stack = contextlib.ExitStack()
     cls.stack.enter_context(Context(EMULATED_DTYPES="long"))
     cls.DATA = rand_for_dtype(cls.DTYPE, 10, allow_subnormal=False)
@@ -398,10 +397,9 @@ class TestEmulatedUInt64DType(TestUint64DType):
     if isinstance(Device[Device.DEFAULT].renderer, PTXRenderer):
       try:
          Tensor([1], dtype=dtypes.uint64).realize()
-         raise AssertionError("Expected exception for unsupported uint64 indexing on PTX")
       except Exception:
-         pass
-      raise unittest.SkipTest("PTX does indexing math with longs")
+         raise unittest.SkipTest("PTX does indexing math with longs")
+      raise AssertionError("Expected exception for unsupported uint64 indexing on PTX")
     cls.stack = contextlib.ExitStack()
     cls.stack.enter_context(Context(EMULATED_DTYPES="long"))
     cls.DATA = rand_for_dtype(cls.DTYPE, 10, allow_subnormal=False)
