@@ -58,3 +58,5 @@
 - [LESSON] 2026-04-28: **Numerical Precision Bitcast Validation**: When resolving FP16 bitcast logic issues (like half-precision corruption), tests must assert strict bitwise equivalence (0 tolerance mismatch) natively instead of artificially loosening testing bounds or scaling down matrix dimensions.
 - [LESSON] 2026-04-29: **Half Precision Bitcast Corruption**: TestHalfDType.test_bitcast failures with 50% element mismatch during 8-bit casting on the CORALNPU backend indicate an unhandled endianness or alignment boundary issue that MUST be addressed natively.
 ## Execution & Verification Rules
+- **The Precision Corruption Illusion:** [LESSON] Never loosen precision tolerances (e.g., using assert_allclose instead of assert_equal) for bitwise structural transformations (like FP16 bitcasts), as it sanctions mathematical data-loss and masks hardware alignment corruption.
+- **Max Upcast Target Abstraction Masking:** [LESSON] Do not abstract explicit physical hardware limits (like DTCM capacity bounds) behind generic renderer attributes (like max_upcast) without native E2E cross-compiled ELF tests asserting the physical limits.
