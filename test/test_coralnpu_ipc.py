@@ -13,7 +13,7 @@ from multiprocessing import shared_memory
 from tinygrad.helpers import IpcWorkerPool
 
 from tinygrad.device import BufferSpec
-from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram
+from tinygrad.runtime.ops_coralnpu import CoralNPUDevice, CoralNPUProgram, SimTimeoutError
 from tinygrad.tensor import Tensor
 
 def has_compiler(): return shutil.which("riscv64-unknown-elf-gcc") is not None
