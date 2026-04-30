@@ -74,3 +74,4 @@
 
 - [LESSON] 2026-04-30: When decomposing tasks from the MONOLITHIC SHAME TABLE, the Plan Manager must meticulously parse and strictly implement all specified Sub-Domains as distinct atomic tasks to avoid looping.
 - [LESSON] 2026-04-30: Detonating Stubs Resolution: When replacing detonating stubs with capacity checks, ensure the test correctly evaluates the physical boundary instead of replacing one hardcoded AssertionError with another.
+- [LESSON] 2026-04-30: When attempting to restore lockfiles (like poetry.lock) during upstream sync, if the file does not exist in upstream/master nor HEAD, consider the restore task successfully completed (no-op) rather than failing.
