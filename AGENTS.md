@@ -73,3 +73,4 @@
 - [LESSON] 2026-04-30: In tinygrad, test_asm_gemm.py natively throwing AssertionError regarding DTCM limits must be fixed by physically bounding matrix dimensions rather than masking through exceptions or early returns.
 
 - [LESSON] 2026-04-30: When decomposing tasks from the MONOLITHIC SHAME TABLE, the Plan Manager must meticulously parse and strictly implement all specified Sub-Domains as distinct atomic tasks to avoid looping.
+- [LESSON] 2026-04-30: Detonating Stubs Resolution: When replacing detonating stubs with capacity checks, ensure the test correctly evaluates the physical boundary instead of replacing one hardcoded AssertionError with another.
