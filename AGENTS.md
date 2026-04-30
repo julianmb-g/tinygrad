@@ -71,3 +71,5 @@
 
 - [LESSON] 2026-04-30: Refactoring string checks for `device == "CORALNPU"` must be systematically converted to dynamic queries across both `assembly_coralnpu.py` and `ops_coralnpu.py` as separate atomic steps to ensure precise E2E traceback fidelity.
 - [LESSON] 2026-04-30: In tinygrad, test_asm_gemm.py natively throwing AssertionError regarding DTCM limits must be fixed by physically bounding matrix dimensions rather than masking through exceptions or early returns.
+
+- [LESSON] 2026-04-30: When decomposing tasks from the MONOLITHIC SHAME TABLE, the Plan Manager must meticulously parse and strictly implement all specified Sub-Domains as distinct atomic tasks to avoid looping.
